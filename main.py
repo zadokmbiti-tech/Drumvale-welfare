@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.routes import members, events, meetings, auth, contributions, loans, event_contributions
-from app.routes.auth import get_current_user
+from app.routes.auth import get_current_user, require_admin
+from datetime import datetime
 from app.database import init_pool, get_connection, release_connection
 import os
 
@@ -17,6 +18,71 @@ def startup():
 @app.get("/member")
 def member_portal():
     return FileResponse("member.html")
+
+
+@app.get("/notices")
+def get_notices():
+    """Public — anyone can read notices"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, title, body, priority, created_by, created_at
+            FROM notices
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+        rows = cur.fetchall()
+        return [{"id":r[0],"title":r[1],"body":r[2],"priority":r[3],
+                 "created_by":r[4],"created_at":str(r[5])} for r in rows]
+    except:
+        return []
+    finally:
+        cur.close()
+        release_connection(conn)
+
+@app.post("/notices")
+def post_notice(body: dict, current_user=Depends(require_admin)):
+    """Admin only — post a notice"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS notices (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                priority TEXT DEFAULT 'normal',
+                created_by TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            INSERT INTO notices (title, body, priority, created_by)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """, (body.get("title"), body.get("body"),
+              body.get("priority","normal"), current_user.get("sub")))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "message": "Notice posted successfully"}
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        release_connection(conn)
+
+@app.delete("/notices/{notice_id}")
+def delete_notice(notice_id: int, current_user=Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM notices WHERE id=%s", (notice_id,))
+        conn.commit()
+        return {"message": "Notice deleted"}
+    finally:
+        cur.close()
+        release_connection(conn)
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",

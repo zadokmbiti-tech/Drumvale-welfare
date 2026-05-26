@@ -263,6 +263,10 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
       Meetings
     </div>
+    <div class="nav-item" onclick="showPage('notices')">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+  Notices
+</div>
     <div class="nav-item" id="nav-admin" style="display:none" onclick="showPage('admin')">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       Admin
@@ -1008,6 +1012,44 @@
   </div>
 </div>
 
+<!-- NOTICES PAGE -->
+<div id="page-notices" class="page">
+  <div class="page-header">
+    <div><h2>📢 Notices</h2><p>Post announcements visible to all members and on the homepage</p></div>
+    <button class="btn btn-primary" onclick="openModal('modal-notice')">+ New Notice</button>
+  </div>
+  <div id="notices-list"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- NOTICE MODAL -->
+<div id="modal-notice" class="modal-backdrop">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3 class="modal-title">Post a Notice</h3>
+      <button class="modal-close" onclick="closeModal('modal-notice')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px;">TITLE</label>
+        <input id="n-title" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:14px;" placeholder="Notice title..."/>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px;">MESSAGE</label>
+        <textarea id="n-body" rows="5" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:14px;resize:vertical;" placeholder="Write your announcement..."></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px;">PRIORITY</label>
+        <select id="n-priority" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:14px;">
+          <option value="normal">🔵 Normal</option>
+          <option value="important">🟡 Important</option>
+          <option value="urgent">🔴 Urgent</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="postNotice()">📢 Post Notice</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1153,6 +1195,7 @@ function showPage(name) {
   if (name==='loans')         { loadLoanSummary(); loadLoans(); }
   if (name==='events')        loadEvents();
   if (name==='meetings')      loadMeetings();
+  if (page === 'notices')     loadNotices();
   if (name==='admin')         loadPendingUsers();
   if (name==='usermgmt')      loadUserMgmt();
 }
@@ -1995,6 +2038,70 @@ function loadOfflineDashboard() {
     window.location.href = '/';
   }
 })();
+
+/* ══ NOTICES ══ */
+async function loadNotices() {
+  const list = document.getElementById('notices-list');
+  list.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const data = await apiFetch('/notices');
+    if (!data.length) {
+      list.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">No notices posted yet.</div>';
+      return;
+    }
+    const priorityColor = p => p==='urgent'?'#f85149':p==='important'?'#d29922':'#2cb4e0';
+    const priorityLabel = p => p==='urgent'?'🔴 Urgent':p==='important'?'🟡 Important':'🔵 Normal';
+    list.innerHTML = data.map(n => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+        padding:20px;margin-bottom:12px;border-left:4px solid ${priorityColor(n.priority)};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;font-size:15px;margin-bottom:6px;">${n.title}</div>
+            <div style="color:var(--muted);font-size:13px;line-height:1.6;">${n.body}</div>
+          </div>
+          <button onclick="deleteNotice(${n.id})" style="background:rgba(248,81,73,0.1);border:none;
+            color:#f85149;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;">
+            🗑 Delete
+          </button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:10px;font-size:11px;color:var(--muted);">
+          <span>${priorityLabel(n.priority)}</span>
+          <span>·</span>
+          <span>${new Date(n.created_at).toLocaleString('en-KE')}</span>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:#f85149;">Could not load notices.</div>';
+  }
+}
+
+async function postNotice() {
+  const title    = document.getElementById('n-title').value.trim();
+  const body     = document.getElementById('n-body').value.trim();
+  const priority = document.getElementById('n-priority').value;
+  if (!title || !body) { toast('Please fill in title and message', 'error'); return; }
+  try {
+    await apiFetch('/notices', {method:'POST', body: JSON.stringify({title, body, priority})});
+    toast('✅ Notice posted successfully!');
+    closeModal('modal-notice');
+    document.getElementById('n-title').value = '';
+    document.getElementById('n-body').value = '';
+    loadNotices();
+  } catch(e) {
+    toast('Failed to post notice: ' + e.message, 'error');
+  }
+}
+
+async function deleteNotice(id) {
+  if (!confirm('Delete this notice?')) return;
+  try {
+    await apiFetch(`/notices/${id}`, {method:'DELETE'});
+    toast('Notice deleted');
+    loadNotices();
+  } catch(e) {
+    toast('Failed to delete notice', 'error');
+  }
+}
 
 if (token) initApp();
 </script>
