@@ -1,13 +1,24 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
 import psycopg2
 from psycopg2 import pool
-from dotenv import load_dotenv
-import os
 from sqlalchemy import create_engine
 
+# Try DATABASE_URL first, fall back to individual variables
 DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
 
-load_dotenv()
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL)
+else:
+    DB_HOST = os.getenv("DB_HOST")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME")
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    engine = create_engine(DATABASE_URL)
 
 _pool = None
 
@@ -18,7 +29,7 @@ def init_pool():
         minconn=1,
         maxconn=10,
         host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
+        port=os.getenv("DB_PORT", "5432"),
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
