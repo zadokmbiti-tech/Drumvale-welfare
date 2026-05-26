@@ -289,6 +289,7 @@
       <li><a href="#about">About</a></li>
       <li><a href="#contact">Contact</a></li>
       <li><button class="nav-btn nav-btn-login" onclick="openModal('login')">Login</button></li>
+      <a href="/dashboard" style="font-size:11px;color:var(--silver);opacity:0.5;margin-left:8px;text-decoration:none;" title="Committee Access">⚙</a>
       <li><button class="nav-btn nav-btn-register" onclick="openModal('register')">Register</button></li>
     </ul>
   </nav>
@@ -928,7 +929,7 @@
     }
 
     /* ══════════ LOGIN ══════════ */
-    const API = "http://127.0.0.1:8080";
+    const API = "";
 
     // Detect whether the user is typing a phone or email and update the hint
     function detectLoginType() {
@@ -1173,6 +1174,33 @@
         } catch(e) {}
       }
     })();
+
+/* ══════════ LIVE PUBLIC STATS ══════════ */
+async function loadPublicStats() {
+  try {
+    const res = await fetch('/stats');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Members
+    const mem = document.getElementById('pub-members');
+    if (mem) mem.textContent = d.total_members ?? '—';
+
+    // Events
+    const ev = document.getElementById('pub-events');
+    if (ev) ev.textContent = d.open_events ?? '—';
+
+    // Welfare fund
+    const wf = document.getElementById('pub-welfare');
+    if (wf) wf.textContent = d.all_time_contributions
+      ? 'Ksh ' + Number(d.all_time_contributions).toLocaleString()
+      : '—';
+
+  } catch(e) {
+    console.log('Stats unavailable:', e.message);
+  }
+}
+loadPublicStats();
   </script>
 </body>
 </html>
