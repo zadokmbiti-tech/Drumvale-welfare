@@ -14,6 +14,9 @@ app = FastAPI(title="ChamaLink API")
 def startup():
     init_pool()
 
+@app.get("/member")
+def member_portal():
+    return FileResponse("member.html")
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",

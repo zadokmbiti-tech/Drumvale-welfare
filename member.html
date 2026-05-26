@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Drumvale Member Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:rgba(44,180,224,0.15);
+    --sky:#2cb4e0; --sky2:#1a8ab5; --white:#f0f6fc; --silver:#8b949e; --muted:#6e7681;
+    --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#a371f7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--ink);color:var(--white);min-height:100vh;}
+
+  /* ── LOGIN ── */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;
+    background:radial-gradient(ellipse at 60% 20%,rgba(44,180,224,0.08) 0%,transparent 60%),var(--ink);}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:40px 36px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,0.5);}
+  .login-logo{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--sky);margin-bottom:4px;}
+  .login-sub{font-size:0.82rem;color:var(--silver);margin-bottom:32px;letter-spacing:0.04em;}
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-size:0.75rem;color:var(--silver);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;color:var(--white);font-size:0.95rem;font-family:inherit;outline:none;transition:border 0.2s;}
+  .field input:focus{border-color:var(--sky);}
+  .btn-primary{width:100%;background:var(--sky);color:#fff;border:none;border-radius:8px;
+    padding:13px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background 0.2s;font-family:inherit;}
+  .btn-primary:hover{background:var(--sky2);}
+  .login-error{background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.3);border-radius:8px;
+    padding:10px 14px;font-size:0.85rem;color:#f85149;margin-top:14px;display:none;}
+  .login-footer{text-align:center;margin-top:20px;font-size:0.8rem;color:var(--muted);}
+  .login-footer a{color:var(--sky);text-decoration:none;}
+
+  /* ── APP SHELL ── */
+  #app{display:none;}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);
+    padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;}
+  .topbar-brand{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--sky);}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--purple));
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;cursor:pointer;}
+  .topbar-name{font-size:0.85rem;color:var(--silver);}
+  .signout-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--silver);
+    padding:5px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all 0.2s;}
+  .signout-btn:hover{border-color:var(--red);color:var(--red);}
+
+  /* ── NAV TABS ── */
+  .nav-tabs{background:var(--surface);border-bottom:1px solid var(--border);
+    padding:0 24px;display:flex;gap:4px;overflow-x:auto;}
+  .nav-tab{padding:14px 18px;font-size:0.82rem;color:var(--silver);cursor:pointer;
+    border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.2s;font-weight:500;}
+  .nav-tab:hover{color:var(--white);}
+  .nav-tab.active{color:var(--sky);border-bottom-color:var(--sky);}
+
+  /* ── CONTENT ── */
+  .content{max-width:960px;margin:0 auto;padding:28px 20px;}
+  .section{display:none;}
+  .section.active{display:block;}
+  .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;margin-bottom:20px;color:var(--white);}
+
+  /* ── CARDS ── */
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .stat-card.blue::before{background:var(--sky);}
+  .stat-card.green::before{background:var(--green);}
+  .stat-card.amber::before{background:var(--amber);}
+  .stat-card.purple::before{background:var(--purple);}
+  .stat-icon{font-size:1.4rem;margin-bottom:10px;}
+  .stat-val{font-size:1.6rem;font-weight:700;color:var(--white);margin-bottom:2px;}
+  .stat-label{font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;}
+
+  /* ── PROFILE ── */
+  .profile-header{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:28px;display:flex;align-items:center;gap:24px;margin-bottom:20px;flex-wrap:wrap;}
+  .profile-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--purple));
+    display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;flex-shrink:0;}
+  .profile-name{font-family:'Playfair Display',serif;font-size:1.4rem;margin-bottom:4px;}
+  .profile-role{font-size:0.78rem;background:rgba(44,180,224,0.15);color:var(--sky);
+    padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:8px;}
+  .profile-meta{font-size:0.82rem;color:var(--silver);}
+  .profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+  .profile-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+  .profile-card h4{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--sky);margin-bottom:14px;}
+  .profile-row{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 0;border-bottom:1px solid var(--border);font-size:0.85rem;}
+  .profile-row:last-child{border-bottom:none;}
+  .profile-row .label{color:var(--silver);}
+  .profile-row .value{color:var(--white);font-weight:500;text-align:right;max-width:55%;}
+
+  /* ── TABLE ── */
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .table-header{padding:16px 20px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;}
+  .table-header h4{font-size:0.9rem;font-weight:600;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:11px 16px;text-align:left;font-size:0.72rem;text-transform:uppercase;
+    letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border);}
+  td{padding:12px 16px;font-size:0.85rem;border-bottom:1px solid rgba(44,180,224,0.06);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(44,180,224,0.03);}
+
+  /* ── BADGES ── */
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;}
+  .badge-green{background:rgba(63,185,80,0.15);color:var(--green);}
+  .badge-amber{background:rgba(210,153,34,0.15);color:var(--amber);}
+  .badge-red{background:rgba(248,81,73,0.15);color:var(--red);}
+  .badge-blue{background:rgba(44,180,224,0.15);color:var(--sky);}
+
+  /* ── EMPTY STATE ── */
+  .empty{text-align:center;padding:48px 20px;color:var(--muted);}
+  .empty-icon{font-size:2.5rem;margin-bottom:12px;}
+  .empty p{font-size:0.88rem;}
+
+  /* ── LOADING ── */
+  .loading{text-align:center;padding:40px;color:var(--muted);font-size:0.88rem;}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);
+    border-radius:10px;padding:12px 20px;font-size:0.85rem;z-index:9999;
+    transform:translateY(80px);opacity:0;transition:all 0.3s;pointer-events:none;}
+  #toast.show{transform:translateY(0);opacity:1;}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:600px){
+    .topbar{padding:0 14px;}
+    .content{padding:16px 12px;}
+    .cards-grid{grid-template-columns:1fr 1fr;}
+    .profile-header{flex-direction:column;text-align:center;}
+    .nav-tab{padding:12px 12px;font-size:0.78rem;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Drumvale</div>
+    <div class="login-sub">MEMBER PORTAL</div>
+    <div class="field">
+      <label>Phone Number</label>
+      <input type="tel" id="login-phone" placeholder="07XXXXXXXX" autocomplete="tel"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-footer">
+      Not a member? <a href="/">Register on homepage</a> &nbsp;·&nbsp;
+      <a href="/dashboard">Committee Login</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">Drumvale</div>
+    <div class="topbar-right">
+      <span class="topbar-name" id="topbar-name">—</span>
+      <div class="avatar" id="topbar-avatar">Z</div>
+      <button class="signout-btn" onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showTab('overview')">🏠 Overview</div>
+    <div class="nav-tab" onclick="showTab('profile')">👤 My Profile</div>
+    <div class="nav-tab" onclick="showTab('contributions')">💰 Contributions</div>
+    <div class="nav-tab" onclick="showTab('loans')">🏦 Loans</div>
+    <div class="nav-tab" onclick="showTab('events')">📅 Events</div>
+    <div class="nav-tab" onclick="showTab('meetings')">🗓 Meetings</div>
+    <div class="nav-tab" onclick="showTab('documents')">📄 Documents</div>
+  </div>
+
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="section active" id="sec-overview">
+      <div class="section-title">Welcome back, <span id="welcome-name">Member</span></div>
+      <div class="cards-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon">💰</div>
+          <div class="stat-val" id="ov-contrib">—</div>
+          <div class="stat-label">Total Contributed</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">📊</div>
+          <div class="stat-val" id="ov-loans">—</div>
+          <div class="stat-label">Active Loans</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-icon">📅</div>
+          <div class="stat-val" id="ov-events">—</div>
+          <div class="stat-label">Open Events</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon">🏅</div>
+          <div class="stat-val" id="ov-status">—</div>
+          <div class="stat-label">Member Status</div>
+        </div>
+      </div>
+
+      <!-- Recent Contributions -->
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header">
+          <h4>Recent Contributions</h4>
+          <span style="font-size:0.78rem;color:var(--muted);" id="contrib-count"></span>
+        </div>
+        <div id="recent-contrib-body">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Upcoming Events -->
+      <div class="table-wrap">
+        <div class="table-header"><h4>Upcoming Events & Meetings</h4></div>
+        <div id="upcoming-events-body"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="section" id="sec-profile">
+      <div class="section-title">My Profile</div>
+      <div class="profile-header">
+        <div class="profile-avatar" id="prof-avatar">Z</div>
+        <div>
+          <div class="profile-name" id="prof-name">—</div>
+          <div class="profile-role" id="prof-role">member</div>
+          <div class="profile-meta" id="prof-meta">—</div>
+        </div>
+      </div>
+      <div class="profile-grid" id="profile-grid">
+        <div class="loading">Loading profile...</div>
+      </div>
+    </div>
+
+    <!-- CONTRIBUTIONS -->
+    <div class="section" id="sec-contributions">
+      <div class="section-title">My Contributions</div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h4>Contribution History</h4>
+          <span style="font-size:0.78rem;color:var(--muted);" id="all-contrib-count"></span>
+        </div>
+        <div id="all-contrib-body"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- LOANS -->
+    <div class="section" id="sec-loans">
+      <div class="section-title">My Loans</div>
+      <div class="table-wrap">
+        <div class="table-header"><h4>Loan History</h4></div>
+        <div id="loans-body"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- EVENTS -->
+    <div class="section" id="sec-events">
+      <div class="section-title">Events & Cases</div>
+      <div class="table-wrap">
+        <div class="table-header"><h4>All Events</h4></div>
+        <div id="events-body"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- MEETINGS -->
+    <div class="section" id="sec-meetings">
+      <div class="section-title">Meetings</div>
+      <div class="table-wrap">
+        <div class="table-header"><h4>Scheduled Meetings</h4></div>
+        <div id="meetings-body"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTS -->
+    <div class="section" id="sec-documents">
+      <div class="section-title">Documents</div>
+      <div class="profile-grid">
+        <div class="profile-card">
+          <h4>📄 Official Documents</h4>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <a href="/static/files/2025_DRUMVALE_RIVERVIEW_CONSTITUTION.pdf" download
+               style="display:flex;align-items:center;gap:10px;background:var(--surface2);
+               border:1px solid var(--border);border-radius:8px;padding:14px;
+               color:var(--white);text-decoration:none;transition:border 0.2s;"
+               onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--border)'">
+              <span style="font-size:1.4rem;">📋</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:600;">Group Constitution</div>
+                <div style="font-size:0.75rem;color:var(--silver);">2025 Edition · PDF</div>
+              </div>
+              <span style="margin-left:auto;font-size:0.75rem;color:var(--sky);">⬇ Download</span>
+            </a>
+            <a href="/static/files/DRUMVALE_RIVERVIEW_SOCIAL_WELFARE__REGISTRATION_FORM.pdf" download
+               style="display:flex;align-items:center;gap:10px;background:var(--surface2);
+               border:1px solid var(--border);border-radius:8px;padding:14px;
+               color:var(--white);text-decoration:none;transition:border 0.2s;"
+               onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--border)'">
+              <span style="font-size:1.4rem;">📝</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:600;">Membership Registration Form</div>
+                <div style="font-size:0.75rem;color:var(--silver);">Official Form · PDF</div>
+              </div>
+              <span style="margin-left:auto;font-size:0.75rem;color:var(--sky);">⬇ Download</span>
+            </a>
+          </div>
+        </div>
+        <div class="profile-card">
+          <h4>ℹ️ Welfare Quick Reference</h4>
+          <div style="font-size:0.83rem;color:var(--silver);line-height:1.8;">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span>Principal Member Death</span><span style="color:var(--white);font-weight:600;">Ksh 100,000</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span>Nuclear Family Member</span><span style="color:var(--white);font-weight:600;">Ksh 60,000</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span>Parents / In-laws</span><span style="color:var(--white);font-weight:600;">Ksh 30,000</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span>Contribution per case (nuclear)</span><span style="color:var(--white);font-weight:600;">Ksh 300</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;">
+              <span>Contribution deadline</span><span style="color:var(--amber);font-weight:600;">7 days</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let token = null;
+let currentUser = null;
+
+/* ══ AUTH ══ */
+async function doLogin() {
+  const phone = document.getElementById('login-phone').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-error');
+  err.style.display = 'none';
+
+  if (!phone || !pass) {
+    err.textContent = 'Please enter your phone number and password.';
+    err.style.display = 'block'; return;
+  }
+
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({phone_number: phone, password: pass})
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      err.textContent = data.detail || 'Login failed.';
+      err.style.display = 'block'; return;
+    }
+
+    token = data.access_token;
+    currentUser = {id: data.user_id, name: data.full_name, role: data.role};
+    localStorage.setItem('member_token', token);
+    localStorage.setItem('member_user', JSON.stringify(currentUser));
+    initApp();
+  } catch(e) {
+    err.textContent = 'Could not connect to server. Try again.';
+    err.style.display = 'block';
+  }
+}
+
+function signOut() {
+  localStorage.removeItem('member_token');
+  localStorage.removeItem('member_user');
+  location.reload();
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+/* ══ INIT ══ */
+function initApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  const initials = currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('topbar-avatar').textContent = initials;
+  document.getElementById('topbar-name').textContent = currentUser.name;
+  document.getElementById('welcome-name').textContent = currentUser.name.split(' ')[0];
+  document.getElementById('prof-avatar').textContent = initials;
+
+  loadOverview();
+  loadProfile();
+}
+
+/* ══ AUTO LOGIN ══ */
+window.addEventListener('DOMContentLoaded', () => {
+  const t = localStorage.getItem('member_token');
+  const u = localStorage.getItem('member_user');
+  if (t && u) {
+    token = t;
+    currentUser = JSON.parse(u);
+    initApp();
+  }
+});
+
+/* ══ TABS ══ */
+function showTab(name) {
+  document.querySelectorAll('.nav-tab').forEach((t,i) => {
+    const tabs = ['overview','profile','contributions','loans','events','meetings','documents'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+
+  if (name === 'contributions') loadContributions();
+  if (name === 'loans') loadLoans();
+  if (name === 'events') loadEvents();
+  if (name === 'meetings') loadMeetings();
+}
+
+/* ══ HELPERS ══ */
+const fmt = n => 'KES ' + Number(n||0).toLocaleString();
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}) : '—';
+const authH = () => ({'Authorization': `Bearer ${token}`, 'Content-Type':'application/json'});
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function emptyState(icon, msg) {
+  return `<div class="empty"><div class="empty-icon">${icon}</div><p>${msg}</p></div>`;
+}
+
+/* ══ OVERVIEW ══ */
+async function loadOverview() {
+  try {
+    // Member contributions total
+    const cr = await fetch(`${API}/contributions/my`, {headers: authH()});
+    if (cr.ok) {
+      const contribs = await cr.json();
+      const total = contribs.reduce((s,c) => s + Number(c.amount||0), 0);
+      document.getElementById('ov-contrib').textContent = fmt(total);
+      document.getElementById('contrib-count').textContent = `${contribs.length} records`;
+
+      // Recent 5
+      const recent = contribs.slice(0,5);
+      if (recent.length === 0) {
+        document.getElementById('recent-contrib-body').innerHTML = emptyState('💸','No contributions recorded yet.');
+      } else {
+        document.getElementById('recent-contrib-body').innerHTML = `
+          <table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Notes</th></tr></thead>
+          <tbody>${recent.map(c=>`
+            <tr>
+              <td>${fmtDate(c.date||c.created_at)}</td>
+              <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
+              <td><span class="badge badge-blue">${c.contribution_type||c.type||'monthly'}</span></td>
+              <td style="color:var(--silver);">${c.notes||'—'}</td>
+            </tr>`).join('')}
+          </tbody></table>`;
+      }
+    }
+
+    // Loans
+    const lr = await fetch(`${API}/loans/my`, {headers: authH()});
+    if (lr.ok) {
+      const loans = await lr.json();
+      const active = loans.filter(l => l.status === 'disbursed').length;
+      document.getElementById('ov-loans').textContent = active;
+    } else {
+      document.getElementById('ov-loans').textContent = '0';
+    }
+
+    // Events
+    const er = await fetch(`${API}/events`, {headers: authH()});
+    if (er.ok) {
+      const events = await er.json();
+      const open = events.filter(e => e.status === 'open').length;
+      document.getElementById('ov-events').textContent = open;
+
+      const upcoming = events.filter(e => e.status === 'open').slice(0,5);
+      if (upcoming.length === 0) {
+        document.getElementById('upcoming-events-body').innerHTML = emptyState('📅','No upcoming events.');
+      } else {
+        document.getElementById('upcoming-events-body').innerHTML = `
+          <table><thead><tr><th>Event</th><th>Type</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>${upcoming.map(e=>`
+            <tr>
+              <td style="font-weight:500;">${e.title||e.name||'—'}</td>
+              <td><span class="badge badge-blue">${e.event_type||e.type||'event'}</span></td>
+              <td><span class="badge badge-green">${e.status}</span></td>
+              <td style="color:var(--silver);">${fmtDate(e.date||e.created_at)}</td>
+            </tr>`).join('')}
+          </tbody></table>`;
+      }
+    }
+
+    // Status
+    document.getElementById('ov-status').innerHTML = '<span style="color:var(--green);">Active</span>';
+
+  } catch(e) {
+    console.log('Overview error:', e.message);
+    document.getElementById('ov-contrib').textContent = '—';
+    document.getElementById('ov-loans').textContent = '—';
+    document.getElementById('ov-events').textContent = '—';
+    document.getElementById('ov-status').textContent = '—';
+    document.getElementById('recent-contrib-body').innerHTML = emptyState('⚠️','Could not load data.');
+    document.getElementById('upcoming-events-body').innerHTML = emptyState('⚠️','Could not load data.');
+  }
+}
+
+/* ══ PROFILE ══ */
+async function loadProfile() {
+  try {
+    const res = await fetch(`${API}/auth/me`, {headers: authH()});
+    if (!res.ok) throw new Error('Failed');
+    const u = await res.json();
+
+    document.getElementById('prof-name').textContent = u.full_name || '—';
+    document.getElementById('prof-role').textContent = u.role || 'member';
+    document.getElementById('prof-meta').textContent = `Member since ${fmtDate(u.created_at)} · Phone: ${u.phone_number}`;
+
+    document.getElementById('profile-grid').innerHTML = `
+      <div class="profile-card">
+        <h4>Personal Details</h4>
+        <div class="profile-row"><span class="label">Full Name</span><span class="value">${u.full_name||'—'}</span></div>
+        <div class="profile-row"><span class="label">Phone</span><span class="value">${u.phone_number||'—'}</span></div>
+        <div class="profile-row"><span class="label">Email</span><span class="value">${u.email||'—'}</span></div>
+        <div class="profile-row"><span class="label">ID Number</span><span class="value">${u.id_number||'—'}</span></div>
+        <div class="profile-row"><span class="label">Date of Birth</span><span class="value">${fmtDate(u.date_of_birth)}</span></div>
+        <div class="profile-row"><span class="label">Marital Status</span><span class="value">${u.marital_status||'—'}</span></div>
+      </div>
+      <div class="profile-card">
+        <h4>Residence</h4>
+        <div class="profile-row"><span class="label">Estate</span><span class="value">${u.residence||'Drumvale Riverview'}</span></div>
+        <div class="profile-row"><span class="label">Court</span><span class="value">${u.court||'—'}</span></div>
+        <div class="profile-row"><span class="label">House No.</span><span class="value">${u.house_number||'—'}</span></div>
+        <div class="profile-row"><span class="label">Spouse</span><span class="value">${u.spouse_name||'—'}</span></div>
+      </div>
+      <div class="profile-card">
+        <h4>Next of Kin</h4>
+        <div class="profile-row"><span class="label">Name 1</span><span class="value">${u.next_of_kin_name||'—'}</span></div>
+        <div class="profile-row"><span class="label">Phone 1</span><span class="value">${u.next_of_kin_phone||'—'}</span></div>
+        <div class="profile-row"><span class="label">Name 2</span><span class="value">${u.next_of_kin_2||'—'}</span></div>
+        <div class="profile-row"><span class="label">Phone 2</span><span class="value">${u.nok2_phone||'—'}</span></div>
+      </div>
+      <div class="profile-card">
+        <h4>Account Status</h4>
+        <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${u.role||'member'}</span></span></div>
+        <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${u.registration_status||'approved'}</span></span></div>
+        <div class="profile-row"><span class="label">Member Since</span><span class="value">${fmtDate(u.created_at)}</span></div>
+        <div class="profile-row"><span class="label">Active</span><span class="value">${u.is_active ? '✅ Yes' : '❌ No'}</span></div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('profile-grid').innerHTML = emptyState('⚠️','Could not load profile.');
+  }
+}
+
+/* ══ CONTRIBUTIONS ══ */
+async function loadContributions() {
+  const body = document.getElementById('all-contrib-body');
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/contributions/my`, {headers: authH()});
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    document.getElementById('all-contrib-count').textContent = `${data.length} total`;
+    if (data.length === 0) { body.innerHTML = emptyState('💸','No contributions yet.'); return; }
+    body.innerHTML = `
+      <table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Month</th><th>Notes</th></tr></thead>
+      <tbody>${data.map(c=>`
+        <tr>
+          <td>${fmtDate(c.date||c.created_at)}</td>
+          <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
+          <td><span class="badge badge-blue">${c.contribution_type||c.type||'monthly'}</span></td>
+          <td style="color:var(--silver);">${c.month||'—'}</td>
+          <td style="color:var(--silver);">${c.notes||'—'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️','Could not load contributions.');
+  }
+}
+
+/* ══ LOANS ══ */
+async function loadLoans() {
+  const body = document.getElementById('loans-body');
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/loans/my`, {headers: authH()});
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    if (data.length === 0) { body.innerHTML = emptyState('🏦','No loan history.'); return; }
+    const statusBadge = s => s==='disbursed'?'badge-green':s==='pending'?'badge-amber':'badge-red';
+    body.innerHTML = `
+      <table><thead><tr><th>Date</th><th>Amount</th><th>Repayable</th><th>Repaid</th><th>Status</th></tr></thead>
+      <tbody>${data.map(l=>`
+        <tr>
+          <td>${fmtDate(l.created_at||l.date)}</td>
+          <td style="font-weight:600;">${fmt(l.amount)}</td>
+          <td>${fmt(l.total_repayable)}</td>
+          <td style="color:var(--green);">${fmt(l.amount_repaid)}</td>
+          <td><span class="badge ${statusBadge(l.status)}">${l.status}</span></td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️','Could not load loans.');
+  }
+}
+
+/* ══ EVENTS ══ */
+async function loadEvents() {
+  const body = document.getElementById('events-body');
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/events`, {headers: authH()});
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    if (data.length === 0) { body.innerHTML = emptyState('📅','No events found.'); return; }
+    body.innerHTML = `
+      <table><thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Date</th><th>Description</th></tr></thead>
+      <tbody>${data.map(e=>`
+        <tr>
+          <td style="font-weight:500;">${e.title||e.name||'—'}</td>
+          <td><span class="badge badge-blue">${e.event_type||e.type||'event'}</span></td>
+          <td><span class="badge ${e.status==='open'?'badge-green':'badge-amber'}">${e.status}</span></td>
+          <td style="color:var(--silver);">${fmtDate(e.date||e.created_at)}</td>
+          <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description||'—'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️','Could not load events.');
+  }
+}
+
+/* ══ MEETINGS ══ */
+async function loadMeetings() {
+  const body = document.getElementById('meetings-body');
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/meetings`, {headers: authH()});
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    if (data.length === 0) { body.innerHTML = emptyState('🗓','No meetings scheduled.'); return; }
+    body.innerHTML = `
+      <table><thead><tr><th>Title</th><th>Date</th><th>Time</th><th>Location</th><th>Status</th></tr></thead>
+      <tbody>${data.map(m=>`
+        <tr>
+          <td style="font-weight:500;">${m.title||m.name||'Meeting'}</td>
+          <td>${fmtDate(m.meeting_date||m.date)}</td>
+          <td style="color:var(--silver);">${m.meeting_time||m.time||'—'}</td>
+          <td style="color:var(--silver);">${m.location||m.venue||'TBD'}</td>
+          <td><span class="badge ${m.status==='scheduled'?'badge-green':'badge-amber'}">${m.status||'scheduled'}</span></td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️','Could not load meetings.');
+  }
+}
+</script>
+</body>
+</html>
