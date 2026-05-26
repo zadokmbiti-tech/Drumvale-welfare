@@ -312,7 +312,7 @@
       <p class="hero-desc">A registered community welfare group committed to member <strong>welfare support</strong>, <strong>collective investment</strong>, <strong>education</strong>, and the social well-being of all Drumvale Riverview households.</p>
       <div class="hero-cta">
         <button class="btn-primary" onclick="openModal('register')">Join the Group</button>
-        <button class="btn-outline" onclick="openModal('login')">Member Portal</button>
+        <a class="btn-outline" href ="member.html">Member Portal</a>
         <a class="btn-outline" href="#about">Learn More</a>
       </div>
     </section>
@@ -895,10 +895,6 @@ async function handleLogin() {
         try {
           const session = JSON.parse(raw);
           const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
-          // Don't show member portal for admins — they belong on /dashboard
-          if (!adminRoles.includes(session.role)) {
-            showDashboard(session);
-          }
         } catch(e) {}
       }
     })();
