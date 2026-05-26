@@ -1697,7 +1697,7 @@ async function loadEventContributions() {
         '<td style="color:var(--muted)">' + (c.notes || '—') + '</td>' +
         '<td style="color:var(--muted)">' + dateStr + '</td>' +
         '<td style="display:flex;gap:6px">' +
-          '<button class="btn btn-sm btn-outline" onclick="openEditContrib(' + c.id + ',' + c.member_id + ',' + c.amount + ','' + safeNote + '')">Edit</button>' +
+          '<button class="btn btn-sm btn-outline" onclick="openEditContrib(' + c.id + ',' + c.member_id + ',' + c.amount + ',\'' + safeNote + '\')">Edit</button>' +
           '<button class="btn btn-sm btn-danger" onclick="deleteEventContrib(' + c.id + ')">Delete</button>' +
         '</td>' +
         '</tr>';
@@ -1921,7 +1921,7 @@ function openRoleChangeModal(memberId, name, phone, currentRole) {
   } else if (!wasAdmin && willAdmin) {
     warning = '⬆️ This user will gain access to the admin dashboard and management tools.';
   } else {
-    warning = 'ℹ️ This changes the user's committee role. Dashboard access is retained.';
+    warning = 'ℹ️ This changes the user\'s committee role. Dashboard access is retained.';
   }
   document.getElementById('rc-warning').textContent = warning;
 

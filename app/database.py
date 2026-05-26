@@ -4,7 +4,6 @@ load_dotenv()
 import os
 import psycopg2
 from psycopg2 import pool
-from sqlalchemy import create_engine
 
 # Try DATABASE_URL first, fall back to individual variables
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -18,7 +17,6 @@ else:
     DB_USER = os.getenv("DB_USER")
     DB_PASSWORD = os.getenv("DB_PASSWORD")
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    engine = create_engine(DATABASE_URL)
 
 _pool = None
 
