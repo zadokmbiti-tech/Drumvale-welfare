@@ -324,22 +324,22 @@
       <div class="public-stats-grid">
         <div class="pub-stat">
           <div class="pub-stat-icon">👥</div>
-          <div class="pub-stat-num" id="pub-members">147</div>
+          <div class="pub-stat-num" id="pub-members">303</div>
           <div class="pub-stat-label">Registered Members</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">🏗️</div>
-          <div class="pub-stat-num" id="pub-assets">4</div>
+          <div class="pub-stat-num" id="pub-assets">2</div>
           <div class="pub-stat-label">Community Assets / Projects</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">📅</div>
-          <div class="pub-stat-num" id="pub-events">3</div>
+          <div class="pub-stat-num" id="pub-events"></div>
           <div class="pub-stat-label">Active Events & Cases</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">💰</div>
-          <div class="pub-stat-num" id="pub-welfare">Ksh 2.1M</div>
+          <div class="pub-stat-num" id="pub-welfare">Ksh</div>
           <div class="pub-stat-label">Welfare Fund Raised</div>
         </div>
       </div>
@@ -403,9 +403,9 @@
       <p>We are here for every member of the Drumvale Riverview community.</p>
       <div class="contact-grid">
         <div class="contact-card"><div class="contact-card-icon">📍</div><div class="contact-card-title">Location</div><div class="contact-card-value">Drumvale Riverview Estate<br/>Kamulu, Machakos County</div></div>
-        <div class="contact-card"><div class="contact-card-icon">💬</div><div class="contact-card-title">Community</div><div class="contact-card-value">WhatsApp Group<br/>Members Platform</div></div>
-        <div class="contact-card"><div class="contact-card-icon">📞</div><div class="contact-card-title">Phone</div><div class="contact-card-value">07xxxxxxxx<br/>Chairperson</div></div>
-        <div class="contact-card"><div class="contact-card-icon">✉️</div><div class="contact-card-title">Email</div><div class="contact-card-value">Drumvalewelfare@gmail.com</div></div>
+        <div class="contact-card"><div class="contact-card-icon">💬</div><div class="contact-card-title">Community</div><div class="contact-card-value"><a href="#WhatsApp Group">Whatsapp</a><br/>Members Platform</div></div>
+        <div class="contact-card"><div class="contact-card-icon">📞</div><div class="contact-card-title">Phone</div><div class="contact-card-value">0713063239<br/>Chairperson</div></div>
+        <div class="contact-card"><div class="contact-card-icon">✉️</div><div class="contact-card-title">Email</div><div class="contact-card-value">welfareDrumvale@gmail.com</div></div>
         <div class="contact-card"><div class="contact-card-icon">📋</div><div class="contact-card-title">Membership</div><div class="contact-card-value">Registration fee: Ksh 100<br/>Entry contribution: Ksh 2,000</div></div>
       </div>
     </section>
@@ -414,278 +414,7 @@
       <span>© 2026 Drumvale Riverview Welfare Group. All rights reserved.</span>
       <span>Kamulu · Machakos County · <a href="#home">Back to top ↑</a></span>
     </footer>
-  </div><!-- /public-site -->
-
-  <!-- ═══════════════ DASHBOARD ═══════════════ -->
-  <div class="dashboard" id="dashboard">
-    <div class="dashboard-header">
-      <div>
-        <p style="font-size:0.7rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--sky);margin-bottom:6px;">Member Portal</p>
-        <h2 class="dashboard-greeting">Welcome back, <span id="dash-name">Member</span></h2>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">
-          <span id="dash-member-no" style="display:none;font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;background:rgba(44,180,224,0.12);border:1px solid rgba(44,180,224,0.3);color:var(--sky);padding:3px 10px;border-radius:20px;font-family:'DM Sans',sans-serif;"></span>
-          <span class="role-tag" id="dash-role-tag" style="display:none;">Admin</span>
-        </div>
-      </div>
-      <button class="logout-btn" onclick="logout()">⬅ Logout</button>
-    </div>
-
-    <!-- KPI OVERVIEW -->
-    <div class="dash-overview">
-      <div class="dash-kpi"><div class="dash-kpi-icon">👥</div><div class="dash-kpi-label">Total Members</div><div class="dash-kpi-value">147</div><div class="dash-kpi-sub">3 pending approval</div></div>
-      <div class="dash-kpi"><div class="dash-kpi-icon">🏗️</div><div class="dash-kpi-label">Community Assets</div><div class="dash-kpi-value">4</div><div class="dash-kpi-sub">Projects active</div></div>
-      <div class="dash-kpi"><div class="dash-kpi-icon">📅</div><div class="dash-kpi-label">Events / Cases</div><div class="dash-kpi-value">3</div><div class="dash-kpi-sub">1 upcoming meeting</div></div>
-      <div class="dash-kpi"><div class="dash-kpi-icon">💰</div><div class="dash-kpi-label">Welfare Fund</div><div class="dash-kpi-value" style="font-size:1.3rem;">Ksh 2.1M</div><div class="dash-kpi-sub">60% of 3.5M target</div></div>
-    </div>
-
-    <!-- TABS -->
-    <div class="dashboard-tabs">
-      <button class="tab-btn active" onclick="switchTab('overview','projects')">📈 Projects</button>
-      <button class="tab-btn" onclick="switchTab('overview','events')">📅 Events</button>
-      <button class="tab-btn" onclick="switchTab('overview','meetings')">🗓 Meetings</button>
-      <button class="tab-btn" onclick="switchTab('overview','activities')">🤝 Activities</button>
-      <button class="tab-btn" onclick="switchTab('overview','notices')">📢 Notices</button>
-      <button class="tab-btn admin-tab" onclick="switchTab('overview','admin')" id="admin-tab-btn" style="display:none;">⚙️ Admin</button>
-    </div>
-
-    <!-- TAB: PROJECTS -->
-    <div class="tab-content active" id="tab-projects">
-      <p class="dash-section-title">Current Investment & Community Projects</p>
-      <div class="cards-grid">
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Active</span>
-          <div class="dash-card-title">Collective Land Purchase — Phase II</div>
-          <div class="dash-card-meta">Pooled investment towards acquiring a parcel in Kamulu for the group. Target: Ksh 3,500,000. Raised so far: Ksh 2,100,000 (60%).</div>
-          <div class="dash-card-date">📌 Deadline: December 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerInvolvement(this,'Land Purchase Phase II')">✋ Mark My Contribution</button></div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Active</span>
-          <div class="dash-card-title">Estate Borehole Project</div>
-          <div class="dash-card-meta">Sinking a community borehole to address water scarcity in Drumvale Courts 3 & 4. Engineering survey completed.</div>
-          <div class="dash-card-date">📌 Expected completion: August 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerInvolvement(this,'Estate Borehole Project')">✋ Mark My Contribution</button></div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-planning">Planning</span>
-          <div class="dash-card-title">Group Savings SACCO Registration</div>
-          <div class="dash-card-meta">Formalising the group's savings arm into a licensed SACCO for access to larger loan products and financial services.</div>
-          <div class="dash-card-date">📌 Target: Q1 2027</div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Active</span>
-          <div class="dash-card-title">Solar Street Lighting — Courts 1 & 2</div>
-          <div class="dash-card-meta">Installation of 12 solar-powered street lights to improve security and safety within the estate after dark.</div>
-          <div class="dash-card-date">📌 Installation: June 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerInvolvement(this,'Solar Street Lighting')">✋ Mark My Support</button></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: EVENTS / CASES -->
-    <div class="tab-content" id="tab-events">
-      <p class="dash-section-title">Upcoming & Recent Events / Welfare Cases</p>
-      <div class="cards-grid">
-        <div class="dash-card">
-          <span class="dash-card-badge badge-upcoming">Upcoming</span>
-          <div class="dash-card-title">Mid-Year General Meeting</div>
-          <div class="dash-card-meta">Bi-annual AGM to review finances, vote on new projects, and elect committee members. All paid-up members are eligible to attend and vote.</div>
-          <div class="dash-card-date">📅 Saturday, 28 June 2026 · 10:00 AM · Kamulu Community Hall</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerAttendance(this,'Mid-Year General Meeting')">✅ Register Attendance</button></div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-upcoming">Upcoming</span>
-          <div class="dash-card-title">Education Bursary Ceremony</div>
-          <div class="dash-card-meta">Annual disbursement of bursaries to members' children excelling in primary and secondary education.</div>
-          <div class="dash-card-date">📅 Saturday, 12 July 2026 · 2:00 PM</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerAttendance(this,'Education Bursary Ceremony')">✅ Register Attendance</button></div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Recent</span>
-          <div class="dash-card-title">Community Clean-Up Day</div>
-          <div class="dash-card-meta">Over 80 members participated in the estate-wide clean-up. Roads, drains, and common areas were cleared. Great turnout!</div>
-          <div class="dash-card-date">📅 Held: 3 May 2026</div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-notice">Welfare Case</span>
-          <div class="dash-card-title">Bereavement — Waweru Family</div>
-          <div class="dash-card-meta">Case announced: Nuclear member (spouse). Contribution of Ksh 300 per member required. Deadline 7 days from announcement. Paybill: DRUMVALE RIVERVIEW WG.</div>
-          <div class="dash-card-date">📢 Case opened: 20 June 2026 · Closes: 27 June 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerInvolvement(this,'Waweru Family Welfare Case')">💛 Mark Contribution Made</button></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: MEETINGS -->
-    <div class="tab-content" id="tab-meetings">
-      <p class="dash-section-title">Scheduled Meetings — Register Your Attendance</p>
-      <div class="cards-grid">
-        <div class="meeting-card">
-          <span class="dash-card-badge badge-meeting">Upcoming</span>
-          <div class="dash-card-title">Mid-Year AGM 2026</div>
-          <div class="dash-card-meta">Agenda: Financial review, project updates, committee elections, SACCO registration proposal, Any Other Business.</div>
-          <div class="dash-card-date">📅 28 June 2026 · 10:00 AM · Kamulu Community Hall</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerAttendance(this,'Mid-Year AGM 2026')">✅ Confirm Attendance</button></div>
-        </div>
-        <div class="meeting-card">
-          <span class="dash-card-badge badge-meeting">Upcoming</span>
-          <div class="dash-card-title">Finance Sub-Committee Meeting</div>
-          <div class="dash-card-meta">Review of Q2 accounts, loan book status, borehole project spending, and preparation of AGM financial statement.</div>
-          <div class="dash-card-date">📅 15 June 2026 · 3:00 PM · TBD</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerAttendance(this,'Finance Sub-Committee Meeting')">✅ Confirm Attendance</button></div>
-        </div>
-        <div class="meeting-card">
-          <span class="dash-card-badge badge-active">Held</span>
-          <div class="dash-card-title">Security Forum with Admin Police</div>
-          <div class="dash-card-meta">Liaison meeting with local Administration Police. Neighbourhood watch programme launched. Minutes available from Secretary.</div>
-          <div class="dash-card-date">📅 Held: 15 April 2026 · 60 attendees</div>
-        </div>
-        <div class="meeting-card">
-          <span class="dash-card-badge badge-active">Held</span>
-          <div class="dash-card-title">January 2026 AGM</div>
-          <div class="dash-card-meta">Annual General Meeting. Financial statements approved. New projects voted in. Chairperson re-elected. Attendance: 112 members.</div>
-          <div class="dash-card-date">📅 Held: 18 January 2026</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: ACTIVITIES -->
-    <div class="tab-content" id="tab-activities">
-      <p class="dash-section-title">Ongoing Activities & Programmes</p>
-      <div class="cards-grid">
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Monthly</span>
-          <div class="dash-card-title">Welfare Contributions Collection</div>
-          <div class="dash-card-meta">Monthly contributions of Ksh 500 per member collected on the last Saturday of each month. Receipts issued via M-Pesa.</div>
-          <div class="dash-card-date">📌 Next collection: 28 June 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerInvolvement(this,'Monthly Welfare Contribution June 2026')">💳 Mark June Paid</button></div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Ongoing</span>
-          <div class="dash-card-title">Member Savings & Loan Programme</div>
-          <div class="dash-card-meta">Members earn interest on savings and can access loans at 10% p.a. Current loan book: Ksh 480,000. Applications open via Treasurer.</div>
-          <div class="dash-card-date">📌 Apply via the Treasurer</div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-active">Ongoing</span>
-          <div class="dash-card-title">Bereavement Response Fund</div>
-          <div class="dash-card-meta">Rapid disbursements within 48hrs of verified bereavement notice. Fund balance healthy after last quarter's audit.</div>
-          <div class="dash-card-date">📌 Contact Secretary to file</div>
-        </div>
-        <div class="dash-card">
-          <span class="dash-card-badge badge-upcoming">Starting July</span>
-          <div class="dash-card-title">Financial Literacy Workshops</div>
-          <div class="dash-card-meta">Monthly Saturday workshops covering personal finance, investment basics, and chama governance. Open to all members and spouses.</div>
-          <div class="dash-card-date">📅 First session: 5 July 2026</div>
-          <div class="dash-card-actions"><button class="attend-btn" onclick="registerAttendance(this,'Financial Literacy Workshop July')">✅ Register Interest</button></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: NOTICES -->
-    <div class="tab-content" id="tab-notices">
-      <p class="dash-section-title">Official Notices & Announcements</p>
-      <div id="notices-container" class="cards-grid">
-        <div style="color:var(--silver);font-size:0.88rem;padding:20px 0;">Loading notices…</div>
-      </div>
-    </div>
-
-    <!-- TAB: ADMIN (visible only to admin role) -->
-    <div class="tab-content" id="tab-admin">
-      <div class="admin-section">
-        <div class="admin-section-heading">⚙️ Administration Panel — Committee Access Only</div>
-        <div class="admin-grid">
-          <div class="admin-action-card" onclick="showAdminToast('Member list exported to CSV')">
-            <div class="admin-action-icon">📋</div>
-            <span class="admin-badge">Members</span>
-            <div class="admin-action-title">Export Member Register</div>
-            <div class="admin-action-desc">Download full member list as CSV for records</div>
-          </div>
-          <div class="admin-action-card" onclick="openAdminNoticeForm()">
-            <div class="admin-action-icon">📢</div>
-            <span class="admin-badge">Notices</span>
-            <div class="admin-action-title">Post New Notice</div>
-            <div class="admin-action-desc">Publish an announcement visible to all members</div>
-          </div>
-          <div class="admin-action-card" onclick="showAdminToast('Opening attendance report...')">
-            <div class="admin-action-icon">✅</div>
-            <span class="admin-badge">Meetings</span>
-            <div class="admin-action-title">View Attendance Report</div>
-            <div class="admin-action-desc">See who registered for each meeting or event</div>
-          </div>
-          <div class="admin-action-card" onclick="showAdminToast('Opening contribution tracker...')">
-            <div class="admin-action-icon">💰</div>
-            <span class="admin-badge">Finance</span>
-            <div class="admin-action-title">Contribution Tracker</div>
-            <div class="admin-action-desc">Review member payment statuses and arrears</div>
-          </div>
-          <div class="admin-action-card" onclick="showAdminToast('Opening welfare case management...')">
-            <div class="admin-action-icon">🤝</div>
-            <span class="admin-badge">Welfare</span>
-            <div class="admin-action-title">Manage Welfare Cases</div>
-            <div class="admin-action-desc">Open, close, and disburse bereavement cases</div>
-          </div>
-          <div class="admin-action-card" onclick="showAdminToast('Opening public stats editor...')">
-            <div class="admin-action-icon">📊</div>
-            <span class="admin-badge">Homepage</span>
-            <div class="admin-action-title">Update Public Stats</div>
-            <div class="admin-action-desc">Edit member count, assets & fund figures on homepage</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- POST NOTICE INLINE FORM -->
-      <div class="inline-form" id="admin-notice-form" style="display:none;">
-        <h4>📢 Post New Notice to All Members</h4>
-        <div class="form-group">
-          <label>Notice Title</label>
-          <input type="text" id="notice-title" placeholder="e.g. June Contribution Reminder" />
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Category</label>
-            <select id="notice-cat">
-              <option>Important</option><option>Notice</option><option>Update</option><option>Info</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input type="date" id="notice-date" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Notice Body</label>
-          <textarea id="notice-body" rows="4" placeholder="Write the notice content here..."></textarea>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:8px;">
-          <button class="btn-sm btn-sm-solid" onclick="postNotice()" style="padding:10px 20px;">📤 Post Notice</button>
-          <button class="btn-sm btn-sm-outline" onclick="document.getElementById('admin-notice-form').style.display='none'" style="padding:10px 20px;">Cancel</button>
-        </div>
-      </div>
-
-      <!-- QUICK MEMBER TABLE -->
-      <div class="admin-section" style="margin-top:36px;">
-        <div class="admin-section-heading">👥 Member Status Overview (Sample)</div>
-        <div class="members-table-wrap">
-          <table class="members-table">
-            <thead>
-              <tr><th>#</th><th>Name</th><th>Phone</th><th>Court</th><th>Status</th><th>Last Contribution</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>001</td><td>Zadok Mbiti</td><td>07xxxxxxxx</td><td>Court 2</td><td><span class="status-pill status-active">Active</span></td><td>June 2026</td></tr>
-              <tr><td>002</td><td>Mary Wangari</td><td>07xxxxxxxx</td><td>Court 1</td><td><span class="status-pill status-active">Active</span></td><td>June 2026</td></tr>
-              <tr><td>003</td><td>John Kamau</td><td>07xxxxxxxx</td><td>Court 3</td><td><span class="status-pill status-arrears">Arrears</span></td><td>March 2026</td></tr>
-              <tr><td>004</td><td>Grace Njeri</td><td>07xxxxxxxx</td><td>Court 4</td><td><span class="status-pill status-pending">Pending</span></td><td>—</td></tr>
-              <tr><td>005</td><td>Peter Omondi</td><td>07xxxxxxxx</td><td>Court 2</td><td><span class="status-pill status-active">Active</span></td><td>June 2026</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p style="font-size:0.76rem;color:var(--silver);margin-top:10px;">Showing 5 of 147 members. Connect your backend API for live data.</p>
-      </div>
-    </div>
-
-  </div><!-- /dashboard -->
-
+  </div><!--
   <!-- ═══════════════ TOAST ═══════════════ -->
   <div class="toast" id="toast"></div>
 
@@ -699,9 +428,9 @@
 
       <!-- Smart field: auto-detects phone vs email -->
       <div class="form-group">
-        <label>Phone Number or Email</label>
+        <label>Phone Number</label>
         <input type="text" id="login-identifier"
-               placeholder="07XXXXXXXX  or  you@email.com"
+               placeholder="07XXXXXXXX" maxlength="10"
                oninput="detectLoginType()"
                onkeydown="if(event.key==='Enter')handleLogin()"
                autocomplete="username"
@@ -952,34 +681,47 @@
       return String(Math.abs(hash) % 9000 + 1000); // 4-digit number 1000–9999
     }
 
-    async function handleLogin() {
-      const errEl      = document.getElementById('login-error');
-      errEl.style.display = 'none';
-      const identifier = document.getElementById('login-identifier').value.trim();
-      const password   = document.getElementById('login-password').value;
+async function handleLogin() {
+  const errEl  = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  const phone    = document.getElementById('login-identifier').value.trim();
+  const password = document.getElementById('login-password').value;
 
-      if (!identifier || !password) {
-        errEl.textContent = 'Please enter your phone/email and password.';
-        errEl.style.display = 'block'; return;
-      }
+  // Phone validation — must start with 07 or 01, exactly 10 digits
+  const phoneRegex = /^(07|01)\d{8}$/;
+  if (!phone || !password) {
+    errEl.textContent = 'Please enter your phone number and password.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!phoneRegex.test(phone)) {
+    errEl.textContent = 'Enter a valid Kenyan phone number e.g. 0712345678';
+    errEl.style.display = 'block'; return;
+  }
 
-      try {
-        const ctrl    = new AbortController();
-        const tid     = setTimeout(() => ctrl.abort(), 3000);
-        const payload = buildLoginPayload(identifier, password);
-        const res     = await fetch(`${API}/auth/login`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(payload),
-          signal:  ctrl.signal,
-        });
-        clearTimeout(tid);
+  // Normalize to +254 format before sending to backend
+  const normalizedPhone = '+254' + phone.substring(1);
 
-        const data = await res.json();
-        if (!res.ok) {
-          errEl.textContent = data.detail || 'Login failed. Check your credentials.';
-          errEl.style.display = 'block';
-        } else {
+  try {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: normalizedPhone, password })
+    });
+    const data = await response.json();
+
+    if (response.ok) {
+      localStorage.setItem('token', data.access_token);
+      window.location.href = '/member';   // ✅ redirects to member dashboard
+    } else {
+      errEl.textContent = data.detail || 'Invalid phone number or password.';
+      errEl.style.display = 'block';
+    }
+  } catch (err) {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display = 'block';
+  }
+}
+ else {
           const session = {
             fname:         data.full_name,
             user_id:       data.user_id,
