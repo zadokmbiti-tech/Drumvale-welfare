@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Drumvale Welfare Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #2cb4e0;
+    --accent2: #0a1f2e;
+    --accent3: #e8b84b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; }
+
+  #sidebar {
+    width: 240px; min-height: 100vh; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; z-index: 100;
+    transition: transform .3s;
+  }
+  .logo {
+    padding: 28px 24px 20px; border-bottom: 1px solid var(--border);
+  }
+  .logo h1 { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+  .logo span { font-size: 11px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+  nav { flex: 1; padding: 16px 12px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+    color: var(--muted); transition: all .2s; margin-bottom: 2px;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(16,185,129,.12); color: var(--accent); }
+  .nav-item svg { flex-shrink: 0; }
+  .sidebar-footer { padding: 16px 12px; border-top: 1px solid var(--border); }
+  #user-pill {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: var(--surface2); border-radius: 8px;
+  }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: #000;
+  }
+  #user-name { font-size: 13px; font-weight: 500; }
+  #user-role { font-size: 11px; color: var(--muted); }
+
+  #main { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; }
+  .page { display: none; }
+  .page.active { display: block; animation: fadeUp .3s ease; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .page-header h2 { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; }
+  .page-header p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent-color, var(--accent));
+  }
+  .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+  }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1px solid var(--border); font-weight: 500; }
+  td { padding: 12px 14px; border-bottom: 1px solid rgba(30,45,69,.5); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .badge {
+    display: inline-flex; align-items: center; padding: 3px 10px;
+    border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+  }
+  .badge-green  { background: rgba(16,185,129,.15); color: #10b981; }
+  .badge-blue   { background: rgba(59,130,246,.15); color: #60a5fa; }
+  .badge-yellow { background: rgba(245,158,11,.15);  color: #fbbf24; }
+  .badge-red    { background: rgba(239,68,68,.15);   color: #f87171; }
+  .badge-gray   { background: rgba(100,116,139,.15); color: #94a3b8; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: none; transition: all .2s; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #0ea572; }
+  .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .6px; }
+  input, select, textarea {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    transition: border-color .2s; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: var(--surface2); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200;
+    display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+    animation: fadeUp .25s ease;
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .modal-header h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; line-height:1; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 48px; width: 400px;
+  }
+  .login-logo { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+  .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+  .login-box .form-group { margin-bottom: 16px; }
+  .login-error { color: #f87171; font-size: 13px; margin-top: 12px; display: none; }
+
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 18px; font-size: 13px; min-width: 240px;
+    display: flex; align-items: center; gap: 10px;
+    animation: slideIn .3s ease; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.success { border-left: 3px solid var(--accent); }
+  .toast.error   { border-left: 3px solid var(--danger); }
+  @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+  .progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .6s ease; }
+
+  .search-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; width: 260px;
+  }
+  .search-bar input { background: none; border: none; outline: none; font-size: 14px; color: var(--text); width: 100%; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .empty-state { text-align: center; padding: 48px; color: var(--muted); }
+  .empty-state svg { margin-bottom: 12px; opacity: .4; }
+
+  #hamburger {
+    display: none; position: fixed; top: 14px; left: 14px; z-index: 200;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; cursor: pointer; color: var(--text);
+    font-size: 18px; line-height: 1;
+  }
+  #sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99;
+  }
+  @media (max-width: 768px) {
+    #hamburger { display: flex; align-items: center; justify-content: center; }
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: none; }
+    #sidebar-overlay.open { display: block; }
+    #main { margin-left: 0; padding: 20px; padding-top: 56px; }
+    .form-grid, .two-col { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .modal { max-width: calc(100vw - 32px); padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<button id="hamburger" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Drumvale</div>
+    <div class="login-sub">Committee &amp; Admin access only</div>
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input id="login-phone" type="tel" placeholder="e.g. 0712345678"/>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="login-pass" type="password" placeholder="enter your password"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center;padding:12px" onclick="doLogin()">Sign In</button>
+    <div id="login-error" class="login-error"></div>
+    <p style="margin-top:20px;text-align:center;font-size:12px;color:var(--muted)">
+      Committee members only &nbsp;·&nbsp;
+      <a href="/" style="color:var(--accent);text-decoration:none;">← Back to homepage</a>
+    </p>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="logo">
+    <h1>Drumvale</h1>
+    <span>Management System</span>
+  </div>
+  <nav>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('members')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Members
+    </div>
+    <div class="nav-item" onclick="showPage('contributions')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Contributions
+    </div>
+    <div class="nav-item" onclick="showPage('loans')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Loans
+    </div>
+    <div class="nav-item" onclick="showPage('events')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Events
+      </div>
+    <div class="nav-item" onclick="showPage('Assets')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Assets
+    </div>
+    <div class="nav-item" onclick="showPage('Projects')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Projects
+    </div>
+    <div class="nav-item" onclick="showPage('meetings')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+      Meetings
+    </div>
+    <div class="nav-item" id="nav-admin" style="display:none" onclick="showPage('admin')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      Admin
+    </div>
+    <div class="nav-item" id="nav-usermgmt" style="display:none" onclick="showPage('usermgmt')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      User Roles
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div id="user-pill">
+      <div class="avatar" id="user-avatar">?</div>
+      <div>
+        <div id="user-name">Loading…</div>
+        <div id="user-role">—</div>
+      </div>
+    </div>
+    <button class="btn btn-outline" style="width:100%;margin-top:10px;justify-content:center;font-size:12px" onclick="logout()">Sign Out</button>
+    <a href="/" class="btn btn-outline" style="width:100%;margin-top:8px;justify-content:center;font-size:12px;text-decoration:none;display:flex">← Homepage</a>
+  </div>
+</div>
+
+<div id="main">
+
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div><h2>Dashboard</h2><p>Chama Overview</p></div>
+      <span id="dash-date" style="color:var(--muted);font-size:13px"></span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-label">Total Members</div>
+        <div class="stat-value" id="stat-members">—</div>
+        <div class="stat-sub" id="stat-members-sub">Loading…</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#3b82f6">
+        <div class="stat-label">Monthly Contributions</div>
+        <div class="stat-value" id="stat-contrib">—</div>
+        <div class="stat-sub" id="stat-contrib-sub">This month</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#f59e0b">
+        <div class="stat-label">Active Loans</div>
+        <div class="stat-value" id="stat-loans">—</div>
+        <div class="stat-sub" id="stat-loans-sub">Outstanding</div>
+      </div>
+      <div class="stat-card" style="--accent-color:blue">
+        <div class="stat-label">Assets</div>
+        <div class="stat-value" id="stat-Assets">—</div>
+        <div class="stat-sub" id="stat-assets-sub">Our Assets</div>
+      </div>
+      <div class="stat-card" style="--accent-color:grey">
+        <div class="stat-label">Projects</div>
+        <div class="stat-value" id="stat-Projects">—</div>
+        <div class="stat-sub" id="stat-projects-sub">Our projects</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#8b5cf6">
+        <div class="stat-label">Open Events</div>
+        <div class="stat-value" id="stat-events">—</div>
+        <div class="stat-sub">Active welfare events</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📋 Recent Members</div>
+        <div id="dash-members-list" class="table-wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 Upcoming Meetings</div>
+        <div id="dash-meetings-list"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 Pending Loans</div>
+      <div id="dash-loans-list" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <div id="page-members" class="page">
+    <div class="page-header">
+      <div><h2>Members</h2><p>Manage chama membership</p></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-member')">+ Add Member</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:18px">
+        <div class="search-bar">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="member-search" placeholder="Search members…" oninput="filterMembers()"/>
+        </div>
+        <select id="member-status-filter" onchange="filterMembers()" style="width:140px">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="members-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-contributions" class="page">
+    <div class="page-header">
+      <div><h2>Contributions</h2><p>Monthly member contributions</p></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-contrib')">+ Record Payment</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-label">This Month Total</div>
+        <div class="stat-value" id="contrib-this-month">—</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#3b82f6">
+        <div class="stat-label">All-Time Total</div>
+        <div class="stat-value" id="contrib-all-time">—</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#f59e0b">
+        <div class="stat-label">Paid This Month</div>
+        <div class="stat-value" id="contrib-paid-count">—</div>
+        <div class="progress-bar"><div class="progress-fill" id="contrib-progress" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:18px;align-items:center">
+        <div class="card-title" style="margin:0;flex:1">Payment Status</div>
+        <input type="month" id="contrib-month-filter" style="width:160px" onchange="loadContribStatus()"/>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Member</th><th>Amount</th><th>Status</th><th>Method</th><th>Reference</th></tr></thead>
+          <tbody id="contrib-tbody"><tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Select a month above</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-loans" class="page">
+    <div class="page-header">
+      <div><h2>Loans</h2><p>Loan applications & repayments</p></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-loan')">+ New Application</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat-card" style="--accent-color:#f59e0b">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value" id="loan-stat-pending">—</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#3b82f6">
+        <div class="stat-label">Active</div>
+        <div class="stat-value" id="loan-stat-active">—</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#ef4444">
+        <div class="stat-label">Outstanding</div>
+        <div class="stat-value" id="loan-stat-outstanding">—</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-label">Repaid</div>
+        <div class="stat-value" id="loan-stat-repaid">—</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:18px;align-items:center">
+        <div class="card-title" style="margin:0;flex:1">All Loans</div>
+        <select id="loan-filter" onchange="loadLoans()" style="width:150px">
+          <option value="">All</option>
+          <option value="pending">Pending</option>
+          <option value="disbursed">Active</option>
+          <option value="repaid">Repaid</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Member</th><th>Amount</th><th>Repayable</th><th>Repaid</th><th>Status</th><th>Due</th><th>Actions</th></tr></thead>
+          <tbody id="loans-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-events" class="page">
+    <div class="page-header">
+      <div><h2>Events</h2><p>Welfare & fundraising events</p></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-event')">+ Raise Event</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Beneficiary</th><th>Target</th><th>Raised</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="events-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-meetings" class="page">
+    <div class="page-header">
+      <div><h2>Meetings</h2><p>Schedule and track meetings</p></div>
+      <button class="btn btn-primary" onclick="openModal('modal-add-meeting')">+ Schedule Meeting</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Date</th><th>Venue</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="meetings-tbody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<div id="page-Assets" class="page">
+  <div class="page-header">
+    <div>
+      <h2>Assets</h2>
+      <p>Group assets and property</p>
+    </div>
+
+    <button class="btn btn-primary"
+            onclick="openModal('modal-add-asset')">
+      + Add Asset
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Asset</th>
+            <th>Category</th>
+            <th>Value</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="assets-tbody">
+          <tr>
+            <td colspan="6"
+                style="text-align:center;padding:32px;color:var(--muted)">
+              No assets added yet
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-Projects" class="page">
+  <div class="page-header">
+    <div>
+      <h2>Projects</h2>
+      <p>Group projects and initiatives</p>
+    </div>
+
+    <button class="btn btn-primary"
+            onclick="openModal('modal-add-project')">
+      + Add Project
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Project</th>
+            <th>Budget</th>
+            <th>Status</th>
+            <th>Deadline</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="projects-tbody">
+          <tr>
+            <td colspan="6"
+                style="text-align:center;padding:32px;color:var(--muted)">
+              No projects added yet
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+  <div id="page-admin" class="page">
+    <div class="page-header">
+      <div><h2>Admin</h2><p>Pending member registrations</p></div>
+      <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
+    </div>
+    <div class="card">
+      <div class="card-title">⏳ Pending Registrations</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th>Applied</th><th>Actions</th></tr></thead>
+          <tbody id="pending-tbody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ USER MANAGEMENT PAGE ═══════════ -->
+  <div id="page-usermgmt" class="page">
+    <div class="page-header">
+      <div>
+        <h2>User Role Management</h2>
+        <p>Promote members to committee roles or demote admins back to member</p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="search-bar" style="width:220px">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="um-search" placeholder="Search name or phone…" oninput="filterUserMgmt()"/>
+        </div>
+        <select id="um-role-filter" onchange="filterUserMgmt()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:13px;font-family:inherit;">
+          <option value="">All Roles</option>
+          <option value="member">Members</option>
+          <option value="admin">Admins</option>
+          <option value="chairperson">Chairperson</option>
+          <option value="secretary">Secretary</option>
+          <option value="treasurer">Treasurer</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+        <button class="btn btn-outline" onclick="loadUserMgmt()">↺ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Role Summary Cards -->
+    <div class="stats-grid" style="margin-bottom:24px;">
+      <div class="stat-card" style="--accent-color:#10b981">
+        <div class="stat-label">Total Members</div>
+        <div class="stat-value" id="um-total">—</div>
+        <div class="stat-sub">All registered users</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#3b82f6">
+        <div class="stat-label">Committee / Admins</div>
+        <div class="stat-value" id="um-admins">—</div>
+        <div class="stat-sub">Elevated roles</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#f59e0b">
+        <div class="stat-label">Regular Members</div>
+        <div class="stat-value" id="um-members">—</div>
+        <div class="stat-sub">Standard access</div>
+      </div>
+      <div class="stat-card" style="--accent-color:#8b5cf6">
+        <div class="stat-label">Pending Approval</div>
+        <div class="stat-value" id="um-pending">—</div>
+        <div class="stat-sub">Awaiting verification</div>
+      </div>
+    </div>
+
+    <!-- Role Legend -->
+    <div class="card" style="margin-bottom:20px;padding:16px 24px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Role Legend:</span>
+        <span class="badge badge-gray">member — Standard portal access</span>
+        <span class="badge badge-blue">secretary — Dashboard + records</span>
+        <span class="badge badge-yellow">treasurer — Dashboard + finance</span>
+        <span class="badge badge-green">chairperson — Dashboard + all</span>
+        <span class="badge" style="background:rgba(139,92,246,.15);color:#a78bfa">admin — Dashboard access</span>
+        <span class="badge" style="background:rgba(239,68,68,.15);color:#f87171">super_admin — Full system access</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>👥 All Users</span>
+        <span id="um-count" style="font-size:12px;font-weight:400;color:var(--muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Current Role</th>
+              <th>Status</th>
+              <th>Joined</th>
+              <th>Change Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="um-tbody">
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Loading users…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role Change Confirmation Modal -->
+  <div id="modal-role-change" class="modal-backdrop">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3>Confirm Role Change</h3>
+        <button class="modal-close" onclick="closeModal('modal-role-change')">✕</button>
+      </div>
+      <div style="margin-bottom:20px;">
+        <p style="color:var(--muted);font-size:14px;margin-bottom:16px;">You are about to change the role of:</p>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px;" id="rc-name">—</div>
+          <div style="font-size:13px;color:var(--muted);" id="rc-phone">—</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span class="badge" id="rc-from-badge">—</span>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <span class="badge" id="rc-to-badge">—</span>
+        </div>
+        <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:12px 16px;">
+          <p style="font-size:13px;color:#fbbf24;" id="rc-warning">—</p>
+        </div>
+      </div>
+      <input type="hidden" id="rc-member-id"/>
+      <input type="hidden" id="rc-new-role"/>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-role-change')">Cancel</button>
+        <button class="btn btn-primary" id="rc-confirm-btn" onclick="confirmRoleChange()">Confirm Change</button>
+      </div>
+    </div>
+  </div>
+
+<div id="modal-add-member" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add New Member</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-member')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Full Name</label><input id="m-name" placeholder="Jane Wanjiku"/></div>
+      <div class="form-group"><label>Phone Number</label><input id="m-phone" placeholder="0712345678"/></div>
+      <div class="form-group"><label>ID Number</label><input id="m-id" placeholder="12345678"/></div>
+      <div class="form-group"><label>Role</label>
+        <select id="m-role"><option value="member">Member</option><option value="treasurer">Treasurer</option><option value="secretary">Secretary</option><option value="chairperson">Chairperson</option></select>
+      </div>
+      <div class="form-group"><label>Date Joined</label><input id="m-date" type="date"/></div>
+      <div class="form-group"><label>Next of Kin Name</label><input id="m-kin-name" placeholder="John Doe"/></div>
+      <div class="form-group"><label>Next of Kin Phone</label><input id="m-kin-phone" placeholder="0798765432"/></div>
+      <div class="form-group full"><label>Notes</label><textarea id="m-notes" placeholder="Any additional info…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-member')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-contrib" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Record Contribution</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-contrib')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Member</label>
+        <select id="c-member"><option value="">Select member…</option></select>
+      </div>
+      <div class="form-group"><label>Amount (KES)</label><input id="c-amount" type="number" placeholder="500"/></div>
+      <div class="form-group"><label>Month</label><input id="c-month" type="month"/></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="c-method"><option value="M-Pesa">M-Pesa</option><option value="Bank">Bank Transfer</option><option value="Cash">Cash</option></select>
+      </div>
+      <div class="form-group"><label>Reference / Transaction ID</label><input id="c-ref" placeholder="QJK7X8…"/></div>
+      <div class="form-group full"><label>Notes</label><textarea id="c-notes" placeholder="Optional…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-contrib')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContrib()">Record Payment</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-loan" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Loan Application</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-loan')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Member</label>
+        <select id="l-member"><option value="">Select member…</option></select>
+      </div>
+      <div class="form-group"><label>Amount (KES)</label><input id="l-amount" type="number" placeholder="10000"/></div>
+      <div class="form-group"><label>Interest Rate (%)</label><input id="l-interest" type="number" value="10" placeholder="10"/></div>
+      <div class="form-group full"><label>Purpose</label><textarea id="l-purpose" placeholder="e.g. School fees, Business, Medical…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-loan')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLoan()">Submit Application</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-repay" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Record Repayment</h3>
+      <button class="modal-close" onclick="closeModal('modal-repay')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Amount (KES)</label><input id="r-amount" type="number" placeholder="5000"/></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="r-method"><option value="M-Pesa">M-Pesa</option><option value="Bank">Bank Transfer</option><option value="Cash">Cash</option></select>
+      </div>
+      <div class="form-group full"><label>Reference</label><input id="r-ref" placeholder="Transaction ref…"/></div>
+    </div>
+    <input type="hidden" id="r-loan-id"/>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-repay')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRepayment()">Record Repayment</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-event" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Raise New Event</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-event')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Event Title</label><input id="e-title" placeholder="e.g. Funeral Contribution for…"/></div>
+      <div class="form-group"><label>Event Type</label>
+        <select id="e-type"><option value="funeral">Funeral</option><option value="medical">Medical</option><option value="wedding">Wedding</option><option value="welfare">Welfare</option><option value="other">Other</option></select>
+      </div>
+      <div class="form-group"><label>Beneficiary</label>
+        <select id="e-beneficiary"><option value="">Select member…</option></select>
+      </div>
+      <div class="form-group full"><label>Target Amount (KES)</label><input id="e-amount" type="number" placeholder="50000"/></div>
+      <div class="form-group full"><label>Description</label><textarea id="e-desc" placeholder="Details…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-event')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Raise Event</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-meeting" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Schedule Meeting</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-meeting')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Meeting Title</label><input id="mt-title" placeholder="Monthly General Meeting"/></div>
+      <div class="form-group"><label>Date</label><input id="mt-date" type="date"/></div>
+      <div class="form-group"><label>Time</label><input id="mt-time" type="time"/></div>
+      <div class="form-group full"><label>Venue</label><input id="mt-venue" placeholder="e.g. Chairman's House, Zoom…"/></div>
+      <div class="form-group full"><label>Agenda</label><textarea id="mt-agenda" placeholder="1. Opening\n2. Treasurer's report\n…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-meeting')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMeeting()">Schedule</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-asset" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Asset</h3>
+
+      <button class="modal-close"
+              onclick="closeModal('modal-add-asset')">
+        ✕
+      </button>
+    </div>
+
+    <div class="form-grid">
+
+      <div class="form-group full">
+        <label>Asset Name</label>
+        <input id="a-name"
+               placeholder="e.g. Land, Tent, Chairs"/>
+      </div>
+
+      <div class="form-group">
+        <label>Category</label>
+
+        <select id="a-category">
+          <option>Property</option>
+          <option>Equipment</option>
+          <option>Vehicle</option>
+          <option>Investment</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Value (KES)</label>
+        <input id="a-value"
+               type="number"
+               placeholder="50000"/>
+      </div>
+
+      <div class="form-group full">
+        <label>Status</label>
+
+        <select id="a-status">
+          <option>Active</option>
+          <option>Maintenance</option>
+          <option>Disposed</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline"
+              onclick="closeModal('modal-add-asset')">
+        Cancel
+      </button>
+
+      <button class="btn btn-primary"
+              onclick="saveAsset()">
+        Save Asset
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-project" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Project</h3>
+
+      <button class="modal-close"
+              onclick="closeModal('modal-add-project')">
+        ✕
+      </button>
+    </div>
+
+    <div class="form-grid">
+
+      <div class="form-group full">
+        <label>Project Name</label>
+        <input id="p-name"
+               placeholder="Project title"/>
+      </div>
+
+      <div class="form-group">
+        <label>Budget (KES)</label>
+        <input id="p-budget"
+               type="number"
+               placeholder="100000"/>
+      </div>
+
+      <div class="form-group">
+        <label>Deadline</label>
+        <input id="p-deadline"
+               type="date"/>
+      </div>
+
+      <div class="form-group full">
+        <label>Status</label>
+
+        <select id="p-status">
+          <option>Planning</option>
+          <option>Ongoing</option>
+          <option>Completed</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline"
+              onclick="closeModal('modal-add-project')">
+        Cancel
+      </button>
+
+      <button class="btn btn-primary"
+              onclick="saveProject()">
+        Save Project
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ── Manage Event Contributions Modal ──────────────────────── -->
+<div id="modal-manage-event" class="modal-backdrop">
+  <div class="modal" style="max-width:780px;width:100%">
+    <div class="modal-header">
+      <div>
+        <h3 id="manage-event-title">Event Contributions</h3>
+        <p id="manage-event-stats" style="color:var(--muted);font-size:13px;margin-top:4px"></p>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-manage-event')">&#x2715;</button>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:14px;text-transform:uppercase;letter-spacing:.8px">Add Contribution</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end">
+        <div class="form-group" style="margin:0"><label>Member</label>
+          <select id="ec-member" style="width:100%"><option value="">Select member...</option></select>
+        </div>
+        <div class="form-group" style="margin:0"><label>Amount (KES)</label>
+          <input id="ec-amount" type="number" placeholder="e.g. 5000" min="1"/>
+        </div>
+        <div class="form-group" style="margin:0"><label>Note / Ref (optional)</label>
+          <input id="ec-note" type="text" placeholder="e.g. M-Pesa ref"/>
+        </div>
+        <button class="btn btn-primary" onclick="submitEventContribution()" style="white-space:nowrap">+ Add</button>
+      </div>
+      <div id="ec-error" style="color:#f87171;font-size:12px;margin-top:8px;min-height:16px"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Member</th><th>Amount (KES)</th><th>Note</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody id="ec-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit Contribution Modal ───────────────────────────────── -->
+<div id="modal-edit-contrib" class="modal-backdrop">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3>Edit Contribution</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-contrib')">&#x2715;</button>
+    </div>
+    <input type="hidden" id="edit-ec-id"/>
+    <div class="form-grid" style="margin-top:8px">
+      <div class="form-group full"><label>Member</label>
+        <select id="edit-ec-member"><option value="">Select member...</option></select>
+      </div>
+      <div class="form-group"><label>Amount (KES)</label>
+        <input id="edit-ec-amount" type="number" min="1"/>
+      </div>
+      <div class="form-group"><label>Note</label>
+        <input id="edit-ec-note" type="text" placeholder="Optional"/>
+      </div>
+    </div>
+    <div id="edit-ec-error" style="color:#f87171;font-size:12px;margin-top:6px;min-height:16px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-contrib')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditContribution()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// API URL — change this to your production URL before deploying
+// e.g. const API = 'https://chamalink.yourdomain.co.ke';
+const API = window.CHAMALINK_API || 'http://127.0.0.1:8080';
+
+let token = localStorage.getItem('chama_token');
+let currentUser = JSON.parse(localStorage.getItem('chama_user') || 'null');
+let allMembers = [];
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+// Offline admin credentials (update these to match your real admin account)
+const OFFLINE_ADMIN_PHONE = '0707407594';
+const OFFLINE_ADMIN_PASS  = 'admin2026';
+
+async function doLogin() {
+  const phone = document.getElementById('login-phone').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-error');
+  err.style.display = 'none';
+  err.textContent   = '';
+
+  if (!phone || !pass) {
+    err.textContent = 'Please enter your phone number and password.';
+    err.style.display = 'block'; return;
+  }
+
+  // Try live API first (3s timeout)
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 3000);
+    const res  = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({phone_number: phone, password: pass}),
+      signal: ctrl.signal,
+    });
+    clearTimeout(tid);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Login failed'); }
+    const data = await res.json();
+    const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
+    if (!adminRoles.includes(data.role)) {
+      err.textContent = 'Access denied. This dashboard is for committee members only.';
+      err.style.display = 'block'; return;
+    }
+    token = data.access_token;
+    currentUser = {id: data.user_id, name: data.full_name, role: data.role};
+    localStorage.setItem('chama_token', token);
+    localStorage.setItem('chama_user', JSON.stringify(currentUser));
+    document.getElementById('login-screen').style.display = 'none';
+    initApp();
+    return;
+  } catch(e) {
+    if (e.name !== 'AbortError' && !e.message.includes('Failed to fetch') && !e.message.includes('NetworkError')) {
+      err.textContent = e.message; err.style.display = 'block'; return;
+    }
+  }
+
+  // Server offline — use hardcoded offline credentials
+  if (phone === OFFLINE_ADMIN_PHONE && pass === OFFLINE_ADMIN_PASS) {
+    token = 'offline-token';
+    currentUser = {id: 'offline-1', name: 'Admin (Offline)', role: 'super_admin'};
+    localStorage.setItem('chama_token', token);
+    localStorage.setItem('chama_user', JSON.stringify(currentUser));
+    document.getElementById('login-screen').style.display = 'none';
+    initApp();
+    toast('Running offline — live data unavailable. Changes will not persist.', 'error');
+  } else if (phone !== OFFLINE_ADMIN_PHONE) {
+    err.textContent = 'Access denied. Committee members only.';
+    err.style.display = 'block';
+  } else {
+    err.textContent = 'Incorrect password.';
+    err.style.display = 'block';
+  }
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function logout() {
+  localStorage.removeItem('chama_token');
+  localStorage.removeItem('chama_user');
+  localStorage.removeItem('drwg_session');
+  localStorage.removeItem('drwg_token');
+  location.reload();
+}
+
+async function apiFetch(path, opts={}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
+  });
+  if (res.status === 401) { logout(); return; }
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({detail:'Request failed'}));
+    throw new Error(e.detail || 'Request failed');
+  }
+  return res.json();
+}
+
+function initApp() {
+  if (!token) { document.getElementById('login-screen').style.display = 'flex'; return; }
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('user-name').textContent  = currentUser?.name || '—';
+  document.getElementById('user-role').textContent  = currentUser?.role || '—';
+  document.getElementById('user-avatar').textContent = (currentUser?.name||'?')[0].toUpperCase();
+  document.getElementById('dash-date').textContent  = new Date().toLocaleDateString('en-KE', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  const now = new Date();
+  document.getElementById('contrib-month-filter').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('c-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  if (token && token !== 'offline-token') {
+    loadDashboard();
+    loadAllMembers();
+  } else {
+    loadOfflineDashboard();
+  }
+
+  // show Admin + User Mgmt nav for admins/chairs/secretaries
+  if (isAdmin()) {
+    document.getElementById('nav-admin').style.display = 'flex';
+    document.getElementById('nav-usermgmt').style.display = 'flex';
+  }
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById(`page-${name}`);
+  if (!page) { toast(`Page "${name}" not built yet`, 'error'); return; }
+  page.classList.add('active');
+  event.currentTarget.classList.add('active');
+  // close sidebar on mobile after navigation
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  if (name==='members')       loadMembers();
+  if (name==='contributions') { loadContribSummary(); loadContribStatus(); }
+  if (name==='loans')         { loadLoanSummary(); loadLoans(); }
+  if (name==='events')        loadEvents();
+  if (name==='meetings')      loadMeetings();
+  if (name==='admin')         loadPendingUsers();
+  if (name==='usermgmt')      loadUserMgmt();
+}
+
+async function loadDashboard() {
+  try {
+    const [members, loans, events, meetings, contribSummary] = await Promise.all([
+      apiFetch('/members'),
+      apiFetch('/loans'),
+      apiFetch('/events'),
+      apiFetch('/meetings'),
+      apiFetch('/contributions/summary')
+    ]);
+
+    const active = members.filter(m => m.status==='active');
+    document.getElementById('stat-members').textContent = members.length;
+    document.getElementById('stat-members-sub').textContent = `${active.length} active`;
+
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const thisMonthData = contribSummary.monthly_breakdown?.find(m=>m.month===thisMonth);
+    document.getElementById('stat-contrib').textContent = `KES ${fmt(thisMonthData?.total||0)}`;
+
+    const activeLoans = loans.filter(l => l.status==='disbursed');
+    document.getElementById('stat-loans').textContent = activeLoans.length;
+    document.getElementById('stat-loans-sub').textContent = `KES ${fmt(activeLoans.reduce((s,l)=>s+l.balance,0))} outstanding`;
+
+    const openEvents = events.filter(e => e.status.toLowerCase()==='open');
+    document.getElementById('stat-events').textContent = openEvents.length;
+
+    const recent = [...members].slice(0,5);
+    document.getElementById('dash-members-list').innerHTML = `
+      <table><thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead><tbody>
+      ${recent.map(m=>`<tr><td>${m.full_name}</td><td>${m.role}</td><td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td></tr>`).join('')}
+      </tbody></table>`;
+
+    const upcoming = meetings.filter(m=>m.status==='scheduled').slice(0,3);
+    document.getElementById('dash-meetings-list').innerHTML = upcoming.length
+      ? upcoming.map(m=>`
+        <div style="padding:12px 0;border-bottom:1px solid var(--border);last-child:border-none">
+          <div style="font-weight:600;font-size:14px">${m.title}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px">📅 ${m.date} &nbsp; 📍 ${m.venue||'TBD'}</div>
+        </div>`).join('')
+      : '<div style="color:var(--muted);font-size:13px;padding:12px 0">No upcoming meetings</div>';
+
+    const pending = loans.filter(l=>l.status==='pending').slice(0,5);
+    document.getElementById('dash-loans-list').innerHTML = pending.length
+      ? `<table><thead><tr><th>Member</th><th>Amount</th><th>Purpose</th><th>Actions</th></tr></thead><tbody>
+         ${pending.map(l=>`<tr><td>${l.member}</td><td>KES ${fmt(l.amount)}</td><td>${l.purpose||'—'}</td>
+         <td><button class="btn btn-sm btn-primary" onclick="approveLoan(${l.id},'disbursed')">Approve</button>
+         <button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="approveLoan(${l.id},'rejected')">Reject</button></td></tr>`).join('')}
+         </tbody></table>`
+      : '<div style="color:var(--muted);font-size:13px;padding:8px 0">No pending loan applications</div>';
+
+  } catch(e) { console.error(e); }
+}
+
+async function loadAllMembers() {
+  try {
+    allMembers = await apiFetch('/members');
+    populateMemberSelects();
+  } catch(e) {}
+}
+
+function populateMemberSelects() {
+  const selects = ['c-member','l-member','e-beneficiary'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">Select member…</option>' +
+      allMembers.filter(m=>m.status==='active').map(m=>`<option value="${m.id}">${m.full_name}</option>`).join('');
+  });
+}
+
+async function loadMembers() {
+  try {
+    const members = await apiFetch('/members');
+    allMembers = members;
+    renderMembersTable(members);
+  } catch(e) { toast('Failed to load members','error'); }
+}
+
+function renderMembersTable(members) {
+  const tbody = document.getElementById('members-tbody');
+  if (!members.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No members found</div></td></tr>'; return; }
+  tbody.innerHTML = members.map((m,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${m.full_name}</strong></td>
+      <td>${m.phone_number}</td>
+      <td><span class="badge badge-blue">${m.role}</span></td>
+      <td>${m.date_joined||'—'}</td>
+      <td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td>
+      <td style="display:flex;gap:6px;align-items:center">
+        ${m.status==='active'
+          ? `<button class="btn btn-sm btn-danger" onclick="deactivateMember(${m.id})">Deactivate</button>`
+          : '<span style="color:var(--muted);font-size:12px">Inactive</span>'}
+        ${isAdmin() ? `<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.4)" onclick="deleteMember(${m.id},'${m.full_name}')">Delete</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function filterMembers() {
+  const q = document.getElementById('member-search').value.toLowerCase();
+  const s = document.getElementById('member-status-filter').value;
+  const filtered = allMembers.filter(m =>
+    (m.full_name.toLowerCase().includes(q) || m.phone_number.includes(q)) &&
+    (!s || m.status === s)
+  );
+  renderMembersTable(filtered);
+}
+
+async function saveMember() {
+  try {
+    await apiFetch('/members', {
+      method: 'POST',
+      body: JSON.stringify({
+        full_name: document.getElementById('m-name').value,
+        phone_number: document.getElementById('m-phone').value,
+        id_number: document.getElementById('m-id').value || null,
+        role: document.getElementById('m-role').value,
+        status: 'active',
+        date_joined: document.getElementById('m-date').value,
+        next_of_kin_name: document.getElementById('m-kin-name').value || null,
+        next_of_kin_phone: document.getElementById('m-kin-phone').value || null,
+        notes: document.getElementById('m-notes').value || null,
+      })
+    });
+    closeModal('modal-add-member');
+    toast('Member added successfully');
+    loadMembers(); loadAllMembers();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function deactivateMember(id) {
+  if (!confirm('Deactivate this member?')) return;
+  try { await apiFetch(`/members/${id}/deactivate`,{method:'PATCH'}); toast('Member deactivated'); loadMembers(); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+function isAdmin() {
+  const adminRoles = ["super_admin","chairperson","secretary","treasurer"];
+  return adminRoles.includes(currentUser?.role);
+}
+
+async function deleteMember(id, name) {
+  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/members/${id}`, {method:"DELETE"});
+    toast(`${name} deleted`);
+    loadMembers();
+    loadAllMembers();
+  } catch(e) { toast(e.message,"error"); }
+}
+
+async function loadContribSummary() {
+  try {
+    const data = await apiFetch('/contributions/summary');
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const tm = data.monthly_breakdown?.find(m=>m.month===thisMonth);
+    document.getElementById('contrib-this-month').textContent = `KES ${fmt(tm?.total||0)}`;
+    document.getElementById('contrib-all-time').textContent   = `KES ${fmt(data.all_time_total||0)}`;
+    const pct = data.total_members ? Math.round((tm?.count||0)/data.total_members*100) : 0;
+    document.getElementById('contrib-paid-count').textContent = `${tm?.count||0} / ${data.total_members}`;
+    document.getElementById('contrib-progress').style.width = `${pct}%`;
+  } catch(e) {}
+}
+
+async function loadContribStatus() {
+  const month = document.getElementById('contrib-month-filter').value;
+  if (!month) return;
+  try {
+    const rows = await apiFetch(`/contributions/status/${month}`);
+    const tbody = document.getElementById('contrib-tbody');
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.full_name}</td>
+        <td>${r.paid ? `KES ${fmt(r.amount)}` : '—'}</td>
+        <td><span class="badge ${r.paid?'badge-green':'badge-red'}">${r.paid?'Paid':'Unpaid'}</span></td>
+        <td>—</td><td>—</td>
+      </tr>`).join('');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function saveContrib() {
+  try {
+    await apiFetch('/contributions', {
+      method: 'POST',
+      body: JSON.stringify({
+        member_id: +document.getElementById('c-member').value,
+        amount: +document.getElementById('c-amount').value,
+        month: document.getElementById('c-month').value,
+        payment_method: document.getElementById('c-method').value,
+        reference: document.getElementById('c-ref').value || null,
+        notes: document.getElementById('c-notes').value || null,
+      })
+    });
+    closeModal('modal-add-contrib');
+    toast('Contribution recorded');
+    loadContribSummary(); loadContribStatus();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadLoanSummary() {
+  try {
+    const s = await apiFetch('/loans/summary');
+    document.getElementById('loan-stat-pending').textContent     = s.pending;
+    document.getElementById('loan-stat-active').textContent      = s.active;
+    document.getElementById('loan-stat-outstanding').textContent = `KES ${fmt(s.total_outstanding)}`;
+    document.getElementById('loan-stat-repaid').textContent      = s.repaid;
+  } catch(e) {}
+}
+
+async function loadLoans() {
+  const status = document.getElementById('loan-filter').value;
+  try {
+    const loans = await apiFetch(`/loans${status?'?status='+status:''}`);
+    const tbody = document.getElementById('loans-tbody');
+    if (!loans.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No loans found</div></td></tr>'; return; }
+    const statusBadge = s => ({pending:'badge-yellow',disbursed:'badge-blue',repaid:'badge-green',rejected:'badge-red'}[s]||'badge-gray');
+    tbody.innerHTML = loans.map((l,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${l.member}</strong></td>
+        <td>KES ${fmt(l.amount)}</td>
+        <td>KES ${fmt(l.total_repayable)}</td>
+        <td>KES ${fmt(l.amount_repaid)}</td>
+        <td><span class="badge ${statusBadge(l.status)}">${l.status}</span></td>
+        <td>${l.due_date||'—'}</td>
+        <td>
+          ${l.status==='pending'?`
+            <button class="btn btn-sm btn-primary" onclick="approveLoan(${l.id},'disbursed')">Approve</button>
+            <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="approveLoan(${l.id},'rejected')">Reject</button>`:''}
+          ${l.status==='disbursed'?`<button class="btn btn-sm btn-outline" onclick="openRepay(${l.id})">Repay</button>`:''}
+        </td>
+      </tr>`).join('');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function saveLoan() {
+  try {
+    await apiFetch('/loans', {
+      method: 'POST',
+      body: JSON.stringify({
+        member_id: +document.getElementById('l-member').value,
+        amount: +document.getElementById('l-amount').value,
+        interest_rate: +document.getElementById('l-interest').value,
+        purpose: document.getElementById('l-purpose').value || null,
+      })
+    });
+    closeModal('modal-add-loan');
+    toast('Loan application submitted');
+    loadLoanSummary(); loadLoans();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function approveLoan(id, status) {
+  try {
+    await apiFetch(`/loans/${id}/status`, { method:'PATCH', body: JSON.stringify({status}) });
+    toast(status==='disbursed' ? 'Loan approved & disbursed' : 'Loan rejected');
+    loadDashboard(); loadLoanSummary(); loadLoans();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+function openRepay(loanId) {
+  document.getElementById('r-loan-id').value = loanId;
+  openModal('modal-repay');
+}
+
+async function saveRepayment() {
+  const loanId = document.getElementById('r-loan-id').value;
+  try {
+    const res = await apiFetch(`/loans/${loanId}/repay`, {
+      method:'POST',
+      body: JSON.stringify({
+        amount: +document.getElementById('r-amount').value,
+        payment_method: document.getElementById('r-method').value,
+        reference: document.getElementById('r-ref').value || null,
+      })
+    });
+    closeModal('modal-repay');
+    toast(`Repayment recorded. Balance: KES ${fmt(res.balance_remaining)}`);
+    loadLoanSummary(); loadLoans();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadEvents() {
+  try {
+    const events = await apiFetch('/events');
+    const tbody = document.getElementById('events-tbody');
+    if (!events.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">No events yet</div></td></tr>'; return; }
+    tbody.innerHTML = events.map((ev,i) => {
+      const isOpen = ev.status.toLowerCase() === 'open';
+      const statusBadge = isOpen ? 'badge-green' : 'badge-gray';
+      const manageBtn = `<button class="btn btn-sm btn-outline" style="color:var(--accent);border-color:var(--accent)" onclick="openManageEvent(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">Manage</button>`;
+      const closeBtn  = isOpen ? `<button class="btn btn-sm btn-danger" onclick="closeEvent(${ev.id})">Close</button>` : '';
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td><strong>${ev.title}</strong></td>
+          <td><span class="badge badge-blue">${ev.event_type}</span></td>
+          <td>${ev.beneficiary||'—'}</td>
+          <td>KES ${fmt(ev.target_amount)}</td>
+          <td>KES ${fmt(ev.total_raised||0)}</td>
+          <td><span class="badge ${statusBadge}">${ev.status}</span></td>
+          <td>${ev.date_raised||'—'}</td>
+          <td style="display:flex;gap:6px;align-items:center">${manageBtn}${closeBtn}</td>
+        </tr>`;
+    }).join('');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function saveEvent() {
+  try {
+    await apiFetch('/events', {
+      method:'POST',
+      body: JSON.stringify({
+        title: document.getElementById('e-title').value,
+        event_type: document.getElementById('e-type').value,
+        beneficiary_id: +document.getElementById('e-beneficiary').value,
+        target_amount: +document.getElementById('e-amount').value,
+        description: document.getElementById('e-desc').value || null,
+      })
+    });
+    closeModal('modal-add-event');
+    toast('Event created');
+    loadEvents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function closeEvent(id) {
+  if (!confirm('Close this event?')) return;
+  try { await apiFetch(`/events/${id}/close`,{method:'PATCH'}); toast('Event closed'); loadEvents(); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+async function loadMeetings() {
+  try {
+    const meetings = await apiFetch('/meetings');
+    const tbody = document.getElementById('meetings-tbody');
+    if (!meetings.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No meetings yet</div></td></tr>'; return; }
+    const statusBadge = s => ({scheduled:'badge-blue',completed:'badge-green',cancelled:'badge-red'}[s]||'badge-gray');
+    tbody.innerHTML = meetings.map((m,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${m.title}</strong></td>
+        <td>${m.date}</td>
+        <td>${m.venue||'TBD'}</td>
+        <td><span class="badge ${statusBadge(m.status)}">${m.status}</span></td>
+        <td><button class="btn btn-sm btn-outline" onclick="viewMeeting(${m.id})">View</button></td>
+      </tr>`).join('');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function saveMeeting() {
+  try {
+    await apiFetch('/meetings', {
+      method:'POST',
+      body: JSON.stringify({
+        title: document.getElementById('mt-title').value,
+        date: document.getElementById('mt-date').value,
+        time: document.getElementById('mt-time').value,
+        venue: document.getElementById('mt-venue').value,
+        agenda: document.getElementById('mt-agenda').value || null,
+      })
+    });
+    closeModal('modal-add-meeting');
+    toast('Meeting scheduled');
+    loadMeetings();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function viewMeeting(id) {
+  try {
+    const m = await apiFetch(`/meetings/${id}`);
+    alert(`${m.title}\nDate: ${m.date} ${m.time||''}\nVenue: ${m.venue||'TBD'}\nStatus: ${m.status}\n\nAgenda:\n${m.agenda||'None'}\n\nAttendance: ${m.attendance?.filter(a=>a.present).length||0}/${m.attendance?.length||0} present`);
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadPendingUsers() {
+  try {
+    const rows = await apiFetch('/auth/admin/pending');
+    const tbody = document.getElementById('pending-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No pending registrations</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((u, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${u.full_name}</strong></td>
+        <td>${u.phone_number}</td>
+        <td>${u.email || '—'}</td>
+        <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
+        <td style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${u.full_name}')">Approve</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function approveUser(id, name) {
+  if (!confirm(`Approve and activate ${name}?`)) return;
+  try {
+    await apiFetch(`/auth/admin/${id}/approve`, { method: 'PATCH' });
+    toast(`${name} approved and can now log in`);
+    loadPendingUsers();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function rejectUser(id, name) {
+  if (!confirm(`Reject registration for ${name}?`)) return;
+  try {
+    await apiFetch(`/auth/admin/${id}/reject`, { method: 'PATCH' });
+    toast(`${name} rejected`, 'error');
+    loadPendingUsers();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function fmt(n) { return Number(n||0).toLocaleString('en-KE'); }
+
+function openModal(id) { document.getElementById(id).classList.add('open'); populateMemberSelects(); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+});
+
+function toast(msg, type='success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type==='success'?'✓':'✕'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(()=>t.remove(), 4000);
+}
+
+async function saveAsset() {
+
+  const tbody = document.getElementById('assets-tbody');
+
+  const name = document.getElementById('a-name').value;
+  const category = document.getElementById('a-category').value;
+  const value = document.getElementById('a-value').value;
+  const status = document.getElementById('a-status').value;
+
+  tbody.innerHTML += `
+    <tr>
+      <td>${tbody.rows.length}</td>
+      <td><strong>${name}</strong></td>
+      <td>${category}</td>
+      <td>KES ${Number(value).toLocaleString()}</td>
+      <td>
+        <span class="badge badge-green">${status}</span>
+      </td>
+      <td>
+        <button class="btn btn-sm btn-danger">
+          Delete
+        </button>
+      </td>
+    </tr>
+  `;
+
+  closeModal('modal-add-asset');
+
+  toast('Asset added successfully');
+}
+
+async function saveProject() {
+
+  const tbody = document.getElementById('projects-tbody');
+
+  const name = document.getElementById('p-name').value;
+  const budget = document.getElementById('p-budget').value;
+  const deadline = document.getElementById('p-deadline').value;
+  const status = document.getElementById('p-status').value;
+
+  tbody.innerHTML += `
+    <tr>
+      <td>${tbody.rows.length}</td>
+      <td><strong>${name}</strong></td>
+      <td>KES ${Number(budget).toLocaleString()}</td>
+      <td>
+        <span class="badge badge-blue">${status}</span>
+      </td>
+      <td>${deadline}</td>
+      <td>
+        <button class="btn btn-sm btn-danger">
+          Delete
+        </button>
+      </td>
+    </tr>
+  `;
+
+  closeModal('modal-add-project');
+
+  toast('Project added successfully');
+}
+
+// ── Event Contributions ──────────────────────────────────────────
+let currentEventId = null;
+
+async function openManageEvent(eventId, title) {
+  currentEventId = eventId;
+  document.getElementById('manage-event-title').textContent = title + ' — Contributions';
+  document.getElementById('manage-event-stats').textContent = 'Loading...';
+  document.getElementById('ec-error').textContent = '';
+  document.getElementById('ec-amount').value = '';
+  document.getElementById('ec-note').value = '';
+  const sel = document.getElementById('ec-member');
+  sel.innerHTML = '<option value="">Select member...</option>' +
+    allMembers.filter(m => m.status === 'active')
+      .map(m => '<option value="' + m.id + '">' + m.full_name + '</option>').join('');
+  document.getElementById('modal-manage-event').classList.add('open');
+  await loadEventContributions();
+}
+
+async function loadEventContributions() {
+  const tbody = document.getElementById('ec-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Loading...</td></tr>';
+  try {
+    const data = await apiFetch('/events/' + currentEventId + '/contributions');
+    const pct = data.target_amount > 0 ? Math.min(100, Math.round(data.total_raised / data.target_amount * 100)) : 0;
+    document.getElementById('manage-event-stats').innerHTML =
+      'Target: <strong>KES ' + fmt(data.target_amount) + '</strong> &nbsp;|&nbsp; ' +
+      'Raised: <strong style="color:var(--accent)">KES ' + fmt(data.total_raised) + '</strong> &nbsp;|&nbsp; ' +
+      'Contributors: <strong>' + data.contributor_count + '</strong> &nbsp;|&nbsp; ' +
+      '<strong>' + pct + '%</strong> of target';
+    if (!data.contributions.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No contributions yet. Add the first one above.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.contributions.map(function(c, i) {
+      const safeNote = (c.notes || '').replace(/'/g, "\'");
+      const dateStr = c.recorded_at ? new Date(c.recorded_at).toLocaleDateString('en-KE') : '—';
+      return '<tr>' +
+        '<td>' + (i+1) + '</td>' +
+        '<td><strong>' + c.member_name + '</strong></td>' +
+        '<td>KES ' + fmt(c.amount) + '</td>' +
+        '<td style="color:var(--muted)">' + (c.notes || '—') + '</td>' +
+        '<td style="color:var(--muted)">' + dateStr + '</td>' +
+        '<td style="display:flex;gap:6px">' +
+          '<button class="btn btn-sm btn-outline" onclick="openEditContrib(' + c.id + ',' + c.member_id + ',' + c.amount + ','' + safeNote + '')">Edit</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="deleteEventContrib(' + c.id + ')">Delete</button>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f87171;padding:24px">' + e.message + '</td></tr>';
+  }
+}
+
+async function submitEventContribution() {
+  const member_id = parseInt(document.getElementById('ec-member').value);
+  const amount    = parseFloat(document.getElementById('ec-amount').value);
+  const note      = document.getElementById('ec-note').value.trim();
+  const errEl     = document.getElementById('ec-error');
+  if (!member_id) { errEl.textContent = 'Please select a member.'; return; }
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
+  errEl.textContent = '';
+  try {
+    await apiFetch('/events/' + currentEventId + '/contributions', {
+      method: 'POST',
+      body: JSON.stringify({ member_id: member_id, amount: amount, note: note || null })
+    });
+    document.getElementById('ec-member').value = '';
+    document.getElementById('ec-amount').value = '';
+    document.getElementById('ec-note').value   = '';
+    toast('Contribution recorded');
+    await loadEventContributions();
+    loadEvents();
+  } catch(e) { errEl.textContent = e.message; }
+}
+
+function openEditContrib(id, memberId, amount, note) {
+  document.getElementById('edit-ec-id').value     = id;
+  document.getElementById('edit-ec-amount').value = amount;
+  document.getElementById('edit-ec-note').value   = note;
+  document.getElementById('edit-ec-error').textContent = '';
+  const sel = document.getElementById('edit-ec-member');
+  sel.innerHTML = '<option value="">Select member...</option>' +
+    allMembers.filter(m => m.status === 'active')
+      .map(m => '<option value="' + m.id + '">' + m.full_name + '</option>').join('');
+  sel.value = memberId;
+  document.getElementById('modal-edit-contrib').classList.add('open');
+}
+
+async function saveEditContribution() {
+  const id        = document.getElementById('edit-ec-id').value;
+  const member_id = parseInt(document.getElementById('edit-ec-member').value);
+  const amount    = parseFloat(document.getElementById('edit-ec-amount').value);
+  const note      = document.getElementById('edit-ec-note').value.trim();
+  const errEl     = document.getElementById('edit-ec-error');
+  if (!member_id) { errEl.textContent = 'Please select a member.'; return; }
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
+  errEl.textContent = '';
+  try {
+    await apiFetch('/events/contributions/' + id, {
+      method: 'PUT',
+      body: JSON.stringify({ member_id: member_id, amount: amount, note: note || null })
+    });
+    closeModal('modal-edit-contrib');
+    toast('Contribution updated');
+    await loadEventContributions();
+    loadEvents();
+  } catch(e) { errEl.textContent = e.message; }
+}
+
+async function deleteEventContrib(id) {
+  if (!confirm('Delete this contribution? This cannot be undone.')) return;
+  try {
+    await apiFetch('/events/contributions/' + id, { method: 'DELETE' });
+    toast('Contribution deleted', 'error');
+    await loadEventContributions();
+    loadEvents();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// USER ROLE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+let allUsersForMgmt = [];
+
+const ROLE_COLORS = {
+  member:      'badge-gray',
+  admin:       'badge' ,
+  secretary:   'badge-blue',
+  treasurer:   'badge-yellow',
+  chairperson: 'badge-green',
+  super_admin: 'badge-red',
+};
+const ROLE_STYLE = {
+  admin:       'background:rgba(139,92,246,.15);color:#a78bfa',
+  super_admin: 'background:rgba(239,68,68,.15);color:#f87171',
+};
+
+function roleBadge(role) {
+  const cls   = ROLE_COLORS[role] || 'badge-gray';
+  const style = ROLE_STYLE[role]  ? `style="${ROLE_STYLE[role]}"` : '';
+  return `<span class="badge ${cls}" ${style}>${role}</span>`;
+}
+
+async function loadUserMgmt() {
+  const tbody = document.getElementById('um-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const members = await apiFetch('/members');
+    allUsersForMgmt = members;
+    renderUserMgmt(members);
+    updateUmStats(members);
+  } catch(e) {
+    // Offline fallback — show allMembers if already loaded
+    if (allMembers.length) {
+      allUsersForMgmt = allMembers;
+      renderUserMgmt(allMembers);
+      updateUmStats(allMembers);
+      toast('Showing cached member data (offline mode)', 'error');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#f87171">' + e.message + '</td></tr>';
+    }
+  }
+}
+
+function updateUmStats(members) {
+  const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
+  const admins  = members.filter(m => adminRoles.includes(m.role));
+  const regular = members.filter(m => m.role === 'member');
+  const pending = members.filter(m => m.status === 'pending');
+  const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  setEl('um-total',   members.length);
+  setEl('um-admins',  admins.length);
+  setEl('um-members', regular.length);
+  setEl('um-pending', pending.length);
+}
+
+function renderUserMgmt(members) {
+  const tbody = document.getElementById('um-tbody');
+  const countEl = document.getElementById('um-count');
+  if (countEl) countEl.textContent = members.length + ' user' + (members.length !== 1 ? 's' : '');
+
+  if (!members.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No users found</div></td></tr>';
+    return;
+  }
+
+  const roles = ['member','secretary','treasurer','chairperson','admin','super_admin'];
+
+  tbody.innerHTML = members.map((m, i) => {
+    const isSelf  = m.id === currentUser?.id;
+    const options = roles
+      .filter(r => r !== m.role)
+      .map(r => `<option value="${r}">${r}</option>`)
+      .join('');
+
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>
+        <strong>${m.full_name}</strong>
+        ${isSelf ? '<span style="font-size:10px;background:rgba(44,180,224,.15);color:#2cb4e0;padding:1px 6px;border-radius:10px;margin-left:6px;">You</span>' : ''}
+      </td>
+      <td style="color:var(--muted)">${m.phone_number}</td>
+      <td>${roleBadge(m.role)}</td>
+      <td><span class="badge ${m.status === 'active' ? 'badge-green' : 'badge-gray'}">${m.status || '—'}</span></td>
+      <td style="color:var(--muted);font-size:12px">${m.date_joined || '—'}</td>
+      <td>
+        ${isSelf
+          ? '<span style="font-size:12px;color:var(--muted)">Cannot change own role</span>'
+          : `<select id="role-sel-${m.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 10px;font-size:12px;font-family:inherit;">
+               ${options}
+             </select>`
+        }
+      </td>
+      <td>
+        ${isSelf
+          ? ''
+          : `<button class="btn btn-sm btn-primary" onclick="openRoleChangeModal(${m.id}, '${m.full_name}', '${m.phone_number}', '${m.role}')">Apply</button>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUserMgmt() {
+  const q  = (document.getElementById('um-search').value || '').toLowerCase();
+  const rf = document.getElementById('um-role-filter').value;
+  const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
+
+  const filtered = allUsersForMgmt.filter(m => {
+    const matchQ = !q || m.full_name.toLowerCase().includes(q) || m.phone_number.includes(q);
+    let   matchR = true;
+    if (rf === 'admin') {
+      matchR = adminRoles.includes(m.role);
+    } else if (rf) {
+      matchR = m.role === rf;
+    }
+    return matchQ && matchR;
+  });
+  renderUserMgmt(filtered);
+}
+
+function openRoleChangeModal(memberId, name, phone, currentRole) {
+  const sel = document.getElementById(`role-sel-${memberId}`);
+  if (!sel) return;
+  const newRole = sel.value;
+  if (!newRole) { toast('Please select a role first', 'error'); return; }
+
+  document.getElementById('rc-member-id').value = memberId;
+  document.getElementById('rc-new-role').value   = newRole;
+  document.getElementById('rc-name').textContent  = name;
+  document.getElementById('rc-phone').textContent = phone;
+  document.getElementById('rc-from-badge').outerHTML =
+    `<span class="badge ${ROLE_COLORS[currentRole]||'badge-gray'}" id="rc-from-badge">${currentRole}</span>`;
+  document.getElementById('rc-to-badge').outerHTML =
+    `<span class="badge ${ROLE_COLORS[newRole]||'badge-gray'}" id="rc-to-badge">${newRole}</span>`;
+
+  const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
+  const wasAdmin   = adminRoles.includes(currentRole);
+  const willAdmin  = adminRoles.includes(newRole);
+  let warning = '';
+  if (wasAdmin && !willAdmin) {
+    warning = '⚠️ Demoting this user will remove their dashboard access. They will only have member portal access.';
+  } else if (!wasAdmin && willAdmin) {
+    warning = '⬆️ This user will gain access to the admin dashboard and management tools.';
+  } else {
+    warning = 'ℹ️ This changes the user's committee role. Dashboard access is retained.';
+  }
+  document.getElementById('rc-warning').textContent = warning;
+
+  const confirmBtn = document.getElementById('rc-confirm-btn');
+  if (newRole === 'super_admin') {
+    confirmBtn.style.background = '#ef4444';
+    confirmBtn.textContent = '⚠️ Confirm (Super Admin)';
+  } else {
+    confirmBtn.style.background = '';
+    confirmBtn.textContent = 'Confirm Change';
+  }
+
+  document.getElementById('modal-role-change').classList.add('open');
+}
+
+async function confirmRoleChange() {
+  const memberId = document.getElementById('rc-member-id').value;
+  const newRole  = document.getElementById('rc-new-role').value;
+  const name     = document.getElementById('rc-name').textContent;
+
+  const confirmBtn = document.getElementById('rc-confirm-btn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Saving…';
+
+  try {
+    // Try live API
+    await apiFetch(`/members/${memberId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: newRole })
+    });
+    toast(`✅ ${name} is now: ${newRole}`);
+    closeModal('modal-role-change');
+    loadUserMgmt();
+    loadAllMembers();
+  } catch(e) {
+    // Offline fallback — update local data only
+    if (token === 'offline-token' || e.message.includes('fetch')) {
+      const user = allUsersForMgmt.find(m => String(m.id) === String(memberId));
+      if (user) {
+        user.role = newRole;
+        toast(`✅ ${name} → ${newRole} (offline — will sync when server is connected)`);
+        closeModal('modal-role-change');
+        renderUserMgmt(allUsersForMgmt);
+        updateUmStats(allUsersForMgmt);
+      }
+    } else {
+      toast(e.message, 'error');
+    }
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm Change';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+
+function loadOfflineDashboard() {
+  const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  setEl('stat-members', '147'); setEl('stat-members-sub', 'Offline — cached');
+  setEl('stat-contrib', 'KES —'); setEl('stat-contrib-sub', 'Connect server for live data');
+  setEl('stat-loans', '—');
+  toast('Server offline — showing cached data. Connect your FastAPI server for live figures.', 'error');
+}
+
+// Guard: redirect non-admin sessions
+(function guardPage() {
+  const u = JSON.parse(localStorage.getItem('chama_user') || 'null');
+  if (u && !['admin','super_admin','chairperson','secretary','treasurer'].includes(u.role)) {
+    localStorage.removeItem('chama_token');
+    localStorage.removeItem('chama_user');
+    window.location.href = '/';
+  }
+})();
+
+if (token) initApp();
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+from fastapi import APIRouter, HTTPException, Depends
+from app.database import get_connection
+from app.models import EventCreate, ContributionCreate
+from app.routes.auth import get_current_user
+from app.auth_deps import require_secretary, require_chairperson, require_treasurer
+from datetime import date
+
+router = APIRouter()
+
+
+@router.post("/")
+def create_event(
+    event: EventCreate,
+    _=Depends(require_secretary)        # secretary and above can create events
+):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO events (title, event_type, beneficiary_id, description, target_amount)
+            VALUES (%s, %s, %s, %s, %s) RETURNING id
+        """, (event.title, event.event_type, event.beneficiary_id,
+              event.description, event.target_amount))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"message": "Event raised", "id": new_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.get("/")
+def list_events(status: str = "", _=Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+    if status:
+        cur.execute("""
+            SELECT e.id, e.title, e.event_type, m.full_name, e.target_amount, e.status, e.date_raised
+            FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
+            WHERE e.status = %s ORDER BY e.date_raised DESC
+        """, (status,))
+    else:
+        cur.execute("""
+            SELECT e.id, e.title, e.event_type, m.full_name, e.target_amount, e.status, e.date_raised
+            FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
+            ORDER BY e.date_raised DESC
+        """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [
+        {"id": r[0], "title": r[1], "event_type": r[2], "beneficiary": r[3],
+         "target_amount": r[4], "status": r[5], "date_raised": r[6]}
+        for r in rows
+    ]
+
+
+@router.get("/{event_id}")
+def get_event(event_id: int, _=Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT e.*, m.full_name,
+        COALESCE(SUM(c.amount), 0) as total_raised
+        FROM events e
+        LEFT JOIN members m ON e.beneficiary_id = m.id
+        LEFT JOIN contributions c ON c.event_id = e.id
+        WHERE e.id = %s GROUP BY e.id, m.full_name
+    """, (event_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {
+        "id": row[0], "title": row[1], "event_type": row[2],
+        "description": row[4], "target_amount": row[5],
+        "status": row[6], "date_raised": row[7],
+        "beneficiary": row[10], "total_raised": row[11]
+    }
+
+
+@router.post("/{event_id}/contribute")
+def add_contribution(
+    event_id: int,
+    contribution: ContributionCreate,
+    _=Depends(require_treasurer)        # treasurer and above records contributions
+):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO contributions (event_id, member_id, amount, payment_method, reference, notes)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """, (event_id, contribution.member_id, contribution.amount,
+              contribution.payment_method, contribution.reference, contribution.notes))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"message": "Contribution recorded", "id": new_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.patch("/{event_id}/close")
+def close_event(
+    event_id: int,
+    _=Depends(require_chairperson)      # only chairperson/super_admin can close events
+):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE events SET status='closed', date_closed=%s WHERE id=%s",
+                (date.today(), event_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"message": "Event closed"}
