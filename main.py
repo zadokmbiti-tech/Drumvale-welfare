@@ -17,7 +17,7 @@ def startup():
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:8080,http://127.0.0.1:8080"
+    "http://localhost:8080,http://127.0.0.1:8080,https://drumvale-welfare.onrender.com"
 ).split(",")
 
 app.add_middleware(
