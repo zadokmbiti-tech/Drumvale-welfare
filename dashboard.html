@@ -351,7 +351,21 @@
   <div id="page-members" class="page">
     <div class="page-header">
       <div><h2>Members</h2><p>Manage chama membership</p></div>
-      <button class="btn btn-primary" onclick="openModal('modal-add-member')">+ Add Member</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="downloadMembersReport()" title="Download all members as CSV">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-outline" onclick="downloadMembersTemplate()" title="Download blank import template">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Template
+        </button>
+        <button class="btn btn-outline" onclick="openModal('modal-bulk-import')" title="Import members from CSV">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import CSV
+        </button>
+        <button class="btn btn-primary" onclick="openModal('modal-add-member')">+ Add Member</button>
+      </div>
     </div>
     <div class="card">
       <div style="display:flex;gap:12px;margin-bottom:18px">
@@ -563,7 +577,13 @@
   <div id="page-admin" class="page">
     <div class="page-header">
       <div><h2>Admin</h2><p>Pending member registrations</p></div>
-      <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="downloadMembersReport()" title="Download members CSV">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Members Report
+        </button>
+        <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">⏳ Pending Registrations</div>
@@ -1068,7 +1088,13 @@
 <div id="page-finance" class="page">
   <div class="page-header">
     <div><h2>💰 Finance</h2><p>Income, expenditure and asset leasing</p></div>
-    <button class="btn btn-outline" onclick="loadFinance()">↺ Refresh</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline" onclick="downloadFinanceReport()" title="Download filtered records as CSV">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Report
+      </button>
+      <button class="btn btn-outline" onclick="loadFinance()">↺ Refresh</button>
+    </div>
   </div>
 
   <!-- Summary Cards -->
@@ -1265,6 +1291,34 @@
         </select>
       </div>
       <button class="btn btn-primary" onclick="postNotice()">📢 Post Notice</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ BULK IMPORT MODAL ═══════════ -->
+<div id="modal-bulk-import" class="modal-backdrop">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>📥 Bulk Import Members</h3>
+      <button class="modal-close" onclick="closeModal('modal-bulk-import')">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      Upload a CSV file to add multiple members at once. Download the
+      <a href="#" onclick="downloadMembersTemplate();return false" style="color:var(--accent)">template</a>
+      to see the required format.
+    </p>
+    <div class="form-group">
+      <label>CSV File</label>
+      <input type="file" id="import-file" accept=".csv"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:14px;width:100%"/>
+    </div>
+    <div id="import-result" style="margin-top:14px;font-size:13px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-bulk-import')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBulkImport()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import
+      </button>
     </div>
   </div>
 </div>
@@ -2562,6 +2616,75 @@ async function deleteFinanceRecord(id) {
     toast('Record deleted');
     loadFinance();
   } catch(e) { toast(e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// CSV BULK IMPORT & REPORT DOWNLOADS
+// ═══════════════════════════════════════════════════════
+
+function _csvDownload(url, filename) {
+  const a = document.createElement('a');
+  a.href = `${API_BASE}${url}`;
+  // Pass auth token as query param for direct download links
+  a.href += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function downloadMembersTemplate() {
+  _csvDownload('/members/template/csv', 'members_template.csv');
+}
+
+function downloadMembersReport() {
+  _csvDownload('/members/report/csv', 'members_report.csv');
+}
+
+function downloadFinanceReport() {
+  const type = document.getElementById('fin-filter-type')?.value || '';
+  const cat  = document.getElementById('fin-filter-cat')?.value  || '';
+  let qs = '';
+  if (type) qs += `&type=${encodeURIComponent(type)}`;
+  if (cat)  qs += `&category=${encodeURIComponent(cat)}`;
+  _csvDownload(`/finance/report/csv?${qs}`, 'finance_report.csv');
+}
+
+async function submitBulkImport() {
+  const fileInput = document.getElementById('import-file');
+  const resultEl  = document.getElementById('import-result');
+  if (!fileInput.files.length) { toast('Please select a CSV file', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  resultEl.style.display = 'none';
+  try {
+    const resp = await fetch(`${API_BASE}/members/bulk-import`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Import failed');
+
+    let html = `<div style="color:#10b981;font-weight:600;margin-bottom:8px">✅ ${data.inserted} member(s) imported successfully</div>`;
+    if (data.errors && data.errors.length) {
+      html += `<div style="color:#f87171;font-weight:600;margin-bottom:6px">⚠️ ${data.errors.length} row error(s):</div>`;
+      html += data.errors.map(e =>
+        `<div style="font-size:12px;color:var(--muted);padding:2px 0">Row ${e.row}: ${e.error}</div>`
+      ).join('');
+    }
+    resultEl.innerHTML = html;
+    resultEl.style.display = 'block';
+    fileInput.value = '';
+    loadMembers();
+    toast(`✅ Imported ${data.inserted} member(s)`);
+  } catch(e) {
+    resultEl.innerHTML = `<div style="color:#f87171">❌ ${e.message}</div>`;
+    resultEl.style.display = 'block';
+    toast(e.message, 'error');
+  }
 }
 
 if (token) initApp();

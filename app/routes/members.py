@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
+import csv
+import io
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi.responses import StreamingResponse
 from app.database import get_connection
 from app.models import MemberCreate
 from app.routes.auth import get_current_user
@@ -178,6 +181,128 @@ def change_member_role(
     finally:
         cur.close()
         conn.close()
+
+
+@router.get("/template/csv")
+def download_csv_template(_=Depends(require_secretary)):
+    """Return a blank CSV template for bulk member import."""
+    fields = [
+        "full_name", "phone_number", "id_number", "role", "status",
+        "date_joined", "next_of_kin_name", "next_of_kin_phone", "notes"
+    ]
+    example = [
+        "Jane Doe", "0712345678", "12345678", "member", "active",
+        "2024-01-15", "John Doe", "0798765432", "Founding member"
+    ]
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(fields)
+    writer.writerow(example)
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=members_template.csv"}
+    )
+
+
+@router.post("/bulk-import")
+async def bulk_import_members(
+    file: UploadFile = File(...),
+    _=Depends(require_secretary)
+):
+    """
+    Import members from a CSV file.
+    Required columns: full_name, phone_number
+    Optional: id_number, role, status, date_joined, next_of_kin_name, next_of_kin_phone, notes
+    Returns counts of inserted rows and any row-level errors.
+    """
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are accepted")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")   # strip BOM if present
+    except UnicodeDecodeError:
+        raise HTTPException(400, "File must be UTF-8 encoded")
+
+    reader = csv.DictReader(io.StringIO(text))
+    required = {"full_name", "phone_number"}
+    if not required.issubset(set(reader.fieldnames or [])):
+        raise HTTPException(400, f"CSV must contain columns: {', '.join(required)}")
+
+    inserted, errors = 0, []
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        for i, row in enumerate(reader, start=2):   # row 1 = header
+            full_name    = (row.get("full_name") or "").strip()
+            phone_number = (row.get("phone_number") or "").strip()
+            if not full_name or not phone_number:
+                errors.append({"row": i, "error": "full_name and phone_number are required"})
+                continue
+            id_number        = (row.get("id_number") or "").strip() or None
+            role             = (row.get("role") or "member").strip()
+            status           = (row.get("status") or "active").strip()
+            date_joined      = (row.get("date_joined") or "").strip() or None
+            nok_name         = (row.get("next_of_kin_name") or "").strip() or None
+            nok_phone        = (row.get("next_of_kin_phone") or "").strip() or None
+            notes            = (row.get("notes") or "").strip() or None
+            try:
+                cur.execute("""
+                    INSERT INTO members
+                        (full_name, phone_number, id_number, role, status,
+                         date_joined, next_of_kin_name, next_of_kin_phone, notes)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (phone_number) DO NOTHING
+                """, (full_name, phone_number, id_number, role, status,
+                      date_joined, nok_name, nok_phone, notes))
+                inserted += cur.rowcount
+            except Exception as e:
+                conn.rollback()
+                errors.append({"row": i, "error": str(e)})
+                continue
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+    return {
+        "inserted": inserted,
+        "errors": errors,
+        "message": f"{inserted} member(s) imported, {len(errors)} error(s)"
+    }
+
+
+@router.get("/report/csv")
+def download_members_csv(_=Depends(require_secretary)):
+    """Download all members as a CSV report."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, full_name, phone_number, id_number, role, status,
+                   date_joined::text, next_of_kin_name, next_of_kin_phone, notes
+            FROM members ORDER BY full_name
+        """)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "id", "full_name", "phone_number", "id_number", "role", "status",
+        "date_joined", "next_of_kin_name", "next_of_kin_phone", "notes"
+    ])
+    writer.writerows(rows)
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=members_report.csv"}
+    )
 
 
 @router.get("/phones/all")
