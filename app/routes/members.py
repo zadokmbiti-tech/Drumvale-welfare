@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection
 from app.models import MemberCreate
 from app.routes.auth import get_current_user
-from app.auth_deps import require_secretary, require_chairperson
+from app.auth_deps import require_secretary, require_chairperson, require_super_admin
 
 router = APIRouter()
 
@@ -128,3 +128,67 @@ def delete_member(
     if not deleted:
         raise HTTPException(status_code=404, detail="Member not found")
     return {"message": "Member deleted"}
+
+
+@router.patch("/{member_id}/role")
+def change_member_role(
+    member_id: int,
+    body: dict,
+    current_user=Depends(require_super_admin)   # only super_admin can change roles
+):
+    """
+    Change a member's role (in the members table).
+    Also syncs the role to the users table if a matching phone_number exists.
+    Only super_admin can call this.
+    """
+    valid_roles = ("member", "treasurer", "secretary", "chairperson", "super_admin")
+    new_role = body.get("role")
+    if new_role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
+
+    # Prevent self-demotion/promotion (compare against user_id in JWT)
+    if str(member_id) == str(current_user.get("user_id")):
+        raise HTTPException(status_code=400, detail="You cannot change your own role")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # Update members table
+        cur.execute(
+            "UPDATE members SET role=%s WHERE id=%s RETURNING full_name, phone_number",
+            (new_role, member_id)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Member not found")
+        full_name, phone_number = row
+
+        # Sync to users table (same phone_number)
+        cur.execute(
+            "UPDATE users SET role=%s WHERE phone_number=%s",
+            (new_role, phone_number)
+        )
+        conn.commit()
+        return {"message": f"{full_name}'s role updated to {new_role}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.get("/phones/all")
+def get_all_phones(current_user=Depends(require_super_admin)):
+    """Return phone numbers of all active members — used for SMS broadcast."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT phone_number FROM members WHERE status='active' AND phone_number IS NOT NULL"
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [r[0] for r in rows]

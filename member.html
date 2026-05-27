@@ -185,6 +185,9 @@
     <!-- OVERVIEW -->
     <div class="section active" id="sec-overview">
       <div class="section-title">Welcome back, <span id="welcome-name">Member</span></div>
+
+      <!-- Meeting Notifications Banner -->
+      <div id="meeting-notifications" style="display:none;margin-bottom:20px;"></div>
       <div class="cards-grid">
         <div class="stat-card blue">
           <div class="stat-icon">💰</div>
@@ -451,6 +454,33 @@ function emptyState(icon, msg) {
 /* ══ OVERVIEW ══ */
 async function loadOverview() {
   try {
+    // ── Meeting notifications (upcoming scheduled meetings) ──────
+    const mr = await fetch(`${API}/meetings`, {headers: authH()});
+    if (mr.ok) {
+      const meetings = await mr.json();
+      const upcoming = meetings.filter(m => m.status === 'scheduled');
+      const notifEl  = document.getElementById('meeting-notifications');
+      if (upcoming.length > 0) {
+        notifEl.style.display = 'block';
+        notifEl.innerHTML = upcoming.map(m => `
+          <div style="background:rgba(44,180,224,0.08);border:1px solid rgba(44,180,224,0.25);
+            border-left:4px solid var(--sky);border-radius:10px;padding:16px 20px;margin-bottom:10px;
+            display:flex;align-items:flex-start;gap:14px;">
+            <span style="font-size:1.4rem;flex-shrink:0;">📅</span>
+            <div>
+              <div style="font-weight:600;font-size:0.92rem;margin-bottom:4px;">Meeting Scheduled: ${m.title}</div>
+              <div style="font-size:0.8rem;color:var(--silver);">
+                📅 ${m.date} &nbsp;·&nbsp; 📍 ${m.venue || 'TBD'}
+              </div>
+            </div>
+            <span style="margin-left:auto;font-size:0.7rem;background:rgba(44,180,224,0.15);
+              color:var(--sky);padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;">UPCOMING</span>
+          </div>`).join('');
+      } else {
+        notifEl.style.display = 'none';
+      }
+    }
+
     // Member contributions total
     const cr = await fetch(`${API}/contributions/my`, {headers: authH()});
     if (cr.ok) {
@@ -487,7 +517,7 @@ async function loadOverview() {
       document.getElementById('ov-loans').textContent = '0';
     }
 
-    // Events
+    // Events + Upcoming Events section
     const er = await fetch(`${API}/events`, {headers: authH()});
     if (er.ok) {
       const events = await er.json();
@@ -513,6 +543,33 @@ async function loadOverview() {
 
     // Status
     document.getElementById('ov-status').innerHTML = '<span style="color:var(--green);">Active</span>';
+
+    // Notices (recent 3) — shown below upcoming events
+    try {
+      const nr = await fetch(`${API}/notices`);
+      if (nr.ok) {
+        const notices = await nr.json();
+        if (notices.length > 0) {
+          const priorityColor = p => p==='urgent'?'#f85149':p==='important'?'#d29922':'#2cb4e0';
+          const upcomingBody = document.getElementById('upcoming-events-body');
+          const noticeHtml = `
+            <div style="padding:12px 16px;border-top:1px solid rgba(44,180,224,0.1);">
+              <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;
+                color:var(--muted);margin-bottom:10px;">📢 Recent Notices</div>
+              ${notices.slice(0,3).map(n=>`
+                <div style="border-left:3px solid ${priorityColor(n.priority)};
+                  padding:8px 14px;margin-bottom:8px;background:rgba(0,0,0,0.2);border-radius:0 6px 6px 0;">
+                  <div style="font-size:0.85rem;font-weight:600;margin-bottom:2px;">${n.title}</div>
+                  <div style="font-size:0.78rem;color:var(--silver);">${n.body}</div>
+                  <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;">
+                    ${new Date(n.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'})}
+                  </div>
+                </div>`).join('')}
+            </div>`;
+          upcomingBody.insertAdjacentHTML('beforeend', noticeHtml);
+        }
+      }
+    } catch(_) {}
 
   } catch(e) {
     console.log('Overview error:', e.message);

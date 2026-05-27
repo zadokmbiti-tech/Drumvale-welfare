@@ -1101,7 +1101,7 @@ async function doLogin() {
       err.style.display = 'block'; return;
     }
     token = data.access_token;
-    currentUser = {id: data.user_id, name: data.full_name, role: data.role};
+    currentUser = {id: data.user_id, name: data.full_name, role: data.role, phone: data.phone_number || ''};
     localStorage.setItem('chama_token', token);
     localStorage.setItem('chama_user', JSON.stringify(currentUser));
     document.getElementById('login-screen').style.display = 'none';
@@ -1202,45 +1202,50 @@ function showPage(name) {
 
 async function loadDashboard() {
   try {
-    const [members, loans, events, meetings, contribSummary] = await Promise.all([
+    // Use the single /stats endpoint for all summary cards — avoids 5 round trips
+    const [stats, members, loans, meetings] = await Promise.all([
+      apiFetch('/stats'),
       apiFetch('/members'),
       apiFetch('/loans'),
-      apiFetch('/events'),
       apiFetch('/meetings'),
-      apiFetch('/contributions/summary')
     ]);
 
-    const active = members.filter(m => m.status==='active');
-    document.getElementById('stat-members').textContent = members.length;
-    document.getElementById('stat-members-sub').textContent = `${active.length} active`;
+    // ── Stat cards ─────────────────────────────────────────────
+    document.getElementById('stat-members').textContent = stats.total_members ?? members.length;
+    document.getElementById('stat-members-sub').textContent =
+      `${stats.active_members ?? members.filter(m=>m.status==='active').length} active`;
 
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const thisMonthData = contribSummary.monthly_breakdown?.find(m=>m.month===thisMonth);
-    document.getElementById('stat-contrib').textContent = `KES ${fmt(thisMonthData?.total||0)}`;
+    document.getElementById('stat-contrib').textContent =
+      `KES ${fmt(stats.this_month_contributions ?? 0)}`;
 
-    const activeLoans = loans.filter(l => l.status==='disbursed');
-    document.getElementById('stat-loans').textContent = activeLoans.length;
-    document.getElementById('stat-loans-sub').textContent = `KES ${fmt(activeLoans.reduce((s,l)=>s+l.balance,0))} outstanding`;
+    document.getElementById('stat-loans').textContent = stats.active_loans ?? '—';
+    document.getElementById('stat-loans-sub').textContent =
+      `KES ${fmt(stats.outstanding_balance ?? 0)} outstanding`;
 
-    const openEvents = events.filter(e => e.status.toLowerCase()==='open');
-    document.getElementById('stat-events').textContent = openEvents.length;
+    document.getElementById('stat-events').textContent = stats.open_events ?? '—';
 
-    const recent = [...members].slice(0,5);
+    // Assets & Projects are local-only for now
+    document.getElementById('stat-Assets').textContent   = '—';
+    document.getElementById('stat-Projects').textContent = '—';
+
+    // ── Recent Members mini-table ──────────────────────────────
+    const recent = [...members].slice(0, 5);
     document.getElementById('dash-members-list').innerHTML = `
       <table><thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead><tbody>
       ${recent.map(m=>`<tr><td>${m.full_name}</td><td>${m.role}</td><td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td></tr>`).join('')}
       </tbody></table>`;
 
+    // ── Upcoming Meetings ──────────────────────────────────────
     const upcoming = meetings.filter(m=>m.status==='scheduled').slice(0,3);
     document.getElementById('dash-meetings-list').innerHTML = upcoming.length
       ? upcoming.map(m=>`
-        <div style="padding:12px 0;border-bottom:1px solid var(--border);last-child:border-none">
+        <div style="padding:12px 0;border-bottom:1px solid var(--border)">
           <div style="font-weight:600;font-size:14px">${m.title}</div>
           <div style="color:var(--muted);font-size:12px;margin-top:4px">📅 ${m.date} &nbsp; 📍 ${m.venue||'TBD'}</div>
         </div>`).join('')
       : '<div style="color:var(--muted);font-size:13px;padding:12px 0">No upcoming meetings</div>';
 
+    // ── Pending Loans ──────────────────────────────────────────
     const pending = loans.filter(l=>l.status==='pending').slice(0,5);
     document.getElementById('dash-loans-list').innerHTML = pending.length
       ? `<table><thead><tr><th>Member</th><th>Amount</th><th>Purpose</th><th>Actions</th></tr></thead><tbody>
@@ -1249,6 +1254,18 @@ async function loadDashboard() {
          <button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="approveLoan(${l.id},'rejected')">Reject</button></td></tr>`).join('')}
          </tbody></table>`
       : '<div style="color:var(--muted);font-size:13px;padding:8px 0">No pending loan applications</div>';
+
+    // Show pending registrations badge in nav if any
+    if (stats.pending_registrations > 0) {
+      const navAdmin = document.getElementById('nav-admin');
+      if (navAdmin && !navAdmin.querySelector('.pending-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'pending-badge';
+        badge.style.cssText = 'margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;font-size:10px;padding:1px 7px;font-weight:700;';
+        badge.textContent = stats.pending_registrations;
+        navAdmin.appendChild(badge);
+      }
+    }
 
   } catch(e) {
     console.error('Dashboard load error:', e);
@@ -1559,8 +1576,10 @@ async function loadMeetings() {
 }
 
 async function saveMeeting() {
+  const btn = document.querySelector('#modal-add-meeting .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
   try {
-    await apiFetch('/meetings', {
+    const res = await apiFetch('/meetings', {
       method:'POST',
       body: JSON.stringify({
         title: document.getElementById('mt-title').value,
@@ -1571,9 +1590,21 @@ async function saveMeeting() {
       })
     });
     closeModal('modal-add-meeting');
-    toast('Meeting scheduled');
+    // Build a descriptive toast based on SMS result
+    const sms = res.sms || {};
+    if (sms.status === 'sent') {
+      toast(`✅ Meeting scheduled · Notice posted · SMS sent to ${sms.recipients} members`);
+    } else if (sms.status === 'skipped') {
+      toast(`✅ Meeting scheduled & notice posted. SMS skipped: ${sms.reason || 'AT not configured'}`);
+    } else if (sms.status === 'error') {
+      toast(`✅ Meeting scheduled & notice posted. SMS error: ${sms.reason}`, 'error');
+    } else {
+      toast('Meeting scheduled successfully');
+    }
     loadMeetings();
+    loadDashboard();
   } catch(e) { toast(e.message,'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Schedule'; } }
 }
 
 async function viewMeeting(id) {
@@ -1895,7 +1926,7 @@ function renderUserMgmt(members) {
   const roles = ['member','secretary','treasurer','chairperson','admin','super_admin'];
 
   tbody.innerHTML = members.map((m, i) => {
-    const isSelf  = m.id === currentUser?.id;
+    const isSelf  = String(m.id) === String(currentUser?.id);
     const options = roles
       .filter(r => r !== m.role)
       .map(r => `<option value="${r}">${r}</option>`)
@@ -1948,6 +1979,11 @@ function filterUserMgmt() {
 }
 
 function openRoleChangeModal(memberId, name, phone, currentRole) {
+  // Only super_admin can change roles
+  if (currentUser?.role !== 'super_admin') {
+    toast('Only a Super Admin can change member roles', 'error');
+    return;
+  }
   const sel = document.getElementById(`role-sel-${memberId}`);
   if (!sel) return;
   const newRole = sel.value;
