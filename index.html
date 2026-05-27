@@ -288,7 +288,7 @@
       <li><a href="#home">Home</a></li>
       <li><a href="#about">About</a></li>
       <li><a href="#contact">Contact</a></li>
-      <li><a href="/member">LOGIN</a>
+      <li><a href="/member" class="nav-btn nav-btn-login" style="padding:7px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.85rem;">LOGIN</a>
       <a href="/dashboard" style="font-size:11px;color:var(--silver);opacity:0.5;margin-left:8px;text-decoration:none;" title="Committee Access">⚙</a>
       <li><button class="nav-btn nav-btn-register" onclick="openModal('register')">Register</button></li>
     </ul>
@@ -312,7 +312,7 @@
       <p class="hero-desc">A registered community welfare group committed to member <strong>welfare support</strong>, <strong>collective investment</strong>, <strong>education</strong>, and the social well-being of all Drumvale Riverview households.</p>
       <div class="hero-cta">
         <button class="btn-primary" onclick="openModal('register')">Join the Group</button>
-        <a class="btn-outline" href ="member.html">Member Portal</a>
+        <a class="btn-outline" href="/member">Member Portal</a>
         <a class="btn-outline" href="#about">Learn More</a>
       </div>
     </section>
@@ -324,22 +324,22 @@
       <div class="public-stats-grid">
         <div class="pub-stat">
           <div class="pub-stat-icon">👥</div>
-          <div class="pub-stat-num" id="pub-members">303</div>
+          <div class="pub-stat-num" id="pub-members">—</div>
           <div class="pub-stat-label">Registered Members</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">🏗️</div>
-          <div class="pub-stat-num" id="pub-assets">2</div>
+          <div class="pub-stat-num" id="pub-assets">—</div>
           <div class="pub-stat-label">Community Assets / Projects</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">📅</div>
-          <div class="pub-stat-num" id="pub-events"></div>
+          <div class="pub-stat-num" id="pub-events">—</div>
           <div class="pub-stat-label">Active Events & Cases</div>
         </div>
         <div class="pub-stat">
           <div class="pub-stat-icon">💰</div>
-          <div class="pub-stat-num" id="pub-welfare">Ksh</div>
+          <div class="pub-stat-num" id="pub-welfare">—</div>
           <div class="pub-stat-label">Welfare Fund Raised</div>
         </div>
       </div>
@@ -555,7 +555,7 @@
         <h3>Registration Submitted!</h3>
         <p>Welcome to Drumvale Riverview Welfare Group.<br/>Your application will be reviewed by the committee.<br/>You may now log in with your phone number and password.</p>
         <br/>
-        <a href="#member.html" class="btn-primary">Proceed to Login</a>
+        <a href="/member" class="btn-primary">Proceed to Login</a>
       </div>
     </div>
   </div>
@@ -921,24 +921,36 @@ loadNotices();
 /* ══════════ LIVE PUBLIC STATS ══════════ */
 async function loadPublicStats() {
   try {
-    const res = await fetch('/stats');
-    if (!res.ok) return;
-    const d = await res.json();
+    // Fetch in parallel: stats endpoint + members + assets + projects
+    const [statsRes, membersRes, assetsRes, projectsRes] = await Promise.all([
+      fetch('/stats').catch(()=>null),
+      fetch('/members').catch(()=>null),
+      fetch('/assets').catch(()=>null),
+      fetch('/projects').catch(()=>null),
+    ]);
 
-    // Members
-    const mem = document.getElementById('pub-members');
-    if (mem) mem.textContent = d.total_members ?? '—';
+    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-    // Events
-    const ev = document.getElementById('pub-events');
-    if (ev) ev.textContent = d.open_events ?? '—';
+    // Members count
+    if (membersRes && membersRes.ok) {
+      const members = await membersRes.json();
+      setEl('pub-members', members.length ?? '—');
+    }
 
-    // Welfare fund
-    const wf = document.getElementById('pub-welfare');
-    if (wf) wf.textContent = d.all_time_contributions
-      ? 'Ksh ' + Number(d.all_time_contributions).toLocaleString()
-      : '—';
+    // Assets + Projects combined
+    let assetsCount = 0, projectsCount = 0;
+    if (assetsRes && assetsRes.ok)   { const a = await assetsRes.json();   assetsCount   = Array.isArray(a) ? a.length : 0; }
+    if (projectsRes && projectsRes.ok){ const p = await projectsRes.json(); projectsCount = Array.isArray(p) ? p.length : 0; }
+    setEl('pub-assets', assetsCount + projectsCount || '—');
 
+    // Events & welfare from /stats
+    if (statsRes && statsRes.ok) {
+      const d = await statsRes.json();
+      setEl('pub-events', d.open_events ?? '—');
+      setEl('pub-welfare', d.all_time_contributions
+        ? 'Ksh ' + Number(d.all_time_contributions).toLocaleString('en-KE')
+        : '—');
+    }
   } catch(e) {
     console.log('Stats unavailable:', e.message);
   }
