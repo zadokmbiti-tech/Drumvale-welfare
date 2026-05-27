@@ -1328,7 +1328,7 @@
 <script>
 // API URL — change this to your production URL before deploying
 // e.g. const API = 'https://chamalink.yourdomain.co.ke';
-const API = window.CHAMALINK_API || 'https://drumvale-welfare.onrender.com';
+const API = window.CHAMALINK_API || '';
 
 let token = localStorage.getItem('chama_token');
 let currentUser = JSON.parse(localStorage.getItem('chama_user') || 'null');
@@ -2622,15 +2622,22 @@ async function deleteFinanceRecord(id) {
 // CSV BULK IMPORT & REPORT DOWNLOADS
 // ═══════════════════════════════════════════════════════
 
-function _csvDownload(url, filename) {
-  const a = document.createElement('a');
-  a.href = `${API_BASE}${url}`;
-  // Pass auth token as query param for direct download links
-  a.href += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+async function _csvDownload(url, filename) {
+  try {
+    const res = await fetch(`${API}${url}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.status === 401) { toast('Session expired — please log in again', 'error'); logout(); return; }
+    if (!res.ok) { toast('Download failed — check your permissions', 'error'); return; }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch(e) { toast('Download error: ' + e.message, 'error'); }
 }
 
 function downloadMembersTemplate() {
@@ -2660,7 +2667,7 @@ async function submitBulkImport() {
 
   resultEl.style.display = 'none';
   try {
-    const resp = await fetch(`${API_BASE}/members/bulk-import`, {
+    const resp = await fetch(`${API}/members/bulk-import`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
