@@ -532,40 +532,73 @@ async function loadProfile() {
     if (!res.ok) throw new Error('Failed');
     const u = await res.json();
 
-    document.getElementById('prof-name').textContent = u.full_name || '—';
-    document.getElementById('prof-role').textContent = u.role || 'member';
-    document.getElementById('prof-meta').textContent = `Member since ${fmtDate(u.created_at)} · Phone: ${u.phone_number}`;
+    // Also try fetching the richer member record by phone/id
+    let m = {};
+    try {
+      const allRes = await fetch(`${API}/members`, {headers: authH()});
+      if (allRes.ok) {
+        const all = await allRes.json();
+        m = all.find(x => x.phone_number === u.phone_number) || {};
+      }
+    } catch(_) {}
+
+    // Merge: member record has more fields than /auth/me
+    const merged = { ...m, ...u,
+      id_number:        u.id_number       || m.id_number       || null,
+      date_of_birth:    u.date_of_birth   || m.date_of_birth   || null,
+      marital_status:   u.marital_status  || m.marital_status  || null,
+      court:            u.court           || m.court           || null,
+      house_number:     u.house_number    || m.house_number    || null,
+      spouse_name:      u.spouse_name     || m.spouse_name     || null,
+      next_of_kin_name: u.next_of_kin_name|| m.next_of_kin_name|| null,
+      next_of_kin_phone:u.next_of_kin_phone||m.next_of_kin_phone||null,
+      next_of_kin_2:    u.next_of_kin_2   || m.next_of_kin_2   || null,
+      nok2_phone:       u.nok2_phone      || m.nok2_phone      || null,
+      email:            u.email           || m.email           || null,
+    };
+
+    document.getElementById('prof-name').textContent = merged.full_name || '—';
+    document.getElementById('prof-role').textContent = merged.role || 'member';
+    document.getElementById('prof-meta').textContent = `Member since ${fmtDate(merged.created_at||merged.date_joined)} · Phone: ${merged.phone_number}`;
+
+    const val = v => v || '<span style="color:var(--silver);font-style:italic;font-size:0.85em;">Not provided</span>';
 
     document.getElementById('profile-grid').innerHTML = `
       <div class="profile-card">
         <h4>Personal Details</h4>
-        <div class="profile-row"><span class="label">Full Name</span><span class="value">${u.full_name||'—'}</span></div>
-        <div class="profile-row"><span class="label">Phone</span><span class="value">${u.phone_number||'—'}</span></div>
-        <div class="profile-row"><span class="label">Email</span><span class="value">${u.email||'—'}</span></div>
-        <div class="profile-row"><span class="label">ID Number</span><span class="value">${u.id_number||'—'}</span></div>
-        <div class="profile-row"><span class="label">Date of Birth</span><span class="value">${fmtDate(u.date_of_birth)}</span></div>
-        <div class="profile-row"><span class="label">Marital Status</span><span class="value">${u.marital_status||'—'}</span></div>
+        <div class="profile-row"><span class="label">Full Name</span><span class="value">${val(merged.full_name)}</span></div>
+        <div class="profile-row"><span class="label">Phone</span><span class="value">${val(merged.phone_number)}</span></div>
+        <div class="profile-row"><span class="label">Email</span><span class="value">${val(merged.email)}</span></div>
+        <div class="profile-row"><span class="label">ID Number</span><span class="value">${val(merged.id_number)}</span></div>
+        <div class="profile-row"><span class="label">Date of Birth</span><span class="value">${merged.date_of_birth ? fmtDate(merged.date_of_birth) : val(null)}</span></div>
+        <div class="profile-row"><span class="label">Marital Status</span><span class="value">${val(merged.marital_status)}</span></div>
       </div>
       <div class="profile-card">
         <h4>Residence</h4>
-        <div class="profile-row"><span class="label">Estate</span><span class="value">${u.residence||'Drumvale Riverview'}</span></div>
-        <div class="profile-row"><span class="label">Court</span><span class="value">${u.court||'—'}</span></div>
-        <div class="profile-row"><span class="label">House No.</span><span class="value">${u.house_number||'—'}</span></div>
-        <div class="profile-row"><span class="label">Spouse</span><span class="value">${u.spouse_name||'—'}</span></div>
+        <div class="profile-row"><span class="label">Estate</span><span class="value">Drumvale Riverview</span></div>
+        <div class="profile-row"><span class="label">Court</span><span class="value">${val(merged.court)}</span></div>
+        <div class="profile-row"><span class="label">House No.</span><span class="value">${val(merged.house_number)}</span></div>
+        <div class="profile-row"><span class="label">Spouse</span><span class="value">${val(merged.spouse_name)}</span></div>
       </div>
       <div class="profile-card">
         <h4>Next of Kin</h4>
-        <div class="profile-row"><span class="label">Name 1</span><span class="value">${u.next_of_kin_name||'—'}</span></div>
-        <div class="profile-row"><span class="label">Phone 1</span><span class="value">${u.next_of_kin_phone||'—'}</span></div>
-        <div class="profile-row"><span class="label">Name 2</span><span class="value">${u.next_of_kin_2||'—'}</span></div>
-        <div class="profile-row"><span class="label">Phone 2</span><span class="value">${u.nok2_phone||'—'}</span></div>
+        <div class="profile-row"><span class="label">Name 1</span><span class="value">${val(merged.next_of_kin_name)}</span></div>
+        <div class="profile-row"><span class="label">Phone 1</span><span class="value">${val(merged.next_of_kin_phone)}</span></div>
+        <div class="profile-row"><span class="label">Name 2</span><span class="value">${val(merged.next_of_kin_2)}</span></div>
+        <div class="profile-row"><span class="label">Phone 2</span><span class="value">${val(merged.nok2_phone)}</span></div>
       </div>
       <div class="profile-card">
         <h4>Account Status</h4>
-        <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${u.role||'member'}</span></span></div>
-        <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${u.registration_status||'approved'}</span></span></div>
-        <div class="profile-row"><span class="label">Member Since</span><span class="value">${fmtDate(u.created_at)}</span></div>
-        <div class="profile-row"><span class="label">Active</span><span class="value">${u.is_active ? '✅ Yes' : '❌ No'}</span></div>
+        <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${merged.role||'member'}</span></span></div>
+        <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${merged.registration_status||merged.status||'approved'}</span></span></div>
+        <div class="profile-row"><span class="label">Member Since</span><span class="value">${fmtDate(merged.created_at||merged.date_joined)}</span></div>
+        <div class="profile-row"><span class="label">Active</span><span class="value">${merged.is_active !== false ? '✅ Yes' : '❌ No'}</span></div>
+      </div>
+      <div class="profile-card" style="grid-column:1/-1;background:rgba(44,180,224,0.05);border:1px dashed rgba(44,180,224,0.2);">
+        <p style="font-size:0.82rem;color:var(--silver);margin:0;">
+          📋 Fields showing <em>Not provided</em> were not captured at registration. 
+          Contact the committee secretary to update your full profile details.
+        </p>
       </div>`;
   } catch(e) {
     document.getElementById('profile-grid').innerHTML = emptyState('⚠️','Could not load profile.');

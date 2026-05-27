@@ -1250,7 +1250,14 @@ async function loadDashboard() {
          </tbody></table>`
       : '<div style="color:var(--muted);font-size:13px;padding:8px 0">No pending loan applications</div>';
 
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error('Dashboard load error:', e);
+    const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+    setEl('stat-members-sub', 'Check API connection');
+    setEl('stat-contrib', '—'); setEl('stat-loans', '—'); setEl('stat-events', '—');
+    const ml = document.getElementById('dash-members-list');
+    if (ml) ml.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0">⚠️ Could not load data. <a href="#" onclick="loadDashboard();return false;" style="color:var(--accent)">Retry</a></div>`;
+  }
 }
 
 async function loadAllMembers() {
