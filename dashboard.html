@@ -576,85 +576,134 @@
   <div id="page-usermgmt" class="page">
     <div class="page-header">
       <div>
-        <h2>User Role Management</h2>
-        <p>Promote members to committee roles or demote admins back to member</p>
+        <h2>User Roles</h2>
+        <p>Manage system access and committee positions</p>
       </div>
-      <div style="display:flex;gap:10px;">
-        <div class="search-bar" style="width:220px">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="um-search" placeholder="Search name or phone…" oninput="filterUserMgmt()"/>
+      <button class="btn btn-outline" onclick="loadUserMgmt()">↺ Refresh</button>
+    </div>
+
+    <!-- Two panels side by side -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+      <!-- Panel 1: System Role -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:rgba(239,68,68,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔐</div>
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;">System Access</div>
+            <div style="font-size:0.75rem;color:var(--muted);">Controls dashboard access</div>
+          </div>
         </div>
-        <select id="um-role-filter" onchange="filterUserMgmt()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:13px;font-family:inherit;">
-          <option value="">All Roles</option>
-          <option value="member">Members</option>
-          <option value="admin">Admins</option>
-          <option value="chairperson">Chairperson</option>
-          <option value="secretary">Secretary</option>
-          <option value="treasurer">Treasurer</option>
-          <option value="super_admin">Super Admin</option>
-        </select>
-        <button class="btn btn-outline" onclick="loadUserMgmt()">↺ Refresh</button>
+        <div style="padding:16px 22px;">
+          <!-- Role pills -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
+            <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#10b981;">
+              <strong>member</strong> — Member portal only
+            </div>
+            <div style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#a78bfa;">
+              <strong>admin</strong> — Dashboard access
+            </div>
+            <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#f87171;">
+              <strong>super_admin</strong> — Full system access
+            </div>
+          </div>
+          <!-- Member select + role buttons -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">SELECT MEMBER</label>
+            <select id="sys-member-sel" onchange="onSysMemberChange()"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;">
+              <option value="">— Choose a member —</option>
+            </select>
+            <div id="sys-current-role" style="margin-top:8px;font-size:12px;color:var(--muted);min-height:18px;"></div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:10px;">SET SYSTEM ROLE</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="sys-role-btn" data-role="member"
+                style="flex:1;padding:10px;border-radius:8px;border:1.5px solid rgba(16,185,129,.3);background:rgba(16,185,129,.07);color:#10b981;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setSysRole('member')">👤 Member</button>
+              <button class="sys-role-btn" data-role="admin"
+                style="flex:1;padding:10px;border-radius:8px;border:1.5px solid rgba(139,92,246,.3);background:rgba(139,92,246,.07);color:#a78bfa;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setSysRole('admin')">🛡️ Admin</button>
+              <button class="sys-role-btn" data-role="super_admin"
+                style="flex:1;padding:10px;border-radius:8px;border:1.5px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);color:#f87171;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setSysRole('super_admin')">⚡ Super Admin</button>
+            </div>
+          </div>
+          <div id="sys-feedback" style="min-height:20px;font-size:12px;"></div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Committee Role -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:rgba(59,130,246,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🏛️</div>
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;">Committee Position</div>
+            <div style="font-size:0.75rem;color:var(--muted);">Assigns chama committee role</div>
+          </div>
+        </div>
+        <div style="padding:16px 22px;">
+          <!-- Position pills -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
+            <div style="background:rgba(44,180,224,.1);border:1px solid rgba(44,180,224,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#2cb4e0;">
+              <strong>chairperson</strong> — Leads meetings
+            </div>
+            <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#60a5fa;">
+              <strong>secretary</strong> — Records & minutes
+            </div>
+            <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:20px;padding:5px 14px;font-size:0.75rem;color:#fbbf24;">
+              <strong>treasurer</strong> — Finance & loans
+            </div>
+          </div>
+          <!-- Member select + position buttons -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">SELECT MEMBER</label>
+            <select id="com-member-sel" onchange="onComMemberChange()"
+              style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;">
+              <option value="">— Choose a member —</option>
+            </select>
+            <div id="com-current-role" style="margin-top:8px;font-size:12px;color:var(--muted);min-height:18px;"></div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:10px;">SET COMMITTEE POSITION</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <button class="com-role-btn" data-role="chairperson"
+                style="padding:10px;border-radius:8px;border:1.5px solid rgba(44,180,224,.3);background:rgba(44,180,224,.07);color:#2cb4e0;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setComRole('chairperson')">🎖️ Chairperson</button>
+              <button class="com-role-btn" data-role="secretary"
+                style="padding:10px;border-radius:8px;border:1.5px solid rgba(59,130,246,.3);background:rgba(59,130,246,.07);color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setComRole('secretary')">📝 Secretary</button>
+              <button class="com-role-btn" data-role="treasurer"
+                style="padding:10px;border-radius:8px;border:1.5px solid rgba(245,158,11,.3);background:rgba(245,158,11,.07);color:#fbbf24;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setComRole('treasurer')">💰 Treasurer</button>
+              <button class="com-role-btn" data-role="member"
+                style="padding:10px;border-radius:8px;border:1.5px solid rgba(107,114,128,.3);background:rgba(107,114,128,.07);color:#9ca3af;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;"
+                onclick="setComRole('member')">👤 Regular Member</button>
+            </div>
+          </div>
+          <div id="com-feedback" style="min-height:20px;font-size:12px;"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Role Summary Cards -->
-    <div class="stats-grid" style="margin-bottom:24px;">
-      <div class="stat-card" style="--accent-color:#10b981">
-        <div class="stat-label">Total Members</div>
-        <div class="stat-value" id="um-total">—</div>
-        <div class="stat-sub">All registered users</div>
-      </div>
-      <div class="stat-card" style="--accent-color:#3b82f6">
-        <div class="stat-label">Committee / Admins</div>
-        <div class="stat-value" id="um-admins">—</div>
-        <div class="stat-sub">Elevated roles</div>
-      </div>
-      <div class="stat-card" style="--accent-color:#f59e0b">
-        <div class="stat-label">Regular Members</div>
-        <div class="stat-value" id="um-members">—</div>
-        <div class="stat-sub">Standard access</div>
-      </div>
-      <div class="stat-card" style="--accent-color:#8b5cf6">
-        <div class="stat-label">Pending Approval</div>
-        <div class="stat-value" id="um-pending">—</div>
-        <div class="stat-sub">Awaiting verification</div>
-      </div>
-    </div>
-
-    <!-- Role Legend -->
-    <div class="card" style="margin-bottom:20px;padding:16px 24px;">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Role Legend:</span>
-        <span class="badge badge-gray">member — Standard portal access</span>
-        <span class="badge badge-blue">secretary — Dashboard + records</span>
-        <span class="badge badge-yellow">treasurer — Dashboard + finance</span>
-        <span class="badge badge-green">chairperson — Dashboard + all</span>
-        <span class="badge" style="background:rgba(139,92,246,.15);color:#a78bfa">admin — Dashboard access</span>
-        <span class="badge" style="background:rgba(239,68,68,.15);color:#f87171">super_admin — Full system access</span>
-      </div>
-    </div>
-
+    <!-- Members table below -->
     <div class="card">
       <div class="card-title" style="justify-content:space-between;">
-        <span>👥 All Users</span>
+        <span>👥 All Members &amp; Roles</span>
         <span id="um-count" style="font-size:12px;font-weight:400;color:var(--muted)"></span>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Current Role</th>
-              <th>Status</th>
-              <th>Joined</th>
-              <th>Change Role</th>
-              <th>Actions</th>
+              <th>#</th><th>Name</th><th>Phone</th>
+              <th>System Role</th><th>Committee</th>
+              <th>Status</th><th>Joined</th>
             </tr>
           </thead>
           <tbody id="um-tbody">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Loading users…</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -663,18 +712,17 @@
 
   <!-- Role Change Confirmation Modal -->
   <div id="modal-role-change" class="modal-backdrop">
-    <div class="modal" style="max-width:440px">
+    <div class="modal" style="max-width:420px">
       <div class="modal-header">
-        <h3>Confirm Role Change</h3>
+        <h3 id="rc-modal-title">Confirm Role Change</h3>
         <button class="modal-close" onclick="closeModal('modal-role-change')">✕</button>
       </div>
       <div style="margin-bottom:20px;">
-        <p style="color:var(--muted);font-size:14px;margin-bottom:16px;">You are about to change the role of:</p>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
           <div style="font-size:16px;font-weight:700;margin-bottom:4px;" id="rc-name">—</div>
           <div style="font-size:13px;color:var(--muted);" id="rc-phone">—</div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
           <span class="badge" id="rc-from-badge">—</span>
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           <span class="badge" id="rc-to-badge">—</span>
@@ -687,7 +735,7 @@
       <input type="hidden" id="rc-new-role"/>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-role-change')">Cancel</button>
-        <button class="btn btn-primary" id="rc-confirm-btn" onclick="confirmRoleChange()">Confirm Change</button>
+        <button class="btn btn-primary" id="rc-confirm-btn" onclick="confirmRoleChange()">Confirm</button>
       </div>
     </div>
   </div>
@@ -1882,55 +1930,56 @@ function roleBadge(role) {
 
 async function loadUserMgmt() {
   const tbody = document.getElementById('um-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Loading…</td></tr>';
   try {
     const members = await apiFetch('/members');
     allUsersForMgmt = members;
-    renderUserMgmt(members);
-    updateUmStats(members);
+    _populateMemberSelects(members);
+    _renderUmTable(members);
   } catch(e) {
-    // Offline fallback — show allMembers if already loaded
     if (allMembers.length) {
       allUsersForMgmt = allMembers;
-      renderUserMgmt(allMembers);
-      updateUmStats(allMembers);
-      toast('Showing cached member data (offline mode)', 'error');
+      _populateMemberSelects(allMembers);
+      _renderUmTable(allMembers);
+      toast('Showing cached member data', 'error');
     } else {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#f87171">' + e.message + '</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#f87171">${e.message}</td></tr>`;
     }
   }
 }
 
-function updateUmStats(members) {
-  const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
-  const admins  = members.filter(m => adminRoles.includes(m.role));
-  const regular = members.filter(m => m.role === 'member');
-  const pending = members.filter(m => m.status === 'pending');
-  const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-  setEl('um-total',   members.length);
-  setEl('um-admins',  admins.length);
-  setEl('um-members', regular.length);
-  setEl('um-pending', pending.length);
+function _populateMemberSelects(members) {
+  // Guard — only super_admin sees these panels
+  const isSA = currentUser?.role === 'super_admin';
+  ['sys-member-sel','com-member-sel'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const others = isSA ? members.filter(m => String(m.id) !== String(currentUser?.id)) : [];
+    sel.innerHTML = '<option value="">— Choose a member —</option>'
+      + others.map(m => `<option value="${m.id}" data-role="${m.role}" data-name="${m.full_name}" data-phone="${m.phone_number}">${m.full_name} (${m.phone_number})</option>`).join('');
+  });
 }
 
-function renderUserMgmt(members) {
-  const tbody = document.getElementById('um-tbody');
+function _renderUmTable(members) {
+  const tbody   = document.getElementById('um-tbody');
   const countEl = document.getElementById('um-count');
-  if (countEl) countEl.textContent = members.length + ' user' + (members.length !== 1 ? 's' : '');
+  if (countEl) countEl.textContent = members.length + ' member' + (members.length !== 1 ? 's' : '');
+
+  const committeeRoles = ['chairperson','secretary','treasurer'];
+  const sysAdminRoles  = ['admin','super_admin'];
 
   if (!members.length) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No users found</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No members found</div></td></tr>';
     return;
   }
 
-  const roles = ['member','secretary','treasurer','chairperson','admin','super_admin'];
-
   tbody.innerHTML = members.map((m, i) => {
-    const isSelf  = String(m.id) === String(currentUser?.id);
-    const options = roles
-      .filter(r => r !== m.role)
-      .map(r => `<option value="${r}">${r}</option>`)
-      .join('');
+    const isSelf = String(m.id) === String(currentUser?.id);
+    // Determine system role vs committee role
+    const sysRole = sysAdminRoles.includes(m.role) ? m.role
+                  : committeeRoles.includes(m.role) ? 'admin'   // committee = admin access
+                  : 'member';
+    const comRole = committeeRoles.includes(m.role) ? m.role : 'member';
 
     return `<tr>
       <td style="color:var(--muted)">${i+1}</td>
@@ -1939,128 +1988,147 @@ function renderUserMgmt(members) {
         ${isSelf ? '<span style="font-size:10px;background:rgba(44,180,224,.15);color:#2cb4e0;padding:1px 6px;border-radius:10px;margin-left:6px;">You</span>' : ''}
       </td>
       <td style="color:var(--muted)">${m.phone_number}</td>
-      <td>${roleBadge(m.role)}</td>
+      <td>${roleBadge(sysRole)}</td>
+      <td>${comRole !== 'member' ? roleBadge(comRole) : '<span style="color:var(--muted);font-size:12px;">—</span>'}</td>
       <td><span class="badge ${m.status === 'active' ? 'badge-green' : 'badge-gray'}">${m.status || '—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${m.date_joined || '—'}</td>
-      <td>
-        ${isSelf
-          ? '<span style="font-size:12px;color:var(--muted)">Cannot change own role</span>'
-          : `<select id="role-sel-${m.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 10px;font-size:12px;font-family:inherit;">
-               ${options}
-             </select>`
-        }
-      </td>
-      <td>
-        ${isSelf
-          ? ''
-          : `<button class="btn btn-sm btn-primary" onclick="openRoleChangeModal(${m.id}, '${m.full_name}', '${m.phone_number}', '${m.role}')">Apply</button>`
-        }
-      </td>
     </tr>`;
   }).join('');
 }
 
-function filterUserMgmt() {
-  const q  = (document.getElementById('um-search').value || '').toLowerCase();
-  const rf = document.getElementById('um-role-filter').value;
-  const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
-
-  const filtered = allUsersForMgmt.filter(m => {
-    const matchQ = !q || m.full_name.toLowerCase().includes(q) || m.phone_number.includes(q);
-    let   matchR = true;
-    if (rf === 'admin') {
-      matchR = adminRoles.includes(m.role);
-    } else if (rf) {
-      matchR = m.role === rf;
-    }
-    return matchQ && matchR;
-  });
-  renderUserMgmt(filtered);
+// ── System Role panel ─────────────────────────────────────────
+function onSysMemberChange() {
+  const sel = document.getElementById('sys-member-sel');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('sys-current-role');
+  if (!opt.value) { info.textContent = ''; return; }
+  info.textContent = `Current role: ${opt.dataset.role}`;
 }
 
-function openRoleChangeModal(memberId, name, phone, currentRole) {
-  // Only super_admin can change roles
+async function setSysRole(newRole) {
   if (currentUser?.role !== 'super_admin') {
-    toast('Only a Super Admin can change member roles', 'error');
-    return;
+    toast('Only Super Admin can change system roles', 'error'); return;
   }
-  const sel = document.getElementById(`role-sel-${memberId}`);
-  if (!sel) return;
-  const newRole = sel.value;
-  if (!newRole) { toast('Please select a role first', 'error'); return; }
+  const sel    = document.getElementById('sys-member-sel');
+  const opt    = sel.options[sel.selectedIndex];
+  if (!opt.value) { toast('Select a member first', 'error'); return; }
 
-  document.getElementById('rc-member-id').value = memberId;
+  const memberId   = opt.value;
+  const memberName = opt.dataset.name;
+  const currentRole = opt.dataset.role;
+  if (currentRole === newRole) { toast(`${memberName} is already ${newRole}`); return; }
+
+  // Populate confirmation modal
+  document.getElementById('rc-modal-title').textContent = 'Confirm System Role Change';
+  document.getElementById('rc-member-id').value  = memberId;
   document.getElementById('rc-new-role').value   = newRole;
-  document.getElementById('rc-name').textContent  = name;
-  document.getElementById('rc-phone').textContent = phone;
+  document.getElementById('rc-name').textContent  = memberName;
+  document.getElementById('rc-phone').textContent = opt.dataset.phone;
   document.getElementById('rc-from-badge').outerHTML =
     `<span class="badge ${ROLE_COLORS[currentRole]||'badge-gray'}" id="rc-from-badge">${currentRole}</span>`;
   document.getElementById('rc-to-badge').outerHTML =
     `<span class="badge ${ROLE_COLORS[newRole]||'badge-gray'}" id="rc-to-badge">${newRole}</span>`;
 
   const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
-  const wasAdmin   = adminRoles.includes(currentRole);
-  const willAdmin  = adminRoles.includes(newRole);
-  let warning = '';
-  if (wasAdmin && !willAdmin) {
-    warning = '⚠️ Demoting this user will remove their dashboard access. They will only have member portal access.';
-  } else if (!wasAdmin && willAdmin) {
-    warning = '⬆️ This user will gain access to the admin dashboard and management tools.';
-  } else {
-    warning = 'ℹ️ This changes the user\'s committee role. Dashboard access is retained.';
-  }
-  document.getElementById('rc-warning').textContent = warning;
+  const losing = adminRoles.includes(currentRole) && !adminRoles.includes(newRole);
+  const gaining = !adminRoles.includes(currentRole) && adminRoles.includes(newRole);
+  document.getElementById('rc-warning').textContent = losing
+    ? '⚠️ This member will lose dashboard access and revert to member portal only.'
+    : gaining ? '⬆️ This member will gain access to the admin dashboard.'
+    : 'ℹ️ System role will be updated.';
 
-  const confirmBtn = document.getElementById('rc-confirm-btn');
-  if (newRole === 'super_admin') {
-    confirmBtn.style.background = '#ef4444';
-    confirmBtn.textContent = '⚠️ Confirm (Super Admin)';
-  } else {
-    confirmBtn.style.background = '';
-    confirmBtn.textContent = 'Confirm Change';
-  }
-
+  const btn = document.getElementById('rc-confirm-btn');
+  btn.style.background = newRole === 'super_admin' ? '#ef4444' : '';
+  btn.textContent = newRole === 'super_admin' ? '⚠️ Confirm Super Admin' : 'Confirm';
   document.getElementById('modal-role-change').classList.add('open');
 }
 
+// ── Committee Role panel ──────────────────────────────────────
+function onComMemberChange() {
+  const sel = document.getElementById('com-member-sel');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('com-current-role');
+  if (!opt.value) { info.textContent = ''; return; }
+  info.textContent = `Current role: ${opt.dataset.role}`;
+}
+
+async function setComRole(newRole) {
+  if (currentUser?.role !== 'super_admin') {
+    toast('Only Super Admin can change committee positions', 'error'); return;
+  }
+  const sel    = document.getElementById('com-member-sel');
+  const opt    = sel.options[sel.selectedIndex];
+  if (!opt.value) { toast('Select a member first', 'error'); return; }
+
+  const memberId    = opt.value;
+  const memberName  = opt.dataset.name;
+  const currentRole = opt.dataset.role;
+  if (currentRole === newRole) { toast(`${memberName} is already ${newRole}`); return; }
+
+  document.getElementById('rc-modal-title').textContent = 'Confirm Committee Position';
+  document.getElementById('rc-member-id').value  = memberId;
+  document.getElementById('rc-new-role').value   = newRole;
+  document.getElementById('rc-name').textContent  = memberName;
+  document.getElementById('rc-phone').textContent = opt.dataset.phone;
+  document.getElementById('rc-from-badge').outerHTML =
+    `<span class="badge ${ROLE_COLORS[currentRole]||'badge-gray'}" id="rc-from-badge">${currentRole}</span>`;
+  document.getElementById('rc-to-badge').outerHTML =
+    `<span class="badge ${ROLE_COLORS[newRole]||'badge-gray'}" id="rc-to-badge">${newRole}</span>`;
+
+  const committeeRoles = ['chairperson','secretary','treasurer'];
+  document.getElementById('rc-warning').textContent =
+    newRole === 'member'
+      ? '⬇️ This member will be removed from their committee position.'
+      : committeeRoles.includes(newRole)
+        ? `⬆️ This member will be appointed as ${newRole} with dashboard access.`
+        : 'ℹ️ Committee position will be updated.';
+
+  const btn = document.getElementById('rc-confirm-btn');
+  btn.style.background = '';
+  btn.textContent = 'Confirm';
+  document.getElementById('modal-role-change').classList.add('open');
+}
+
+// ── Shared confirm (used by both panels) ─────────────────────
 async function confirmRoleChange() {
   const memberId = document.getElementById('rc-member-id').value;
   const newRole  = document.getElementById('rc-new-role').value;
   const name     = document.getElementById('rc-name').textContent;
 
-  const confirmBtn = document.getElementById('rc-confirm-btn');
-  confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Saving…';
+  const btn = document.getElementById('rc-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
 
   try {
-    // Try live API
     await apiFetch(`/members/${memberId}/role`, {
       method: 'PATCH',
       body: JSON.stringify({ role: newRole })
     });
-    toast(`✅ ${name} is now: ${newRole}`);
+    toast(`✅ ${name} → ${newRole}`);
     closeModal('modal-role-change');
     loadUserMgmt();
     loadAllMembers();
   } catch(e) {
-    // Offline fallback — update local data only
-    if (token === 'offline-token' || e.message.includes('fetch')) {
+    // Offline fallback
+    if (e.message.includes('fetch') || token === 'offline-token') {
       const user = allUsersForMgmt.find(m => String(m.id) === String(memberId));
       if (user) {
         user.role = newRole;
-        toast(`✅ ${name} → ${newRole} (offline — will sync when server is connected)`);
+        toast(`✅ ${name} → ${newRole} (offline — syncs when reconnected)`);
         closeModal('modal-role-change');
-        renderUserMgmt(allUsersForMgmt);
-        updateUmStats(allUsersForMgmt);
+        _populateMemberSelects(allUsersForMgmt);
+        _renderUmTable(allUsersForMgmt);
       }
     } else {
       toast(e.message, 'error');
     }
   } finally {
-    confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Confirm Change';
+    btn.disabled = false; btn.textContent = 'Confirm';
   }
 }
+
+// Keep filterUserMgmt stub so any stale references don't crash
+function filterUserMgmt() { _renderUmTable(allUsersForMgmt); }
+function updateUmStats() {}
 
 // ═══════════════════════════════════════════════════════════════
 
