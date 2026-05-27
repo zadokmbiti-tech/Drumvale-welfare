@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes import members, events, meetings, auth, contributions, loans, event_contributions
+from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance
 from app.routes.auth import get_current_user, require_admin
 from datetime import datetime
 from app.database import init_pool, get_connection, release_connection
@@ -104,6 +104,7 @@ app.include_router(meetings.router,      prefix="/meetings",      tags=["Meeting
 app.include_router(contributions.router, prefix="/contributions", tags=["Contributions"])
 app.include_router(loans.router,         prefix="/loans",         tags=["Loans"])
 app.include_router(event_contributions.router, prefix="/events", tags=["Event Contributions"])
+app.include_router(finance.router,             prefix="/finance",        tags=["Finance"])
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
