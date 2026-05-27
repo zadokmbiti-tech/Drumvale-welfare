@@ -55,7 +55,7 @@
     .divider { position: relative; z-index: 2; width: 60px; height: 3px; background: linear-gradient(90deg, var(--sky), transparent); margin: 0 auto 28px; animation: fadeUp 0.9s 0.6s ease both; }
     .hero-desc { position: relative; z-index: 2; max-width: 560px; font-size: 1.05rem; font-weight: 300; line-height: 1.75; color: #c5d9e6; animation: fadeUp 0.9s 0.75s ease both; }
     .hero-desc strong { color: var(--white); font-weight: 500; }
-    .hero-cta { position: relative; z-index: 2; display: flex; gap: 16px; margin-top: 40px; animation: fadeUp 0.9s 0.9s ease both; flex-wrap: wrap; justify-content: center; }
+    .hero-cta { position: relative; z-index: 10; display: flex; gap: 16px; margin-top: 40px; animation: fadeUp 0.9s 0.9s ease both; flex-wrap: wrap; justify-content: center; pointer-events: all; }
     .btn-primary { padding: 14px 32px; background: var(--sky); color: var(--deep); font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.88rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; border: none; cursor: pointer; transition: background 0.25s, transform 0.2s; display: inline-block; }
     .btn-primary:hover { background: #4ec8f0; transform: translateY(-2px); }
     .btn-outline { padding: 14px 32px; border: 1.5px solid var(--sky); color: var(--sky); font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.88rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; background: transparent; cursor: pointer; transition: background 0.25s, color 0.25s, transform 0.2s; display: inline-block; }
@@ -414,7 +414,8 @@
       <span>© 2026 Drumvale Riverview Welfare Group. All rights reserved.</span>
       <span>Kamulu · Machakos County · <a href="#home">Back to top ↑</a></span>
     </footer>
-  </div><!--
+  </div><!-- /public-site -->
+
   <!-- ═══════════════ TOAST ═══════════════ -->
   <div class="toast" id="toast"></div>
 
@@ -921,36 +922,30 @@ loadNotices();
 /* ══════════ LIVE PUBLIC STATS ══════════ */
 async function loadPublicStats() {
   try {
-    // Fetch in parallel: stats endpoint + members + assets + projects
-    const [statsRes, membersRes, assetsRes, projectsRes] = await Promise.all([
-      fetch('/stats').catch(()=>null),
-      fetch('/members').catch(()=>null),
-      fetch('/assets').catch(()=>null),
-      fetch('/projects').catch(()=>null),
-    ]);
+    const res = await fetch('/stats');
+    if (!res.ok) return;
+    const d = await res.json();
 
     const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-    // Members count
-    if (membersRes && membersRes.ok) {
-      const members = await membersRes.json();
-      setEl('pub-members', members.length ?? '—');
-    }
+    // Members — try multiple possible key names
+    const memberCount = d.total_members ?? d.members_count ?? d.member_count ?? d.members ?? null;
+    setEl('pub-members', memberCount !== null ? memberCount : '—');
 
-    // Assets + Projects combined
-    let assetsCount = 0, projectsCount = 0;
-    if (assetsRes && assetsRes.ok)   { const a = await assetsRes.json();   assetsCount   = Array.isArray(a) ? a.length : 0; }
-    if (projectsRes && projectsRes.ok){ const p = await projectsRes.json(); projectsCount = Array.isArray(p) ? p.length : 0; }
-    setEl('pub-assets', assetsCount + projectsCount || '—');
+    // Assets + Projects combined — try multiple key names
+    const assets   = d.total_assets   ?? d.assets_count   ?? d.assets   ?? 0;
+    const projects = d.total_projects ?? d.projects_count ?? d.projects ?? 0;
+    const combined = Number(assets) + Number(projects);
+    setEl('pub-assets', combined > 0 ? combined : '0');
 
-    // Events & welfare from /stats
-    if (statsRes && statsRes.ok) {
-      const d = await statsRes.json();
-      setEl('pub-events', d.open_events ?? '—');
-      setEl('pub-welfare', d.all_time_contributions
-        ? 'Ksh ' + Number(d.all_time_contributions).toLocaleString('en-KE')
-        : '—');
-    }
+    // Active events
+    setEl('pub-events', d.open_events ?? '—');
+
+    // Welfare fund raised
+    setEl('pub-welfare', d.all_time_contributions
+      ? 'Ksh ' + Number(d.all_time_contributions).toLocaleString('en-KE')
+      : '—');
+
   } catch(e) {
     console.log('Stats unavailable:', e.message);
   }
