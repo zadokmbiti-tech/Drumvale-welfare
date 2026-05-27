@@ -74,6 +74,7 @@ class TokenResponse(BaseModel):
     user_id:      int
     full_name:    str
     role:         str
+    phone_number: str = ""
 
 class LoanCreate(BaseModel):
     member_id:     int

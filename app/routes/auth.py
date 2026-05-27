@@ -142,13 +142,13 @@ def login(data: UserLogin):
     try:
         if data.email:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number
                    FROM users WHERE email=%s""",
                 (data.email,)
             )
         elif data.phone_number:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number
                    FROM users WHERE phone_number=%s""",
                 (data.phone_number,)
             )
@@ -169,7 +169,7 @@ def login(data: UserLogin):
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_token({"sub": str(user[0]), "user_id": user[0], "role": user[2]})
-    return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2])
+    return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2], phone_number=user[6] or "")
 
 # ------------------------------------------------------------------ #
 #  SWAGGER /docs token endpoint

@@ -2129,11 +2129,15 @@ function _populateMemberSelects(members) {
   ['sys-member-sel','com-member-sel'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    // Show everyone except the logged-in user (super_admin can't change own role)
-    const others = members.filter(m => String(m.id) !== String(currentUser?.id));
     sel.innerHTML = '<option value="">— Choose a member —</option>'
-      + others.map(m => `<option value="${m.id}" data-role="${m.role}" data-name="${m.full_name}" data-phone="${m.phone_number}">${m.full_name} (${m.phone_number})</option>`).join('');
+      + members.map(m => {
+          const isSelf = m.phone_number === currentUser?.phone;
+          return `<option value="${m.id}" data-role="${m.role}" data-name="${m.full_name}" data-phone="${m.phone_number}"${isSelf ? ' disabled' : ''}>${m.full_name} (${m.phone_number})${isSelf ? ' — You' : ''}</option>`;
+        }).join('');
   });
+  // Start buttons dimmed until a member is chosen
+  onSysMemberChange();
+  onComMemberChange();
 }
 
 function _renderUmTable(members) {
@@ -2150,7 +2154,7 @@ function _renderUmTable(members) {
   }
 
   tbody.innerHTML = members.map((m, i) => {
-    const isSelf = String(m.id) === String(currentUser?.id);
+    const isSelf = m.phone_number === currentUser?.phone;
     // Determine system role vs committee role
     const sysRole = sysAdminRoles.includes(m.role) ? m.role
                   : committeeRoles.includes(m.role) ? 'admin'   // committee = admin access
@@ -2177,8 +2181,13 @@ function onSysMemberChange() {
   const sel = document.getElementById('sys-member-sel');
   const opt = sel.options[sel.selectedIndex];
   const info = document.getElementById('sys-current-role');
-  if (!opt.value) { info.textContent = ''; return; }
-  info.textContent = `Current role: ${opt.dataset.role}`;
+  const hasVal = !!opt.value;
+  if (!hasVal) { info.textContent = ''; }
+  else { info.textContent = `Current role: ${opt.dataset.role}`; }
+  document.querySelectorAll('.sys-role-btn').forEach(b => {
+    b.style.opacity = hasVal ? '1' : '0.4';
+    b.style.pointerEvents = hasVal ? 'auto' : 'none';
+  });
 }
 
 async function setSysRole(newRole) {
@@ -2224,8 +2233,13 @@ function onComMemberChange() {
   const sel = document.getElementById('com-member-sel');
   const opt = sel.options[sel.selectedIndex];
   const info = document.getElementById('com-current-role');
-  if (!opt.value) { info.textContent = ''; return; }
-  info.textContent = `Current role: ${opt.dataset.role}`;
+  const hasVal = !!opt.value;
+  if (!hasVal) { info.textContent = ''; }
+  else { info.textContent = `Current role: ${opt.dataset.role}`; }
+  document.querySelectorAll('.com-role-btn').forEach(b => {
+    b.style.opacity = hasVal ? '1' : '0.4';
+    b.style.pointerEvents = hasVal ? 'auto' : 'none';
+  });
 }
 
 async function setComRole(newRole) {
