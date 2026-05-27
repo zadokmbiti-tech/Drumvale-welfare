@@ -1,140 +1,188 @@
+import os
+import requests
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection
-from app.models import MeetingCreate, AttendanceUpdate
 from app.routes.auth import get_current_user
-from app.auth_deps import require_secretary, require_chairperson
-import os, logging
+from app.auth_deps import require_secretary
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
-# ── Africa's Talking SMS helper ───────────────────────────────────────────────
-def _normalize_ke_phone(raw: str) -> str | None:
-    """Normalize a Kenyan phone number to E.164 (+2547XXXXXXXX)."""
-    p = raw.strip().replace(" ", "").replace("-", "")
-    if p.startswith("+254") and len(p) == 13:
+
+# ─── Africa's Talking SMS ────────────────────────────────────────────────────
+
+AT_USERNAME  = os.getenv("AT_USERNAME", "")
+AT_API_KEY   = os.getenv("AT_API_KEY", "")
+AT_SENDER_ID = os.getenv("AT_SENDER_ID", "")   # e.g. "Drumvale" — optional
+
+def _send_sms(phones: list[str], message: str) -> dict:
+    """
+    Send an SMS to a list of phone numbers via Africa's Talking.
+    Returns a dict with status, recipients count, and any error reason.
+    """
+    if not AT_USERNAME or not AT_API_KEY:
+        return {"status": "skipped", "reason": "AT credentials not configured"}
+    if not phones:
+        return {"status": "skipped", "reason": "No active members with phone numbers"}
+
+    # AT expects E.164 format: +2547XXXXXXXX
+    def _fmt(p: str) -> str:
+        p = p.strip().replace(" ", "")
+        if p.startswith("0"):
+            return "+254" + p[1:]
+        if p.startswith("254") and not p.startswith("+"):
+            return "+" + p
         return p
-    if p.startswith("254") and len(p) == 12:
-        return "+" + p
-    if p.startswith("07") or p.startswith("01"):
-        return "+254" + p[1:]
-    return None
 
+    formatted = [_fmt(p) for p in phones if p]
+    recipients_str = ",".join(formatted)
 
-def send_sms_broadcast(phones: list[str], message: str) -> dict:
-    """
-    Send an SMS to a list of Kenyan phone numbers via Africa's Talking.
-    Returns a summary dict.  Silently skips if AT credentials are missing.
-    """
-    at_user = os.getenv("AT_USERNAME")
-    at_key  = os.getenv("AT_API_KEY")
-    sender  = os.getenv("AT_SENDER_ID", "DRUMVALE")   # registered sender ID
+    payload = {
+        "username": AT_USERNAME,
+        "to":       recipients_str,
+        "message":  message,
+    }
+    if AT_SENDER_ID:
+        payload["from"] = AT_SENDER_ID
 
-    if not at_user or not at_key:
-        logger.warning("Africa's Talking credentials not set — SMS skipped.")
-        return {"status": "skipped", "reason": "AT_USERNAME or AT_API_KEY not configured"}
+    # Use sandbox endpoint during testing; switch to production when ready
+    sandbox = AT_USERNAME == "sandbox"
+    url = (
+        "https://api.sandbox.africastalking.com/version1/messaging"
+        if sandbox else
+        "https://api.africastalking.com/version1/messaging"
+    )
 
     try:
-        import africastalking
-        africastalking.initialize(at_user, at_key)
-        sms = africastalking.SMS
-
-        # Normalize and deduplicate
-        normalized = list({_normalize_ke_phone(p) for p in phones if _normalize_ke_phone(p)})
-        if not normalized:
-            return {"status": "skipped", "reason": "No valid phone numbers"}
-
-        # AT SDK accepts a list; sends are batched automatically
-        response = sms.send(message, normalized, sender_id=sender)
-        return {"status": "sent", "recipients": len(normalized), "response": str(response)}
-    except ImportError:
-        logger.warning("africastalking package not installed — SMS skipped.")
-        return {"status": "skipped", "reason": "africastalking not installed"}
-    except Exception as e:
-        logger.error(f"SMS broadcast failed: {e}")
+        resp = requests.post(
+            url,
+            data=payload,
+            headers={
+                "apiKey": AT_API_KEY,
+                "Accept": "application/json",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # AT returns SMSMessageData.Recipients list
+        sent = data.get("SMSMessageData", {}).get("Recipients", [])
+        success = [r for r in sent if r.get("status") == "Success"]
+        return {
+            "status":     "sent",
+            "recipients": len(success),
+            "total":      len(formatted),
+        }
+    except requests.RequestException as e:
         return {"status": "error", "reason": str(e)}
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+def _get_all_active_phones(cur) -> list[str]:
+    cur.execute(
+        "SELECT phone_number FROM members "
+        "WHERE status='active' AND phone_number IS NOT NULL AND phone_number != ''"
+    )
+    return [r[0] for r in cur.fetchall()]
+
+
+# ─── Table setup ─────────────────────────────────────────────────────────────
+
+def _ensure_table(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS meetings (
+            id         SERIAL PRIMARY KEY,
+            title      TEXT NOT NULL,
+            date       DATE NOT NULL,
+            time       TEXT,
+            venue      TEXT,
+            agenda     TEXT,
+            status     TEXT NOT NULL DEFAULT 'scheduled'
+                           CHECK (status IN ('scheduled','completed','cancelled')),
+            created_by TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS meeting_attendance (
+            id         SERIAL PRIMARY KEY,
+            meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
+            member_id  INTEGER REFERENCES members(id)  ON DELETE CASCADE,
+            present    BOOLEAN DEFAULT FALSE,
+            UNIQUE (meeting_id, member_id)
+        )
+    """)
+
+
+# ─── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/")
-def create_meeting(
-    meeting: MeetingCreate,
-    current_user=Depends(require_secretary)   # secretary and above can schedule
-):
+def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
+    title  = (body.get("title") or "").strip()
+    date   = body.get("date")
+    time   = body.get("time", "")
+    venue  = (body.get("venue") or "").strip()
+    agenda = (body.get("agenda") or "").strip() or None
+
+    if not title: raise HTTPException(400, "title is required")
+    if not date:  raise HTTPException(400, "date is required")
+
     conn = get_connection()
-    cur = conn.cursor()
+    cur  = conn.cursor()
     try:
-        # 1. Save the meeting
+        _ensure_table(cur)
         cur.execute("""
-            INSERT INTO meetings (title, date, time, venue, agenda)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        """, (meeting.title, meeting.date, meeting.time, meeting.venue, meeting.agenda))
+            INSERT INTO meetings (title, date, time, venue, agenda, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """, (title, date, time, venue, agenda, current_user.get("sub")))
         meeting_id = cur.fetchone()[0]
 
-        # 2. Seed attendance rows for all active members
-        cur.execute("SELECT id FROM members WHERE status='active'")
-        members = cur.fetchall()
-        for m in members:
+        # Post a notice automatically
+        try:
+            notice_body = (
+                f"📅 Meeting Scheduled\n\n"
+                f"Title: {title}\n"
+                f"Date: {date}{' at ' + time if time else ''}\n"
+                f"Venue: {venue or 'TBD'}\n"
+                + (f"\nAgenda:\n{agenda}" if agenda else "")
+            )
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS notices (
+                    id         SERIAL PRIMARY KEY,
+                    title      TEXT NOT NULL,
+                    body       TEXT,
+                    posted_by  TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
             cur.execute(
-                "INSERT INTO attendance (meeting_id, member_id) VALUES (%s, %s)",
-                (meeting_id, m[0])
+                "INSERT INTO notices (title, body, posted_by) VALUES (%s, %s, %s)",
+                (f"Meeting: {title}", notice_body, current_user.get("sub"))
             )
-
-        # 3. Auto-post a notice for members who are online
-        notice_title = f"📅 Meeting Scheduled: {meeting.title}"
-        notice_body  = (
-            f"A new meeting has been scheduled.\n\n"
-            f"📌 Title: {meeting.title}\n"
-            f"📅 Date:  {meeting.date}\n"
-            f"⏰ Time:  {meeting.time}\n"
-            f"📍 Venue: {meeting.venue}\n"
-            f"📋 Agenda:\n{meeting.agenda or 'To be announced'}"
-        )
-        # Ensure notices table exists
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS notices (
-                id SERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                priority TEXT DEFAULT 'important',
-                created_by TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("""
-            INSERT INTO notices (title, body, priority, created_by)
-            VALUES (%s, %s, 'important', %s)
-        """, (notice_title, notice_body, current_user.get("sub")))
+        except Exception:
+            pass  # notice failure shouldn't block meeting creation
 
         conn.commit()
 
-        # 4. Fetch all active member phones for SMS (outside transaction — read-only)
-        cur.execute(
-            "SELECT phone_number FROM members WHERE status='active' AND phone_number IS NOT NULL"
+        # ── Send SMS to all active members ──────────────────────────────────
+        phones = _get_all_active_phones(cur)
+        sms_message = (
+            f"📅 DRUMVALE MEETING\n"
+            f"{title}\n"
+            f"Date: {date}{' at ' + time if time else ''}\n"
+            f"Venue: {venue or 'TBD'}\n"
+            "Please attend. Drumvale Welfare."
         )
-        phones = [r[0] for r in cur.fetchall()]
-
-        # 5. Build SMS (max ~160 chars per segment — keep it tight)
-        sms_text = (
-            f"[DRUMVALE] Meeting Alert!\n"
-            f"Title: {meeting.title}\n"
-            f"Date:  {meeting.date}\n"
-            f"Time:  {meeting.time}\n"
-            f"Venue: {meeting.venue}\n"
-            f"Agenda: {(meeting.agenda or 'TBA')[:80]}"
-        )
-        sms_result = send_sms_broadcast(phones, sms_text)
+        sms_result = _send_sms(phones, sms_message)
 
         return {
-            "message": "Meeting created",
-            "id": meeting_id,
-            "notice_posted": True,
-            "sms": sms_result,
+            "id":      meeting_id,
+            "message": "Meeting scheduled",
+            "sms":     sms_result,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(400, str(e))
     finally:
         cur.close()
         conn.close()
@@ -143,73 +191,90 @@ def create_meeting(
 @router.get("/")
 def list_meetings(_=Depends(get_current_user)):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id, title, date, venue, status FROM meetings ORDER BY date DESC")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return [
-        {"id": r[0], "title": r[1], "date": r[2], "venue": r[3], "status": r[4]}
-        for r in rows
-    ]
+    cur  = conn.cursor()
+    try:
+        _ensure_table(cur)
+        cur.execute("""
+            SELECT id, title, date::text, time, venue, status, created_at::text
+            FROM meetings ORDER BY date DESC, created_at DESC
+        """)
+        rows = cur.fetchall()
+        return [
+            {"id": r[0], "title": r[1], "date": r[2], "time": r[3],
+             "venue": r[4], "status": r[5], "created_at": r[6]}
+            for r in rows
+        ]
+    finally:
+        cur.close()
+        conn.close()
 
 
 @router.get("/{meeting_id}")
 def get_meeting(meeting_id: int, _=Depends(get_current_user)):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM meetings WHERE id=%s", (meeting_id,))
-    meeting = cur.fetchone()
-    if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-    cur.execute("""
-        SELECT m.id, m.full_name, a.present
-        FROM attendance a JOIN members m ON a.member_id = m.id
-        WHERE a.meeting_id = %s ORDER BY m.full_name
-    """, (meeting_id,))
-    attendance = cur.fetchall()
-    cur.close()
-    conn.close()
-    return {
-        "id": meeting[0], "title": meeting[1], "date": meeting[2],
-        "time": str(meeting[3]), "venue": meeting[4], "agenda": meeting[5],
-        "minutes": meeting[6], "status": meeting[7],
-        "attendance": [{"id": a[0], "full_name": a[1], "present": a[2]} for a in attendance]
-    }
+    cur  = conn.cursor()
+    try:
+        cur.execute("SELECT id, title, date::text, time, venue, agenda, status FROM meetings WHERE id=%s", (meeting_id,))
+        row = cur.fetchone()
+        if not row: raise HTTPException(404, "Meeting not found")
+        cur.execute("""
+            SELECT ma.member_id, m.full_name, ma.present
+            FROM meeting_attendance ma
+            JOIN members m ON m.id = ma.member_id
+            WHERE ma.meeting_id = %s
+        """, (meeting_id,))
+        attendance = [{"member_id": r[0], "name": r[1], "present": r[2]} for r in cur.fetchall()]
+        return {
+            "id": row[0], "title": row[1], "date": row[2], "time": row[3],
+            "venue": row[4], "agenda": row[5], "status": row[6],
+            "attendance": attendance
+        }
+    finally:
+        cur.close()
+        conn.close()
 
 
-@router.patch("/{meeting_id}/attendance")
-def mark_attendance(
-    meeting_id: int,
-    data: AttendanceUpdate,
-    _=Depends(require_secretary)
-):
+@router.patch("/{meeting_id}/status")
+def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secretary)):
+    valid = ("scheduled", "completed", "cancelled")
+    status = body.get("status")
+    if status not in valid:
+        raise HTTPException(400, f"status must be one of {valid}")
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE attendance SET present=FALSE WHERE meeting_id=%s", (meeting_id,))
-    for member_id in data.member_ids:
+    cur  = conn.cursor()
+    try:
+        cur.execute("UPDATE meetings SET status=%s WHERE id=%s RETURNING id", (status, meeting_id))
+        if not cur.fetchone(): raise HTTPException(404, "Meeting not found")
+        conn.commit()
+        return {"message": f"Meeting marked as {status}"}
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.post("/{meeting_id}/sms")
+def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
+    """Manually resend the meeting SMS to all active members."""
+    conn = get_connection()
+    cur  = conn.cursor()
+    try:
         cur.execute(
-            "UPDATE attendance SET present=TRUE WHERE meeting_id=%s AND member_id=%s",
-            (meeting_id, member_id)
+            "SELECT title, date::text, time, venue FROM meetings WHERE id=%s",
+            (meeting_id,)
         )
-    cur.execute("UPDATE meetings SET status='completed' WHERE id=%s", (meeting_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"message": "Attendance saved"}
-
-
-@router.patch("/{meeting_id}/minutes")
-def add_minutes(
-    meeting_id: int,
-    minutes: dict,
-    _=Depends(require_secretary)
-):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE meetings SET minutes=%s WHERE id=%s",
-                (minutes.get("minutes"), meeting_id))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"message": "Minutes saved"}
+        row = cur.fetchone()
+        if not row: raise HTTPException(404, "Meeting not found")
+        title, date, time, venue = row
+        phones = _get_all_active_phones(cur)
+        sms_message = (
+            f"📅 DRUMVALE MEETING REMINDER\n"
+            f"{title}\n"
+            f"Date: {date}{' at ' + time if time else ''}\n"
+            f"Venue: {venue or 'TBD'}\n"
+            "Drumvale Welfare."
+        )
+        result = _send_sms(phones, sms_message)
+        return result
+    finally:
+        cur.close()
+        conn.close()

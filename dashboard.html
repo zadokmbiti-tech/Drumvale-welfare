@@ -1849,7 +1849,10 @@ async function loadMeetings() {
         <td>${m.date}</td>
         <td>${m.venue||'TBD'}</td>
         <td><span class="badge ${statusBadge(m.status)}">${m.status}</span></td>
-        <td><button class="btn btn-sm btn-outline" onclick="viewMeeting(${m.id})">View</button></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-outline" onclick="viewMeeting(${m.id})">View</button>
+          ${m.status==='scheduled' ? `<button class="btn btn-sm" style="background:rgba(44,180,224,.12);color:#2cb4e0;border:1px solid rgba(44,180,224,.3)" onclick="resendMeetingSMS(${m.id},'${m.title.replace(/'/g,"\\'")}')">📲 SMS</button>` : ''}
+        </td>
       </tr>`).join('');
   } catch(e) { toast(e.message,'error'); }
 }
@@ -1886,7 +1889,21 @@ async function saveMeeting() {
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Schedule'; } }
 }
 
-async function viewMeeting(id) {
+async function resendMeetingSMS(id, title) {
+  if (!confirm(`Resend SMS reminder for "${title}" to all active members?`)) return;
+  try {
+    const res = await apiFetch(`/meetings/${id}/sms`, { method: 'POST' });
+    if (res.status === 'sent') {
+      toast(`📲 SMS reminder sent to ${res.recipients} members`);
+    } else if (res.status === 'skipped') {
+      toast(`SMS skipped: ${res.reason}`, 'error');
+    } else {
+      toast(`SMS error: ${res.reason}`, 'error');
+    }
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+
   try {
     const m = await apiFetch(`/meetings/${id}`);
     alert(`${m.title}\nDate: ${m.date} ${m.time||''}\nVenue: ${m.venue||'TBD'}\nStatus: ${m.status}\n\nAgenda:\n${m.agenda||'None'}\n\nAttendance: ${m.attendance?.filter(a=>a.present).length||0}/${m.attendance?.length||0} present`);
