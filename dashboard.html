@@ -1904,6 +1904,7 @@ async function resendMeetingSMS(id, title) {
 }
 
 
+async function viewMeeting(id) {
   try {
     const m = await apiFetch(`/meetings/${id}`);
     alert(`${m.title}\nDate: ${m.date} ${m.time||''}\nVenue: ${m.venue||'TBD'}\nStatus: ${m.status}\n\nAgenda:\n${m.agenda||'None'}\n\nAttendance: ${m.attendance?.filter(a=>a.present).length||0}/${m.attendance?.length||0} present`);
