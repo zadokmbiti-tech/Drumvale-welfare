@@ -79,7 +79,7 @@ def _send_sms(phones: list[str], message: str) -> dict:
 def _get_all_active_phones(cur) -> list[str]:
     cur.execute(
         "SELECT phone_number FROM members "
-        "WHERE status='active' AND phone_number IS NOT NULL AND phone_number != ''"
+        "WHERE LOWER(status)='active' AND phone_number IS NOT NULL AND phone_number != ''"
     )
     return [r[0] for r in cur.fetchall()]
 
