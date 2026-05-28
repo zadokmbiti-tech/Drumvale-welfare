@@ -76,18 +76,18 @@ def register(data: UserRegister):
         hashed = hash_password(data.password)
 
         # Mirror into members table
-cur.execute("""
-    INSERT INTO members (
-        member_id, full_name, phone_number, id_number, role, status,
-        date_joined, next_of_kin_name, next_of_kin_phone
-    )
-    VALUES (%s,%s,%s,%s,'member','active',CURRENT_DATE,%s,%s)
-    ON CONFLICT (phone_number) DO NOTHING
-""", (
-    data.member_id,
-    data.full_name, data.phone_number, data.id_number,
-    data.next_of_kin_name, data.next_of_kin_phone,
-))
+        cur.execute("""
+            INSERT INTO members (
+                member_id, full_name, phone_number, id_number, role, status,
+                date_joined, next_of_kin_name, next_of_kin_phone
+            )
+            VALUES (%s,%s,%s,%s,'member','active',CURRENT_DATE,%s,%s)
+            ON CONFLICT (phone_number) DO NOTHING
+        """, (
+            data.member_id,
+            data.full_name, data.phone_number, data.id_number,
+            data.next_of_kin_name, data.next_of_kin_phone,
+        ))
         new_user_id = cur.fetchone()[0]
 
         for child in (data.children or []):
