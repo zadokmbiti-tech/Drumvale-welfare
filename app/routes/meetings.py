@@ -263,7 +263,8 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
             (meeting_id,)
         )
         row = cur.fetchone()
-        if not row: raise HTTPException(404, "Meeting not found")
+        if not row:
+            raise HTTPException(404, "Meeting not found")
         title, date, time, venue = row
         phones = _get_all_active_phones(cur)
         sms_message = (
@@ -275,6 +276,11 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
         )
         result = _send_sms(phones, sms_message)
         return result
+    except HTTPException:
+        raise  # let 404 pass through cleanly
+    except Exception as e:
+        # Never crash to 500 — return structured error the frontend can display
+        return {"status": "error", "reason": str(e)}
     finally:
         cur.close()
         conn.close()
