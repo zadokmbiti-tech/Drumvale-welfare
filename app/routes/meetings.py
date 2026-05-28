@@ -164,10 +164,11 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
 
         # ── Send SMS to all active members ──────────────────────────────────
         phones = _get_all_active_phones(cur)
+        time_str = str(time) if time else ""   # convert datetime.time → str
         sms_message = (
             f"📅 DRUMVALE MEETING\n"
             f"{title}\n"
-            f"Date: {date}{' at ' + time if time else ''}\n"
+            f"Date: {date}{' at ' + time_str if time_str else ''}\n"
             f"Venue: {venue or 'TBD'}\n"
             "Please attend. Drumvale Welfare."
         )
@@ -266,11 +267,12 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
         if not row:
             raise HTTPException(404, "Meeting not found")
         title, date, time, venue = row
+        time_str = str(time) if time else ""   # convert datetime.time → str
         phones = _get_all_active_phones(cur)
         sms_message = (
             f"📅 DRUMVALE MEETING REMINDER\n"
             f"{title}\n"
-            f"Date: {date}{' at ' + time if time else ''}\n"
+            f"Date: {date}{' at ' + time_str if time_str else ''}\n"
             f"Venue: {venue or 'TBD'}\n"
             "Drumvale Welfare."
         )
