@@ -45,6 +45,7 @@ class ChildIn(BaseModel):
     cert_number:   Optional[str] = None
 
 class UserRegister(BaseModel):
+    member_id:        Optional[str] = None
     full_name:        str
     phone_number:     str
     password:         str

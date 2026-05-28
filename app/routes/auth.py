@@ -75,25 +75,19 @@ def register(data: UserRegister):
 
         hashed = hash_password(data.password)
 
-        cur.execute("""
-            INSERT INTO users (
-                full_name, phone_number, email, id_number, role,
-                hashed_password, registration_status, is_active,
-                date_of_birth, marital_status, residence, court,
-                house_number, spouse_name,
-                next_of_kin_name, next_of_kin_phone,
-                next_of_kin_2, nok2_phone
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,'pending',false,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id
-        """, (
-            data.full_name, data.phone_number, data.email,
-            data.id_number, "member", hashed,
-            data.date_of_birth, data.marital_status, data.residence,
-            data.court, data.house_number, data.spouse_name,
-            data.next_of_kin_name, data.next_of_kin_phone,
-            data.next_of_kin_2, data.nok2_phone,
-        ))
+        # Mirror into members table
+cur.execute("""
+    INSERT INTO members (
+        member_id, full_name, phone_number, id_number, role, status,
+        date_joined, next_of_kin_name, next_of_kin_phone
+    )
+    VALUES (%s,%s,%s,%s,'member','active',CURRENT_DATE,%s,%s)
+    ON CONFLICT (phone_number) DO NOTHING
+""", (
+    data.member_id,
+    data.full_name, data.phone_number, data.id_number,
+    data.next_of_kin_name, data.next_of_kin_phone,
+))
         new_user_id = cur.fetchone()[0]
 
         for child in (data.children or []):

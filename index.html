@@ -461,6 +461,7 @@
 
       <div id="register-form-body">
         <div class="form-group"><label>Principal Member's Full Name *</label><input type="text" id="reg-fname" placeholder="Full name as in ID" /></div>
+        <div class="form-group"><label>Member ID *</label><input type="text" id="reg-memberid" placeholder="e.g. 001" /></div>
         <div class="form-row">
           <div class="form-group"><label>Phone Number *</label><input type="tel" id="reg-phone" placeholder="07XX XXX XXX" /></div>
           <div class="form-group"><label>ID Number</label><input type="text" id="reg-idno" placeholder="National ID No." /></div>
@@ -742,6 +743,7 @@ async function handleLogin() {
       });
 
       const payload = {
+        member_id:         document.getElementById('reg-memberid').value.trim() || null,
         full_name:         document.getElementById('reg-fname').value.trim(),
         phone_number:      document.getElementById('reg-phone').value.trim(),
         email:             document.getElementById('reg-email').value.trim() || null,
