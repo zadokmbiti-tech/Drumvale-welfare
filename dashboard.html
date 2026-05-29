@@ -1322,6 +1322,20 @@
     </div>
   </div>
 </div>
+<!-- Registration Details Modal -->
+<div class="modal-backdrop" id="reg-detail-modal" onclick="if(event.target===this)closeModal('reg-detail-modal')">
+  <div class="modal" style="max-width:680px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-header">
+      <h3 class="modal-title">Registration Details</h3>
+      <button class="modal-close" onclick="closeModal('reg-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="reg-detail-body"></div>
+    <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-danger"  id="reg-reject-btn">Reject</button>
+      <button class="btn btn-primary" id="reg-approve-btn">Approve</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast-container"></div>
 
@@ -1925,11 +1939,71 @@ async function loadPendingUsers() {
         <td>${u.email || '—'}</td>
         <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
         <td style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm" style="background:var(--border)" onclick='viewRegistration(${JSON.stringify(u)})'>View</button>
           <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${u.full_name}')">Approve</button>
-          <button class="btn btn-sm btn-danger" onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
+          <button class="btn btn-sm btn-danger"  onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
         </td>
       </tr>`).join('');
   } catch(e) { toast(e.message, 'error'); }
+}
+
+function viewRegistration(u) {
+  const v = x => x || '<em style="color:var(--muted)">Not provided</em>';
+  const fmtD = d => d ? new Date(d).toLocaleDateString('en-KE') : '<em style="color:var(--muted)">Not provided</em>';
+  const childRows = (u.children||[]).length
+    ? u.children.map(c=>`<tr>
+        <td style="padding:4px 8px">${c.full_name||'—'}</td>
+        <td style="padding:4px 8px">${fmtD(c.date_of_birth)}</td>
+        <td style="padding:4px 8px">${c.relationship||'—'}</td>
+        <td style="padding:4px 8px">${c.cert_number||'—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" style="padding:8px;color:var(--muted)">None registered</td></tr>`;
+
+  document.getElementById('reg-detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <p style="color:var(--silver);font-size:11px;text-transform:uppercase;margin-bottom:8px">Personal</p>
+        ${row('Full Name', v(u.full_name))}
+        ${row('Phone', v(u.phone_number))}
+        ${row('Email', v(u.email))}
+        ${row('ID Number', v(u.id_number))}
+        ${row('Date of Birth', fmtD(u.date_of_birth))}
+        ${row('Marital Status', v(u.marital_status))}
+        ${row('Spouse', v(u.spouse_name))}
+      </div>
+      <div>
+        <p style="color:var(--silver);font-size:11px;text-transform:uppercase;margin-bottom:8px">Residence</p>
+        ${row('Estate', v(u.residence))}
+        ${row('Court', v(u.court))}
+        ${row('House No.', v(u.house_number))}
+        <p style="color:var(--silver);font-size:11px;text-transform:uppercase;margin:12px 0 8px">Next of Kin 1</p>
+        ${row('Name', v(u.next_of_kin_name))}
+        ${row('Phone', v(u.next_of_kin_phone))}
+        <p style="color:var(--silver);font-size:11px;text-transform:uppercase;margin:12px 0 8px">Next of Kin 2</p>
+        ${row('Name', v(u.next_of_kin_2))}
+        ${row('Phone', v(u.nok2_phone))}
+      </div>
+    </div>
+    <p style="color:var(--silver);font-size:11px;text-transform:uppercase;margin:16px 0 8px">Children / Dependants</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+      <thead><tr style="color:var(--silver);border-bottom:1px solid var(--border)">
+        <th style="padding:4px 8px;text-align:left">Name</th>
+        <th style="padding:4px 8px;text-align:left">DOB</th>
+        <th style="padding:4px 8px;text-align:left">Relationship</th>
+        <th style="padding:4px 8px;text-align:left">Cert No.</th>
+      </tr></thead>
+      <tbody>${childRows}</tbody>
+    </table>`;
+
+  document.getElementById('reg-approve-btn').onclick = () => { closeModal('reg-detail-modal'); approveUser(u.id, u.full_name); };
+  document.getElementById('reg-reject-btn').onclick  = () => { closeModal('reg-detail-modal'); rejectUser(u.id, u.full_name); };
+  openModal('reg-detail-modal');
+}
+
+function row(label, value) {
+  return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.83rem;">
+    <span style="color:var(--silver)">${label}</span><span>${value}</span>
+  </div>`;
 }
 
 async function approveUser(id, name) {
