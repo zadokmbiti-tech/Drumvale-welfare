@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.database import get_connection
+from app.database import get_connection, release_connection
 from app.models import EventCreate, ContributionCreate
 from app.routes.auth import get_current_user
 from app.auth_deps import require_secretary, require_chairperson, require_treasurer
@@ -29,7 +29,7 @@ def create_event(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/")
@@ -50,7 +50,7 @@ def list_events(status: str = "", _=Depends(get_current_user)):
         """)
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [
         {"id": r[0], "title": r[1], "event_type": r[2], "beneficiary": r[3],
          "target_amount": r[4], "status": r[5], "date_raised": r[6]}
@@ -72,7 +72,7 @@ def get_event(event_id: int, _=Depends(get_current_user)):
     """, (event_id,))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     if not row:
         raise HTTPException(status_code=404, detail="Event not found")
     return {
@@ -94,7 +94,7 @@ def my_events(current_user: dict = Depends(get_current_user)):
         rows = cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
     return [
         {"id": r[0], "title": r[1], "description": r[2],
          "event_date": str(r[3]), "venue": r[4], "status": r[5]}
@@ -124,7 +124,7 @@ def add_contribution(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.patch("/{event_id}/close")
@@ -138,5 +138,5 @@ def close_event(
                 (date.today(), event_id))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return {"message": "Event closed"}

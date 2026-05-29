@@ -2,7 +2,7 @@ import csv
 import io
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
-from app.database import get_connection
+from app.database import get_connection, release_connection
 from app.models import MemberCreate
 from app.routes.auth import get_current_user
 from app.auth_deps import require_secretary, require_chairperson, require_super_admin
@@ -35,7 +35,7 @@ def add_member(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/")
@@ -47,7 +47,7 @@ def list_members(_=Depends(get_current_user)):
     )
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [
         {"id": r[0], "full_name": r[1], "phone_number": r[2],
          "role": r[3], "status": r[4], "date_joined": r[5]}
@@ -62,7 +62,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
     cur.execute("SELECT * FROM members WHERE id = %s", (member_id,))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     if not row:
         raise HTTPException(status_code=404, detail="Member not found")
     return {
@@ -99,7 +99,7 @@ def update_member(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.patch("/{member_id}/deactivate")
@@ -112,7 +112,7 @@ def deactivate_member(
     cur.execute("UPDATE members SET status='inactive' WHERE id=%s", (member_id,))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return {"message": "Member deactivated"}
 
 
@@ -127,7 +127,7 @@ def delete_member(
     deleted = cur.fetchone()
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
     if not deleted:
         raise HTTPException(status_code=404, detail="Member not found")
     return {"message": "Member deleted"}
@@ -180,7 +180,7 @@ def change_member_role(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/template/csv")
@@ -265,7 +265,7 @@ async def bulk_import_members(
         conn.commit()
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
     return {
         "inserted": inserted,
@@ -288,7 +288,7 @@ def download_members_csv(_=Depends(require_secretary)):
         rows = cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -315,5 +315,5 @@ def get_all_phones(current_user=Depends(require_super_admin)):
     )
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [r[0] for r in rows]

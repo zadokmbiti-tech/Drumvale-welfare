@@ -1,6 +1,6 @@
 # app/routes/contributions.py
 from fastapi import APIRouter, HTTPException, Depends
-from app.database import get_connection
+from app.database import get_connection, release_connection
 from app.models import MonthlyContributionCreate
 from app.routes.auth import get_current_user
 from app.auth_deps import require_treasurer, require_chairperson
@@ -38,7 +38,7 @@ def record_contribution(
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/")
@@ -68,7 +68,7 @@ def list_contributions(
     cur.execute(query, params)
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [
         {"id": r[0], "member": r[1], "amount": float(r[2]),
          "month": r[3], "payment_method": r[4], "reference": r[5], "recorded_at": r[6]}
@@ -95,7 +95,7 @@ def contributions_summary(_=Depends(get_current_user)):
     all_time_total = cur.fetchone()[0]
 
     cur.close()
-    conn.close()
+    release_connection(conn)
     return {
         "monthly_breakdown": [
             {"month": r[0], "total": float(r[1]), "count": r[2]} for r in rows
@@ -121,7 +121,7 @@ def month_payment_status(month: str, _=Depends(get_current_user)):
     """, (month,))
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [
         {"member_id": r[0], "full_name": r[1],
          "amount": float(r[2]), "paid": r[3]}
@@ -143,7 +143,7 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
         rows = cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
     return [
         {"id": r[0], "member_id": r[1], "amount": float(r[2]),
          "month": r[3], "payment_date": str(r[4]), "method": r[5],
@@ -162,7 +162,7 @@ def delete_contribution(
     deleted = cur.fetchone()
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
     if not deleted:
         raise HTTPException(status_code=404, detail="Contribution not found")
     return {"message": "Deleted"}

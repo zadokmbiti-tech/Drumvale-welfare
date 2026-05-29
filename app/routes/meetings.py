@@ -1,7 +1,7 @@
 import os
 import requests
 from fastapi import APIRouter, HTTPException, Depends
-from app.database import get_connection
+from app.database import get_connection, release_connection
 from app.routes.auth import get_current_user
 from app.auth_deps import require_secretary
 
@@ -186,7 +186,7 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
         raise HTTPException(400, str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/")
@@ -207,7 +207,7 @@ def list_meetings(_=Depends(get_current_user)):
         ]
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/{meeting_id}")
@@ -232,7 +232,7 @@ def get_meeting(meeting_id: int, _=Depends(get_current_user)):
         }
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 @router.get("/my")
 def my_meetings(current_user: dict = Depends(get_current_user)):
@@ -246,7 +246,7 @@ def my_meetings(current_user: dict = Depends(get_current_user)):
         rows = cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
     return [
         {"id": r[0], "title": r[1], "meeting_date": str(r[2]),
          "venue": r[3], "agenda": r[4], "status": r[5]}
@@ -268,7 +268,7 @@ def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secreta
         return {"message": f"Meeting marked as {status}"}
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.post("/{meeting_id}/sms")
@@ -303,4 +303,4 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
         return {"status": "error", "reason": str(e)}
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)

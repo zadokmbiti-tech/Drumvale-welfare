@@ -2,7 +2,7 @@ import csv
 import io
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
-from app.database import get_connection
+from app.database import get_connection, release_connection 
 from app.routes.auth import get_current_user
 from app.auth_deps import require_treasurer
 
@@ -55,7 +55,7 @@ def record_transaction(body: dict, current_user=Depends(require_treasurer)):
         raise HTTPException(400, str(e))
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/")
@@ -76,7 +76,7 @@ def list_transactions(_=Depends(get_current_user)):
         ]
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
 
 @router.get("/report/csv")
@@ -117,7 +117,7 @@ def download_finance_csv(
         net     = income - expense
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -150,4 +150,4 @@ def delete_transaction(record_id: int, _=Depends(require_treasurer)):
         return {"message": "Deleted"}
     finally:
         cur.close()
-        conn.close()
+        release_connection(conn)
