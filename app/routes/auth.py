@@ -269,23 +269,43 @@ def list_pending(current_user=Depends(require_admin)):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT id, full_name, phone_number, email, role, created_at
-            FROM users
-            WHERE registration_status = 'pending'
-            ORDER BY created_at ASC
+            SELECT u.id, u.full_name, u.phone_number, u.email, u.role, u.created_at,
+                   u.id_number, u.date_of_birth, u.marital_status, u.residence,
+                   u.court, u.house_number, u.spouse_name,
+                   u.next_of_kin_name, u.next_of_kin_phone,
+                   u.next_of_kin_2, u.nok2_phone
+            FROM users u
+            WHERE u.registration_status = 'pending'
+            ORDER BY u.created_at ASC
         """)
         rows = cur.fetchall()
+
+        result = []
+        for r in rows:
+            cur.execute("""
+                SELECT full_name, date_of_birth, relationship, cert_number
+                FROM member_children WHERE user_id=%s
+            """, (r[0],))
+            children = [
+                {"full_name": c[0], "date_of_birth": str(c[1]) if c[1] else None,
+                 "relationship": c[2], "cert_number": c[3]}
+                for c in cur.fetchall()
+            ]
+            result.append({
+                "id": r[0], "full_name": r[1], "phone_number": r[2],
+                "email": r[3], "role": r[4], "applied_at": r[5],
+                "id_number": r[6],
+                "date_of_birth": str(r[7]) if r[7] else None,
+                "marital_status": r[8], "residence": r[9],
+                "court": r[10], "house_number": r[11], "spouse_name": r[12],
+                "next_of_kin_name": r[13], "next_of_kin_phone": r[14],
+                "next_of_kin_2": r[15], "nok2_phone": r[16],
+                "children": children
+            })
+        return result
     finally:
         cur.close()
         release_connection(conn)
-
-    return [
-        {
-            "id": r[0], "full_name": r[1], "phone_number": r[2],
-            "email": r[3], "role": r[4], "applied_at": r[5]
-        }
-        for r in rows
-    ]
 
 
 @router.patch("/admin/{user_id}/approve")
