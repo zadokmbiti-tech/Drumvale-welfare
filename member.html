@@ -499,27 +499,41 @@ async function loadProfile() {
     document.getElementById('prof-role').textContent = merged.role||'member';
     document.getElementById('prof-meta').textContent = `Member since ${fmtDate(merged.created_at||merged.date_joined)} · ${merged.phone_number}`;
     document.getElementById('profile-grid').innerHTML = `
-      <div class="profile-card">
-        <h4>Personal Details</h4>
-        <div class="profile-row"><span class="label">Full Name</span><span class="value">${v(merged.full_name)}</span></div>
-        <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.phone_number)}</span></div>
-        <div class="profile-row"><span class="label">ID Number</span><span class="value">${v(merged.id_number)}</span></div>
-        <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${merged.role||'member'}</span></span></div>
-        <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${merged.status||'active'}</span></span></div>
-        <div class="profile-row"><span class="label">Date Joined</span><span class="value">${fmtDate(merged.date_joined||merged.created_at)}</span></div>
-      </div>
-      <div class="profile-card">
-        <h4>Next of Kin</h4>
-        <div class="profile-row"><span class="label">Name</span><span class="value">${v(merged.next_of_kin_name)}</span></div>
-        <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.next_of_kin_phone)}</span></div>
-        <div class="profile-row"><span class="label">Notes</span><span class="value">${v(merged.notes)}</span></div>
-      </div>
-      <div class="profile-card" style="grid-column:1/-1;background:rgba(44,180,224,0.04);border:1px dashed rgba(44,180,224,0.2);">
-        <p style="font-size:0.82rem;color:var(--silver);margin:0;">
-          📋 Fields showing <em>Not provided</em> were not captured at registration.
-          Contact the committee secretary to update your profile.
-        </p>
-      </div>`;
+  <div class="profile-card">
+    <h4>Personal Details</h4>
+    <div class="profile-row"><span class="label">Full Name</span><span class="value">${v(merged.full_name)}</span></div>
+    <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.phone_number)}</span></div>
+    <div class="profile-row"><span class="label">Email</span><span class="value">${v(merged.email)}</span></div>
+    <div class="profile-row"><span class="label">ID Number</span><span class="value">${v(merged.id_number)}</span></div>
+    <div class="profile-row"><span class="label">Date of Birth</span><span class="value">${fmtDate(merged.date_of_birth)}</span></div>
+    <div class="profile-row"><span class="label">Marital Status</span><span class="value">${v(merged.marital_status)}</span></div>
+    <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${merged.role||'member'}</span></span></div>
+    <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${merged.status||'active'}</span></span></div>
+    <div class="profile-row"><span class="label">Date Joined</span><span class="value">${fmtDate(merged.date_joined||merged.created_at)}</span></div>
+  </div>
+  <div class="profile-card">
+    <h4>Residence</h4>
+    <div class="profile-row"><span class="label">Estate</span><span class="value">${v(merged.residence)}</span></div>
+    <div class="profile-row"><span class="label">Court</span><span class="value">${v(merged.court)}</span></div>
+    <div class="profile-row"><span class="label">House No.</span><span class="value">${v(merged.house_number)}</span></div>
+    <div class="profile-row"><span class="label">Spouse</span><span class="value">${v(merged.spouse_name)}</span></div>
+  </div>
+  <div class="profile-card">
+    <h4>Next of Kin 1</h4>
+    <div class="profile-row"><span class="label">Name</span><span class="value">${v(merged.next_of_kin_name)}</span></div>
+    <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.next_of_kin_phone)}</span></div>
+  </div>
+  <div class="profile-card">
+    <h4>Next of Kin 2</h4>
+    <div class="profile-row"><span class="label">Name</span><span class="value">${v(merged.next_of_kin_2)}</span></div>
+    <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.nok2_phone)}</span></div>
+  </div>
+  <div class="profile-card" style="grid-column:1/-1;background:rgba(44,180,224,0.04);border:1px dashed rgba(44,180,224,0.2);">
+    <p style="font-size:0.82rem;color:var(--silver);margin:0;">
+      📋 Fields showing <em>Not provided</em> were not captured at registration.
+      Contact the committee secretary to update your profile.
+    </p>
+  </div>`;
   } catch(e) {
     document.getElementById('profile-grid').innerHTML = emptyState('⚠️','Could not load profile.');
   }

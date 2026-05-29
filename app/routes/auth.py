@@ -75,21 +75,24 @@ def register(data: UserRegister):
 
         hashed = hash_password(data.password)
 
-        # Mirror into members table
+        # 1. Insert into users (source of truth for all profile fields)
         cur.execute("""
-            INSERT INTO members (
-                member_id, full_name, phone_number, id_number, role, status,
-                date_joined, next_of_kin_name, next_of_kin_phone
-            )
-            VALUES (%s,%s,%s,%s,'member','active',CURRENT_DATE,%s,%s)
-            ON CONFLICT (phone_number) DO NOTHING
+            INSERT INTO users (
+                full_name, phone_number, email, id_number, hashed_password,
+                date_of_birth, marital_status, residence, court, house_number,
+                spouse_name, next_of_kin_name, next_of_kin_phone,
+                next_of_kin_2, nok2_phone
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
         """, (
-            data.member_id,
-            data.full_name, data.phone_number, data.id_number,
-            data.next_of_kin_name, data.next_of_kin_phone,
+            data.full_name, data.phone_number, data.email, data.id_number, hashed,
+            data.date_of_birth, data.marital_status, data.residence, data.court,
+            data.house_number, data.spouse_name, data.next_of_kin_name,
+            data.next_of_kin_phone, data.next_of_kin_2, data.nok2_phone
         ))
         new_user_id = cur.fetchone()[0]
 
+        # 2. Insert children if any
         for child in (data.children or []):
             if child.full_name:
                 cur.execute("""
@@ -99,7 +102,7 @@ def register(data: UserRegister):
                 """, (new_user_id, child.full_name, child.date_of_birth,
                       child.relationship, child.cert_number))
 
-        # Mirror into members table
+        # 3. Mirror basic fields into members table
         cur.execute("""
             INSERT INTO members (
                 full_name, phone_number, id_number, role, status,
@@ -201,16 +204,19 @@ def get_me(current_user: dict = Depends(get_current_user)):
     cur = conn.cursor()
     try:
         cur.execute(
-            """SELECT u.id, u.full_name, u.phone_number, u.role, u.is_active,
-                      u.registration_status, u.created_at,
-                      m.id_number, m.status, m.date_joined,
-                      m.next_of_kin_name, m.next_of_kin_phone, m.notes
-               FROM users u
-               LEFT JOIN members m ON m.phone_number = u.phone_number
-               WHERE u.id=%s""",
-            (current_user["user_id"],)
-        )
-        user = cur.fetchone()
+    """SELECT u.id, u.full_name, u.phone_number, u.role, u.is_active,
+              u.registration_status, u.created_at, u.email,
+              u.date_of_birth, u.marital_status, u.residence,
+              u.court, u.house_number, u.spouse_name,
+              u.next_of_kin_name, u.next_of_kin_phone,
+              u.next_of_kin_2, u.nok2_phone,
+              m.id_number, m.status, m.date_joined, m.notes
+       FROM users u
+       LEFT JOIN members m ON m.phone_number = u.phone_number
+       WHERE u.id=%s""",
+    (current_user["user_id"],)
+)
+user = cur.fetchone()
     finally:
         cur.close()
         release_connection(conn)
@@ -218,13 +224,25 @@ def get_me(current_user: dict = Depends(get_current_user)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {
-        "id": user[0], "full_name": user[1], "phone_number": user[2],
-        "role": user[3], "is_active": user[4],
-        "registration_status": user[5], "created_at": user[6],
-        "id_number": user[7], "status": user[8], "date_joined": user[9],
-        "next_of_kin_name": user[10], "next_of_kin_phone": user[11], "notes": user[12]
-    }
-
+    "id": user[0], "full_name": user[1], "phone_number": user[2],
+    "role": user[3], "is_active": user[4],
+    "registration_status": user[5], "created_at": user[6],
+    "email": user[7],
+    "date_of_birth": str(user[8]) if user[8] else None,
+    "marital_status": user[9],
+    "residence": user[10],
+    "court": user[11],
+    "house_number": user[12],
+    "spouse_name": user[13],
+    "next_of_kin_name": user[14],
+    "next_of_kin_phone": user[15],
+    "next_of_kin_2": user[16],
+    "nok2_phone": user[17],
+    "id_number": user[18],
+    "status": user[19],
+    "date_joined": str(user[20]) if user[20] else None,
+    "notes": user[21],
+}
 # ------------------------------------------------------------------ #
 #  ADMIN — list pending, approve, reject, change role
 # ------------------------------------------------------------------ #
