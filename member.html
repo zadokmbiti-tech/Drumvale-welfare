@@ -611,18 +611,49 @@ async function showMemberDetail(id) {
     if (res.ok) full = await res.json();
   } catch(_){}
   document.getElementById('modal-member-name').textContent = full.full_name||'Member';
+  const isAdmin = ['super_admin','chairperson','secretary','treasurer'].includes(currentUser?.role);
+  const childRows = (full.children||[]).length
+    ? full.children.map(c=>`
+        <div class="modal-row"><span class="lbl">${c.full_name||'—'}</span>
+        <span class="val">${fmtDate(c.date_of_birth)} · ${c.relationship||'—'} · Cert: ${c.cert_number||'—'}</span></div>
+      `).join('')
+    : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
+
   document.getElementById('modal-member-body').innerHTML = `
     <div class="modal-section-label">Personal</div>
     <div class="modal-row"><span class="lbl">Full Name</span><span class="val">${v(full.full_name)}</span></div>
     <div class="modal-row"><span class="lbl">Phone</span><span class="val">${v(full.phone_number)}</span></div>
+    ${isAdmin ? `<div class="modal-row"><span class="lbl">Email</span><span class="val">${v(full.email)}</span></div>` : ''}
     <div class="modal-row"><span class="lbl">ID Number</span><span class="val">${v(full.id_number)}</span></div>
+    ${isAdmin ? `<div class="modal-row"><span class="lbl">Date of Birth</span><span class="val">${fmtDate(full.date_of_birth)}</span></div>` : ''}
+    ${isAdmin ? `<div class="modal-row"><span class="lbl">Marital Status</span><span class="val">${v(full.marital_status)}</span></div>` : ''}
+    ${isAdmin ? `<div class="modal-row"><span class="lbl">Spouse</span><span class="val">${v(full.spouse_name)}</span></div>` : ''}
     <div class="modal-row"><span class="lbl">Role</span><span class="val"><span class="badge badge-blue">${full.role||'member'}</span></span></div>
     <div class="modal-row"><span class="lbl">Status</span><span class="val"><span class="badge badge-green">${full.status||'active'}</span></span></div>
     <div class="modal-row"><span class="lbl">Date Joined</span><span class="val">${fmtDate(full.date_joined)}</span></div>
-    <div class="modal-section-label">Next of Kin</div>
+
+    ${isAdmin ? `
+    <div class="modal-section-label">Residence</div>
+    <div class="modal-row"><span class="lbl">Estate</span><span class="val">${v(full.residence)}</span></div>
+    <div class="modal-row"><span class="lbl">Court</span><span class="val">${v(full.court)}</span></div>
+    <div class="modal-row"><span class="lbl">House No.</span><span class="val">${v(full.house_number)}</span></div>
+    ` : ''}
+
+    <div class="modal-section-label">Next of Kin 1</div>
     <div class="modal-row"><span class="lbl">Name</span><span class="val">${v(full.next_of_kin_name)}</span></div>
     <div class="modal-row"><span class="lbl">Phone</span><span class="val">${v(full.next_of_kin_phone)}</span></div>
-    ${full.notes?`<div class="modal-section-label">Notes</div><div style="font-size:0.83rem;color:var(--silver);padding:8px 0;">${full.notes}</div>`:''}
+
+    ${isAdmin ? `
+    <div class="modal-section-label">Next of Kin 2</div>
+    <div class="modal-row"><span class="lbl">Name</span><span class="val">${v(full.next_of_kin_2)}</span></div>
+    <div class="modal-row"><span class="lbl">Phone</span><span class="val">${v(full.nok2_phone)}</span></div>
+
+    <div class="modal-section-label">Children / Dependants</div>
+    ${childRows}
+    ` : ''}
+
+    ${full.notes ? `<div class="modal-section-label">Notes</div>
+    <div style="font-size:0.83rem;color:var(--silver);padding:8px 0;">${full.notes}</div>` : ''}
   `;
   document.getElementById('modal-member').classList.add('open');
 }

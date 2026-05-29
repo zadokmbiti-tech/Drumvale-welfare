@@ -59,17 +59,49 @@ def list_members(_=Depends(get_current_user)):
 def get_member(member_id: int, _=Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM members WHERE id = %s", (member_id,))
-    row = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    if not row:
-        raise HTTPException(status_code=404, detail="Member not found")
+    try:
+        # Get member + full registration details from users table
+        cur.execute("""
+            SELECT m.id, m.full_name, m.phone_number, m.id_number, m.role, m.status,
+                   m.date_joined, m.next_of_kin_name, m.next_of_kin_phone, m.notes,
+                   u.email, u.date_of_birth, u.marital_status, u.residence,
+                   u.court, u.house_number, u.spouse_name,
+                   u.next_of_kin_2, u.nok2_phone
+            FROM members m
+            LEFT JOIN users u ON u.phone_number = m.phone_number
+            WHERE m.id = %s
+        """, (member_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Member not found")
+
+        # Get children
+        cur.execute("""
+            SELECT full_name, date_of_birth, relationship, cert_number
+            FROM member_children
+            WHERE user_id = (SELECT id FROM users WHERE phone_number = %s)
+            ORDER BY id
+        """, (row[2],))
+        children = [
+            {"full_name": c[0], "date_of_birth": str(c[1]) if c[1] else None,
+             "relationship": c[2], "cert_number": c[3]}
+            for c in cur.fetchall()
+        ]
+    finally:
+        cur.close()
+        release_connection(conn)
+
     return {
         "id": row[0], "full_name": row[1], "phone_number": row[2],
         "id_number": row[3], "role": row[4], "status": row[5],
-        "date_joined": row[6], "next_of_kin_name": row[7],
-        "next_of_kin_phone": row[8], "notes": row[9]
+        "date_joined": str(row[6]) if row[6] else None,
+        "next_of_kin_name": row[7], "next_of_kin_phone": row[8], "notes": row[9],
+        "email": row[10],
+        "date_of_birth": str(row[11]) if row[11] else None,
+        "marital_status": row[12], "residence": row[13],
+        "court": row[14], "house_number": row[15], "spouse_name": row[16],
+        "next_of_kin_2": row[17], "nok2_phone": row[18],
+        "children": children
     }
 
 
