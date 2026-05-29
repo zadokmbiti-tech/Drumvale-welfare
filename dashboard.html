@@ -1939,7 +1939,7 @@ async function loadPendingUsers() {
         <td>${u.email || '—'}</td>
         <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
         <td style="display:flex;gap:6px;align-items:center">
-          <button class="btn btn-sm" style="background:var(--border)" onclick='viewRegistration(${JSON.stringify(u)})'>View</button>
+          <button class="btn btn-sm" style="background:var(--border);color:var(--text)" onclick='viewRegistration(${JSON.stringify(u)})'>👁 View</button>
           <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${u.full_name}')">Approve</button>
           <button class="btn btn-sm btn-danger"  onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
         </td>
