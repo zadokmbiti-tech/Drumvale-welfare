@@ -82,6 +82,25 @@ def get_event(event_id: int, _=Depends(get_current_user)):
         "beneficiary": row[10], "total_raised": row[11]
     }
 
+@router.get("/my")
+def my_events(current_user: dict = Depends(get_current_user)):
+    """Return all events — all members can view events."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, title, description, event_date, venue, status FROM events ORDER BY event_date DESC"
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return [
+        {"id": r[0], "title": r[1], "description": r[2],
+         "event_date": str(r[3]), "venue": r[4], "status": r[5]}
+        for r in rows
+    ]
+
 
 @router.post("/{event_id}/contribute")
 def add_contribution(

@@ -154,6 +154,32 @@ def get_loan(loan_id: int, _=Depends(get_current_user)):
         ]
     }
 
+@router.get("/my")
+def my_loans(current_user: dict = Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT id, member_id, amount, interest_rate, status,
+                      applied_date, approved_date, due_date, balance
+               FROM loans
+               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
+               ORDER BY applied_date DESC""",
+            (current_user["phone_number"],)
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return [
+        {"id": r[0], "member_id": r[1], "amount": float(r[2]),
+         "interest_rate": float(r[3]) if r[3] else None, "status": r[4],
+         "applied_date": str(r[5]), "approved_date": str(r[6]) if r[6] else None,
+         "due_date": str(r[7]) if r[7] else None,
+         "balance": float(r[8]) if r[8] else None}
+        for r in rows
+    ]
+
 
 @router.patch("/{loan_id}/status")
 def update_loan_status(

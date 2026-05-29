@@ -201,8 +201,13 @@ def get_me(current_user: dict = Depends(get_current_user)):
     cur = conn.cursor()
     try:
         cur.execute(
-            """SELECT id, full_name, phone_number, role, is_active, registration_status, created_at
-               FROM users WHERE id=%s""",
+            """SELECT u.id, u.full_name, u.phone_number, u.role, u.is_active,
+                      u.registration_status, u.created_at,
+                      m.id_number, m.status, m.date_joined,
+                      m.next_of_kin_name, m.next_of_kin_phone, m.notes
+               FROM users u
+               LEFT JOIN members m ON m.phone_number = u.phone_number
+               WHERE u.id=%s""",
             (current_user["user_id"],)
         )
         user = cur.fetchone()
@@ -215,9 +220,10 @@ def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "id": user[0], "full_name": user[1], "phone_number": user[2],
         "role": user[3], "is_active": user[4],
-        "registration_status": user[5], "created_at": user[6]
+        "registration_status": user[5], "created_at": user[6],
+        "id_number": user[7], "status": user[8], "date_joined": user[9],
+        "next_of_kin_name": user[10], "next_of_kin_phone": user[11], "notes": user[12]
     }
-
 
 # ------------------------------------------------------------------ #
 #  ADMIN — list pending, approve, reject, change role

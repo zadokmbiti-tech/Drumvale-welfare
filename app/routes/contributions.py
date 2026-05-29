@@ -128,6 +128,28 @@ def month_payment_status(month: str, _=Depends(get_current_user)):
         for r in rows
     ]
 
+@router.get("/my")
+def my_contributions(current_user: dict = Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT id, member_id, amount, month, payment_date, method, reference, notes
+               FROM contributions
+               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
+               ORDER BY payment_date DESC""",
+            (current_user["phone_number"],)
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return [
+        {"id": r[0], "member_id": r[1], "amount": float(r[2]),
+         "month": r[3], "payment_date": str(r[4]), "method": r[5],
+         "reference": r[6], "notes": r[7]}
+        for r in rows
+    ]
 
 @router.delete("/{contribution_id}")
 def delete_contribution(

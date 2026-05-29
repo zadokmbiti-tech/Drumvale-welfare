@@ -234,6 +234,24 @@ def get_meeting(meeting_id: int, _=Depends(get_current_user)):
         cur.close()
         conn.close()
 
+@router.get("/my")
+def my_meetings(current_user: dict = Depends(get_current_user)):
+    """Return all meetings — all members can view meetings."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, title, meeting_date, venue, agenda, status FROM meetings ORDER BY meeting_date DESC"
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return [
+        {"id": r[0], "title": r[1], "meeting_date": str(r[2]),
+         "venue": r[3], "agenda": r[4], "status": r[5]}
+        for r in rows
+    ]
 
 @router.patch("/{meeting_id}/status")
 def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secretary)):

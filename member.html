@@ -181,7 +181,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="showTab('overview')">🏠 Overview</div>
     <div class="nav-tab" onclick="showTab('profile')">👤 My Profile</div>
-    <div class="nav-tab" onclick="showTab('members')">👥 Members</div>
+    <div class="nav-tab" id="members-nav-tab" style="display:none" onclick="showTab('members')">👥 Members</div>
     <div class="nav-tab" onclick="showTab('contributions')">💰 Contributions</div>
     <div class="nav-tab" onclick="showTab('loans')">🏦 Loans</div>
     <div class="nav-tab" onclick="showTab('events')">📅 Events</div>
@@ -365,6 +365,13 @@ function initApp() {
   document.getElementById('topbar-name').textContent   = currentUser.name;
   document.getElementById('welcome-name').textContent  = currentUser.name.split(' ')[0];
   document.getElementById('prof-avatar').textContent   = initials;
+  
+  // Show Members tab only for committee roles
+  const adminRoles = ['secretary','treasurer','chairperson','super_admin'];
+  if (adminRoles.includes(currentUser.role)) {
+    document.getElementById('members-nav-tab').style.display = '';
+  }
+
   loadOverview();
   loadProfile();
 }
