@@ -216,7 +216,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
        WHERE u.id=%s""",
     (current_user["user_id"],)
 )
-user = cur.fetchone()
+        user = cur.fetchone()
     finally:
         cur.close()
         release_connection(conn)
