@@ -217,6 +217,22 @@ def get_me(current_user: dict = Depends(get_current_user)):
     (current_user["user_id"],)
 )
         user = cur.fetchone()
+        children = []
+        if user:
+            cur.execute(
+                """SELECT full_name, date_of_birth, relationship, cert_number
+                   FROM member_children WHERE user_id=%s ORDER BY id""",
+                (user[0],)
+            )
+            children = [
+                {
+                    "full_name": r[0],
+                    "date_of_birth": str(r[1]) if r[1] else None,
+                    "relationship": r[2],
+                    "cert_number": r[3]
+                }
+                for r in cur.fetchall()
+            ]
     finally:
         cur.close()
         release_connection(conn)
@@ -242,6 +258,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "status": user[19],
     "date_joined": str(user[20]) if user[20] else None,
     "notes": user[21],
+    "children": children,
 }
 # ------------------------------------------------------------------ #
 #  ADMIN — list pending, approve, reject, change role

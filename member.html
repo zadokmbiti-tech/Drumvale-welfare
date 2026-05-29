@@ -528,6 +528,29 @@ async function loadProfile() {
     <div class="profile-row"><span class="label">Name</span><span class="value">${v(merged.next_of_kin_2)}</span></div>
     <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.nok2_phone)}</span></div>
   </div>
+  ${merged.children && merged.children.length > 0 ? `
+  <div class="profile-card" style="grid-column:1/-1;">
+    <h4>Children / Dependants</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+      <thead>
+        <tr style="color:var(--silver);text-align:left;border-bottom:1px solid var(--border);">
+          <th style="padding:6px 8px;">Name</th>
+          <th style="padding:6px 8px;">Date of Birth</th>
+          <th style="padding:6px 8px;">Relationship</th>
+          <th style="padding:6px 8px;">Cert No.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${merged.children.map(c => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 8px;">${c.full_name||'—'}</td>
+            <td style="padding:6px 8px;">${fmtDate(c.date_of_birth)}</td>
+            <td style="padding:6px 8px;">${c.relationship||'—'}</td>
+            <td style="padding:6px 8px;">${c.cert_number||'—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
   <div class="profile-card" style="grid-column:1/-1;background:rgba(44,180,224,0.04);border:1px dashed rgba(44,180,224,0.2);">
     <p style="font-size:0.82rem;color:var(--silver);margin:0;">
       📋 Fields showing <em>Not provided</em> were not captured at registration.
