@@ -517,7 +517,31 @@
           </div>
           <button type="button" onclick="addChildRow()" style="margin-top:8px;background:transparent;border:1px solid rgba(44,180,224,0.3);color:var(--sky);font-family:inherit;font-size:0.75rem;padding:5px 12px;border-radius:2px;cursor:pointer;">+ Add Child</button>
         </div>
-
+<!-- Parents / Parents-in-law -->
+        <div style="margin-bottom:18px;margin-top:18px;">
+          <label style="display:block;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--silver);margin-bottom:10px;">Parents & Parents-in-Law <span style="color:var(--sky);font-size:0.7rem;">(Biological only)</span></label>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+              <thead><tr style="background:rgba(44,180,224,0.1);">
+                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);width:32px;">#</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Full Name</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">ID No</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Current Residence</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Contact Phone</th>
+              </tr></thead>
+              <tbody id="parents-tbody">
+                <tr>
+                  <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">1</td>
+                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onclick="addParentRow()" style="margin-top:8px;background:transparent;border:1px solid rgba(44,180,224,0.3);color:var(--sky);font-family:inherit;font-size:0.75rem;padding:5px 12px;border-radius:2px;cursor:pointer;">+ Add Parent</button>
+        </div>
         <!-- PDF note -->
         <div style="background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.2);border-radius:4px;padding:14px 16px;margin-bottom:18px;">
           <p style="font-size:0.8rem;color:var(--silver);margin-bottom:10px;">📋 <strong style="color:var(--white);">Full Registration Form:</strong> Download and submit the complete PDF form to the Secretary with supporting documents.</p>
@@ -741,6 +765,12 @@ async function handleLogin() {
         const name = inputs[0]?.value?.trim();
         if (name) children.push({ full_name: name, date_of_birth: inputs[1]?.value || null, relationship: inputs[2]?.value || null, cert_number: inputs[3]?.value?.trim() || null });
       });
+      const parents = [];
+      document.querySelectorAll('#parents-tbody tr').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const name = inputs[0]?.value?.trim();
+        if (name) parents.push({ full_name: name, id_number: inputs[1]?.value?.trim() || null, current_residence: inputs[2]?.value?.trim() || null, contact_phone: inputs[3]?.value?.trim() || null });
+      });
 
       const payload = {
         member_id:         document.getElementById('reg-memberid').value.trim() || null,
@@ -758,7 +788,7 @@ async function handleLogin() {
         next_of_kin_phone: document.getElementById('reg-nok1tel').value.trim() || null,
         next_of_kin_2:     document.getElementById('reg-nok2').value.trim() || null,
         nok2_phone:        document.getElementById('reg-nok2tel').value.trim() || null,
-        password: pass, children,
+        password: pass, children, parents
       };
 
       if (!payload.full_name || !payload.phone_number || !payload.password) {
@@ -843,6 +873,18 @@ async function handleLogin() {
         <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><select style="width:100%;background:var(--ink);border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;"><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
         <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="No." style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
       tbody.appendChild(row);
+    }
+    function addParentRow() {
+      const tbody = document.getElementById('parents-tbody');
+      const n = tbody.rows.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">${n}</td>
+        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
+      tbody.appendChild(tr);
     }
 
     /* ══════════ LOGO FALLBACK ══════════ */
