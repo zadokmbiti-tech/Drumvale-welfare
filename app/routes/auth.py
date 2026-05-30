@@ -334,7 +334,7 @@ def list_pending(current_user=Depends(require_admin)):
                 "court": r[10], "house_number": r[11], "spouse_name": r[12],
                 "next_of_kin_name": r[13], "next_of_kin_phone": r[14],
                 "next_of_kin_2": r[15], "nok2_phone": r[16],
-                "children": children
+                "children": children,
                 "parents": parents
             })
         return result
