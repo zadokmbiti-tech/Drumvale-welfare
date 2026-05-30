@@ -114,7 +114,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
         "court": row[14], "house_number": row[15], "spouse_name": row[16],
         "next_of_kin_2": row[17], "nok2_phone": row[18],
         "children": children
-        "parents": parents
+        "Parents": Parents
     }
 
 
