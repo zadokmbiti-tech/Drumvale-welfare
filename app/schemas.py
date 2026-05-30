@@ -44,6 +44,12 @@ class ChildIn(BaseModel):
     relationship:  Optional[str] = None
     cert_number:   Optional[str] = None
 
+class ParentIn(BaseModel):
+    full_name:         Optional[str] = None
+    id_number:         Optional[str] = None
+    current_residence: Optional[str] = None
+    contact_phone:     Optional[str] = None    
+
 class UserRegister(BaseModel):
     member_id:        Optional[str] = None
     full_name:        str
@@ -63,6 +69,7 @@ class UserRegister(BaseModel):
     nok2_phone:       Optional[str] = None
     role:             str = "member"
     children:         Optional[List[ChildIn]] = []
+    parents:          Optional[List[ParentIn]] = []
 
 class UserLogin(BaseModel):
     phone_number: Optional[str] = None

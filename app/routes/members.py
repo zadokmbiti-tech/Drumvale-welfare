@@ -87,6 +87,18 @@ def get_member(member_id: int, _=Depends(get_current_user)):
              "relationship": c[2], "cert_number": c[3]}
             for c in cur.fetchall()
         ]
+        # Get parents/parents-in-law
+        cur.execute("""
+            SELECT full_name, id_number, current_residence, contact_phone
+            FROM member_parents
+            WHERE user_id = (SELECT id FROM users WHERE phone_number = %s)
+            ORDER BY id
+        """, (row[2],))
+        parents = [
+            {"full_name": p[0], "id_number": p[1],
+             "current_residence": p[2], "contact_phone": p[3]}
+            for p in cur.fetchall()
+        ]
     finally:
         cur.close()
         release_connection(conn)
@@ -102,6 +114,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
         "court": row[14], "house_number": row[15], "spouse_name": row[16],
         "next_of_kin_2": row[17], "nok2_phone": row[18],
         "children": children
+        "parents": parents
     }
 
 

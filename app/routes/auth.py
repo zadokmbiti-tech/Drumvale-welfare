@@ -102,7 +102,17 @@ def register(data: UserRegister):
                 """, (new_user_id, child.full_name, child.date_of_birth,
                       child.relationship, child.cert_number))
 
-        # 3. Mirror basic fields into members table
+        # 3. Insert parents/parents-in-law if any
+        for parent in (data.parents or []):
+            if parent.full_name:
+                cur.execute("""
+                    INSERT INTO member_parents
+                        (user_id, full_name, id_number, current_residence, contact_phone)
+                    VALUES (%s,%s,%s,%s,%s)
+                """, (new_user_id, parent.full_name, parent.id_number,
+                      parent.current_residence, parent.contact_phone))
+                
+        # 4. Mirror basic fields into members table
         cur.execute("""
             INSERT INTO members (
                 full_name, phone_number, id_number, role, status,
@@ -233,6 +243,21 @@ def get_me(current_user: dict = Depends(get_current_user)):
                 }
                 for r in cur.fetchall()
             ]
+            # fetch parents
+            cur.execute(
+                """SELECT full_name, id_number, current_residence, contact_phone
+                   FROM member_parents WHERE user_id=%s ORDER BY id""",
+                (user[0],)
+            )
+            parents = [
+                {
+                    "full_name": r[0],
+                    "id_number": r[1],
+                    "current_residence": r[2],
+                    "contact_phone": r[3]
+                }
+                for r in cur.fetchall()
+            ]
     finally:
         cur.close()
         release_connection(conn)
@@ -291,6 +316,15 @@ def list_pending(current_user=Depends(require_admin)):
                  "relationship": c[2], "cert_number": c[3]}
                 for c in cur.fetchall()
             ]
+            cur.execute("""
+                SELECT full_name, id_number, current_residence, contact_phone
+                FROM member_parents WHERE user_id=%s
+            """, (r[0],))
+            parents = [
+                {"full_name": p[0], "id_number": p[1],
+                 "current_residence": p[2], "contact_phone": p[3]}
+                for p in cur.fetchall()
+            ]
             result.append({
                 "id": r[0], "full_name": r[1], "phone_number": r[2],
                 "email": r[3], "role": r[4], "applied_at": r[5],
@@ -301,6 +335,7 @@ def list_pending(current_user=Depends(require_admin)):
                 "next_of_kin_name": r[13], "next_of_kin_phone": r[14],
                 "next_of_kin_2": r[15], "nok2_phone": r[16],
                 "children": children
+                "parents": parents
             })
         return result
     finally:

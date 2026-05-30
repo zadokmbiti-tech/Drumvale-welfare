@@ -15,6 +15,7 @@ from app.schemas import (
     UserLogin,
     TokenResponse,
     ChildIn,
+    ParentIn,
 
     # Events & contributions
     EventCreate,
@@ -42,6 +43,7 @@ __all__ = [
     "UserLogin",
     "TokenResponse",
     "ChildIn",
+    "ParentIn",
     "EventCreate",
     "ContributionCreate",
     "EventContributionCreate",
