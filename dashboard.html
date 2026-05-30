@@ -1336,7 +1336,35 @@
     </div>
   </div>
 </div>
-
+<div class="modal-backdrop" id="reject-reason-modal" onclick="if(event.target===this)closeModal('reject-reason-modal')">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3 class="modal-title">⚠️ Reject Registration</h3>
+      <button class="modal-close" onclick="closeModal('reject-reason-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--silver);font-size:0.88rem;margin-bottom:16px">
+        You are about to reject <strong id="reject-modal-name"></strong>'s application.
+        Please provide a reason so they can be informed.
+      </p>
+      <label style="font-size:0.82rem;color:var(--silver);display:block;margin-bottom:6px">
+        REASON FOR REJECTION <span style="color:var(--danger)">*</span>
+      </label>
+      <textarea id="reject-reason-input" rows="4"
+        placeholder="e.g. Incomplete next of kin details. Please reapply with full information."
+        style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;
+               padding:10px;color:var(--text);font-size:0.88rem;resize:vertical;box-sizing:border-box;">
+      </textarea>
+      <p id="reject-reason-error" style="display:none;color:var(--danger);font-size:0.8rem;margin-top:4px">
+        ⚠ A reason is required before rejecting.
+      </p>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:16px">
+      <button class="btn" style="background:var(--border)" onclick="closeModal('reject-reason-modal')">Cancel</button>
+      <button class="btn btn-danger" id="reject-confirm-btn">Confirm Reject</button>
+    </div>
+  </div>
+</div>
 <div id="toast-container"></div>
 
 <script>
@@ -2016,12 +2044,27 @@ async function approveUser(id, name) {
 }
 
 async function rejectUser(id, name) {
-  if (!confirm(`Reject registration for ${name}?`)) return;
-  try {
-    await apiFetch(`/auth/admin/${id}/reject`, { method: 'PATCH' });
-    toast(`${name} rejected`, 'error');
-    loadPendingUsers();
-  } catch(e) { toast(e.message, 'error'); }
+  // Show reason modal first
+  document.getElementById('reject-modal-name').textContent = name;
+  document.getElementById('reject-reason-input').value = '';
+  document.getElementById('reject-confirm-btn').onclick = async () => {
+    const reason = document.getElementById('reject-reason-input').value.trim();
+    if (!reason) {
+      document.getElementById('reject-reason-error').style.display = 'block';
+      return;
+    }
+    document.getElementById('reject-reason-error').style.display = 'none';
+    closeModal('reject-reason-modal');
+    try {
+      await apiFetch(`/auth/admin/${id}/reject`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason })
+      });
+      toast(`${name} rejected`, 'error');
+      loadPendingUsers();
+    } catch(e) { toast(e.message, 'error'); }
+  };
+  openModal('reject-reason-modal');
 }
 
 function fmt(n) { return Number(n||0).toLocaleString('en-KE'); }

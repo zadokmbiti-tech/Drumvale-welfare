@@ -335,16 +335,18 @@ def approve_user(user_id: int, current_user=Depends(require_admin)):
 
 
 @router.patch("/admin/{user_id}/reject")
-def reject_user(user_id: int, current_user=Depends(require_admin)):
+def reject_user(user_id: int, body: dict = {}, current_user=Depends(require_admin)):
+    reason = body.get("reason", "")
     conn = get_connection()
     cur = conn.cursor()
     try:
         cur.execute("""
             UPDATE users
-            SET registration_status = 'rejected', is_active = false
+            SET registration_status = 'rejected', is_active = false,
+                rejection_reason = %s
             WHERE id = %s
             RETURNING id, full_name
-        """, (user_id,))
+        """, (reason, user_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
