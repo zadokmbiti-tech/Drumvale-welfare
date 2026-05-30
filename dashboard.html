@@ -1968,9 +1968,12 @@ async function viewMeeting(id) {
   } catch(e) { toast(e.message,'error'); }
 }
 
+let pendingUsers = [];
+
 async function loadPendingUsers() {
   try {
     const rows = await apiFetch('/auth/admin/pending');
+    pendingUsers = rows;
     const tbody = document.getElementById('pending-tbody');
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No pending registrations</div></td></tr>';
@@ -1984,12 +1987,17 @@ async function loadPendingUsers() {
         <td>${u.email || '—'}</td>
         <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
         <td style="display:flex;gap:6px;align-items:center">
-          <button class="btn btn-sm" style="background:var(--border);color:var(--text)" onclick='viewRegistration(${JSON.stringify(u)})'>👁 View</button>
+          <button class="btn btn-sm" style="background:var(--border);color:var(--text)" onclick="viewPending(${u.id})">👁 View</button>
           <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${u.full_name}')">Approve</button>
           <button class="btn btn-sm btn-danger"  onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
         </td>
       </tr>`).join('');
   } catch(e) { toast(e.message, 'error'); }
+}
+
+function viewPending(id) {
+  const u = pendingUsers.find(x => x.id === id);
+  if (u) viewRegistration(u);
 }
 
 function viewRegistration(u) {
