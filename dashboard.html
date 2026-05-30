@@ -585,12 +585,29 @@
         <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
       </div>
     </div>
-    <div class="card">
+    <!-- Tab switcher -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button id="tab-pending-btn" class="btn btn-primary" onclick="switchAdminTab('pending')">⏳ Pending</button>
+      <button id="tab-rejected-btn" class="btn btn-outline" onclick="switchAdminTab('rejected')">❌ Rejected</button>
+    </div>
+
+    <!-- Pending table -->
+    <div id="admin-tab-pending" class="card">
       <div class="card-title">⏳ Pending Registrations</div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th>Applied</th><th>Actions</th></tr></thead>
           <tbody id="pending-tbody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Rejected table -->
+    <div id="admin-tab-rejected" class="card" style="display:none">
+      <div class="card-title">❌ Rejected Applications</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Email</th><th>Applied</th><th>Reason</th><th>Actions</th></tr></thead>
+          <tbody id="rejected-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2032,6 +2049,48 @@ function row(label, value) {
   return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.83rem;">
     <span style="color:var(--silver)">${label}</span><span>${value}</span>
   </div>`;
+}
+
+function switchAdminTab(tab) {
+  document.getElementById('admin-tab-pending').style.display  = tab === 'pending'  ? 'block' : 'none';
+  document.getElementById('admin-tab-rejected').style.display = tab === 'rejected' ? 'block' : 'none';
+  document.getElementById('tab-pending-btn').className  = `btn ${tab === 'pending'  ? 'btn-primary' : 'btn-outline'}`;
+  document.getElementById('tab-rejected-btn').className = `btn ${tab === 'rejected' ? 'btn-primary' : 'btn-outline'}`;
+  if (tab === 'rejected') loadRejectedUsers();
+}
+
+async function loadRejectedUsers() {
+  const tbody = document.getElementById('rejected-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const rows = await apiFetch('/auth/admin/rejected');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No rejected applications</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((u, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${u.full_name}</strong></td>
+        <td>${u.phone_number}</td>
+        <td>${u.email || '—'}</td>
+        <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
+        <td style="color:#f87171;font-size:12px;max-width:200px">${u.rejection_reason}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="reinstateUser(${u.id}, '${u.full_name}')">Reinstate</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function reinstateUser(id, name) {
+  if (!confirm(`Move ${name} back to Pending so they can be reviewed again?`)) return;
+  try {
+    await apiFetch(`/auth/admin/${id}/reinstate`, { method: 'PATCH' });
+    toast(`${name} moved back to pending`);
+    loadRejectedUsers();
+    loadPendingUsers();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function approveUser(id, name) {

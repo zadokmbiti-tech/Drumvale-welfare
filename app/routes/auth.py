@@ -306,7 +306,29 @@ def list_pending(current_user=Depends(require_admin)):
     finally:
         cur.close()
         release_connection(conn)
-
+@router.get("/admin/rejected")
+def list_rejected(current_user=Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, full_name, phone_number, email, created_at, rejection_reason
+            FROM users
+            WHERE registration_status = 'rejected'
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        return [
+            {
+                "id": r[0], "full_name": r[1], "phone_number": r[2],
+                "email": r[3], "applied_at": r[4],
+                "rejection_reason": r[5] or "No reason provided"
+            }
+            for r in rows
+        ]
+    finally:
+        cur.close()
+        release_connection(conn)
 
 @router.patch("/admin/{user_id}/approve")
 def approve_user(user_id: int, current_user=Depends(require_admin)):
@@ -381,6 +403,32 @@ def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
             raise HTTPException(status_code=404, detail="User not found")
         conn.commit()
         return {"message": f"{row[0]}'s role updated to {new_role}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+@router.patch("/admin/{user_id}/reinstate")
+def reinstate_user(user_id: int, current_user=Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE users
+            SET registration_status = 'pending', is_active = false,
+                rejection_reason = NULL
+            WHERE id = %s
+            RETURNING id, full_name
+        """, (user_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        conn.commit()
+        return {"message": f"{row[1]} moved back to pending"}
     except HTTPException:
         raise
     except Exception as e:
