@@ -57,7 +57,7 @@ def _send_sms(phones: list[str], message: str) -> dict:
             url,
             data=payload,
             headers={
-                "apiKey": AT_API_KEY,
+                "apikey": AT_API_KEY,
                 "Accept": "application/json",
             },
             timeout=10,
