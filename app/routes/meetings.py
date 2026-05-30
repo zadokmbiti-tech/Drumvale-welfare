@@ -12,7 +12,6 @@ router = APIRouter()
 
 AT_USERNAME  = os.getenv("AT_USERNAME", "")
 AT_API_KEY   = os.getenv("AT_API_KEY", "")
-AT_SENDER_ID = os.getenv("AT_SENDER_ID", "")   # e.g. "Drumvale" — optional
 
 def _send_sms(phones: list[str], message: str) -> dict:
     """
@@ -41,9 +40,6 @@ def _send_sms(phones: list[str], message: str) -> dict:
         "to":       recipients_str,
         "message":  message,
     }
-    if AT_SENDER_ID:
-        payload["from"] = AT_SENDER_ID
-
     # Use sandbox endpoint during testing; switch to production when ready
     sandbox = AT_USERNAME == "sandbox"
     url = (
@@ -65,12 +61,17 @@ def _send_sms(phones: list[str], message: str) -> dict:
         resp.raise_for_status()
         data = resp.json()
         # AT returns SMSMessageData.Recipients list
-        sent = data.get("SMSMessageData", {}).get("Recipients", [])
+        sms_data = data.get("SMSMessageData", {})
+        sent = sms_data.get("Recipients", [])
         success = [r for r in sent if r.get("status") == "Success"]
+        # Log all recipient statuses for debugging
+        import logging
+        logging.warning(f"AT SMS DEBUG — Message: {sms_data.get('Message')} | Recipients: {sent}")
         return {
             "status":     "sent",
             "recipients": len(success),
             "total":      len(formatted),
+            "debug":      sent,  # temporary — remove after fixing
         }
     except requests.RequestException as e:
         return {"status": "error", "reason": str(e)}
