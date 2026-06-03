@@ -2,91 +2,26 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance
+from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance, profile_updates
 from app.routes.auth import get_current_user, require_admin
-from datetime import datetime
 from app.database import init_pool, get_connection, release_connection
+from app.schemas import NoticeCreate
 import os
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
+# ── App must be created BEFORE attaching limiter state ──────────────
 app = FastAPI(title="ChamaLink API")
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-@app.on_event("startup")
-def startup():
-    init_pool()
-
-@app.get("/member")
-def member_portal():
-    return FileResponse("member.html")
-
-
-@app.get("/notices")
-def get_notices():
-    """Public — anyone can read notices"""
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT id, title, body, priority, created_by, created_at
-            FROM notices
-            ORDER BY created_at DESC
-            LIMIT 20
-        """)
-        rows = cur.fetchall()
-        return [{"id":r[0],"title":r[1],"body":r[2],"priority":r[3],
-                 "created_by":r[4],"created_at":str(r[5])} for r in rows]
-    except:
-        return []
-    finally:
-        cur.close()
-        release_connection(conn)
-
-@app.post("/notices")
-def post_notice(body: dict, current_user=Depends(require_admin)):
-    """Admin only — post a notice"""
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS notices (
-                id SERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                priority TEXT DEFAULT 'normal',
-                created_by TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("""
-            INSERT INTO notices (title, body, priority, created_by)
-            VALUES (%s, %s, %s, %s) RETURNING id
-        """, (body.get("title"), body.get("body"),
-              body.get("priority","normal"), current_user.get("sub")))
-        new_id = cur.fetchone()[0]
-        conn.commit()
-        return {"id": new_id, "message": "Notice posted successfully"}
-    except Exception as e:
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-        release_connection(conn)
-
-@app.delete("/notices/{notice_id}")
-def delete_notice(notice_id: int, current_user=Depends(require_admin)):
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("DELETE FROM notices WHERE id=%s", (notice_id,))
-        conn.commit()
-        return {"message": "Notice deleted"}
-    finally:
-        cur.close()
-        release_connection(conn)
-
+# ── CORS ─────────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:8080,http://127.0.0.1:8080,https://drumvale-welfare.onrender.com"
+    "http://localhost:8080,http://127.0.0.1:8080"
 ).split(",")
 
 app.add_middleware(
@@ -97,42 +32,170 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router,          prefix="/auth",          tags=["Auth"])
-app.include_router(members.router,       prefix="/members",       tags=["Members"])
-app.include_router(events.router,        prefix="/events",        tags=["Events"])
-app.include_router(meetings.router,      prefix="/meetings",      tags=["Meetings"])
-app.include_router(contributions.router, prefix="/contributions", tags=["Contributions"])
-app.include_router(loans.router,         prefix="/loans",         tags=["Loans"])
-app.include_router(event_contributions.router, prefix="/events", tags=["Event Contributions"])
-app.include_router(finance.router,             prefix="/finance",        tags=["Finance"])
+# ── Routers ───────────────────────────────────────────────────────────
+app.include_router(auth.router,                    prefix="/auth",          tags=["Auth"])
+app.include_router(members.router,                 prefix="/members",       tags=["Members"])
+app.include_router(events.router,                  prefix="/events",        tags=["Events"])
+app.include_router(meetings.router,                prefix="/meetings",      tags=["Meetings"])
+app.include_router(contributions.router,           prefix="/contributions", tags=["Contributions"])
+app.include_router(loans.router,                   prefix="/loans",         tags=["Loans"])
+app.include_router(event_contributions.router,     prefix="/events",        tags=["Event Contributions"])
+app.include_router(finance.router,                 prefix="/finance",       tags=["Finance"])
+app.include_router(profile_updates.router,       prefix="/profile-updates",   tags=["Profile Updates"])
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+# ── Startup: create tables once, not on every request ────────────────
+@app.on_event("startup")
+def startup():
+    init_pool()
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS finance (
+                id          SERIAL PRIMARY KEY,
+                type        TEXT NOT NULL CHECK (type IN ('income','expense')),
+                category    TEXT NOT NULL,
+                amount      NUMERIC(12,2) NOT NULL,
+                description TEXT,
+                date        DATE NOT NULL DEFAULT CURRENT_DATE,
+                recorded_by TEXT,
+                created_at  TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS profile_update_requests (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                requested_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                reviewed_by INT REFERENCES users(id),
+                reviewed_at TIMESTAMP,
+                reject_reason TEXT,
+                full_name VARCHAR(200), email VARCHAR(200), id_number VARCHAR(20),
+                date_of_birth DATE, marital_status VARCHAR(30), residence VARCHAR(200),
+                court VARCHAR(100), house_number VARCHAR(50), spouse_name VARCHAR(200),
+                next_of_kin_name VARCHAR(200), next_of_kin_phone VARCHAR(20),
+                next_of_kin_2 VARCHAR(200), nok2_phone VARCHAR(20)
+            );
+
+            CREATE TABLE IF NOT EXISTS notices (
+                id         SERIAL PRIMARY KEY,
+                title      TEXT NOT NULL,
+                body       TEXT NOT NULL,
+                priority   TEXT DEFAULT 'normal',
+                created_by TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS member_parents (
+                id                 SERIAL PRIMARY KEY,
+                user_id            INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                full_name          VARCHAR(200),
+                id_number          VARCHAR(20),
+                current_residence  VARCHAR(200),
+                contact_phone      VARCHAR(20)
+            );
+        """)
+        # Add new columns to profile_update_requests idempotently
+        for col_sql in [
+            "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20)",
+            "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS children_json TEXT",
+            "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS parents_json  TEXT",
+        ]:
+            cur.execute(col_sql)
+        conn.commit()
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# ── Static page routes ────────────────────────────────────────────────
 @app.get("/")
 def root():
     return FileResponse("index.html")
-
 
 @app.get("/about")
 def about():
     return FileResponse("index.html")
 
-
 @app.get("/contact")
 def contact():
     return FileResponse("index.html")
-
 
 @app.get("/dashboard")
 def dashboard():
     return FileResponse("dashboard.html")
 
+@app.get("/member")
+def member_portal():
+    return FileResponse("member.html")
 
+
+# ── Notices (public read, admin write) ───────────────────────────────
+@app.get("/notices")
+def get_notices():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, title, body, priority, created_by, created_at
+            FROM notices ORDER BY created_at DESC LIMIT 20
+        """)
+        rows = cur.fetchall()
+        return [{"id": r[0], "title": r[1], "body": r[2], "priority": r[3],
+                 "created_by": r[4], "created_at": str(r[5])} for r in rows]
+    except Exception:
+        return []
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+@app.post("/notices")
+def post_notice(body: NoticeCreate, current_user=Depends(require_admin)):
+    """Admin only — post a notice. Table is guaranteed to exist from startup."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO notices (title, body, priority, created_by)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """, (body.title, body.body, body.priority, current_user.get("sub")))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "message": "Notice posted successfully"}
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+@app.delete("/notices/{notice_id}")
+def delete_notice(notice_id: int, current_user=Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM notices WHERE id=%s RETURNING id", (notice_id,))
+        deleted = cur.fetchone()
+        conn.commit()
+        if not deleted:
+            from fastapi import HTTPException
+            raise HTTPException(404, "Notice not found")
+        return {"message": "Notice deleted"}
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# ── Dashboard stats ───────────────────────────────────────────────────
 @app.get("/stats")
 def dashboard_stats(_=Depends(get_current_user)):
-    """Single endpoint for dashboard summary cards — avoids 5 separate fetches."""
+    """Single endpoint for dashboard summary cards."""
+    from datetime import date
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -142,7 +205,6 @@ def dashboard_stats(_=Depends(get_current_user)):
         cur.execute("SELECT COUNT(*) FROM members")
         total_members = cur.fetchone()[0]
 
-        from datetime import date
         this_month = date.today().strftime("%Y-%m")
         cur.execute(
             "SELECT COALESCE(SUM(amount),0) FROM monthly_contributions WHERE month=%s",

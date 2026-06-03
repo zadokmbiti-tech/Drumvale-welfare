@@ -3,6 +3,7 @@ from app.database import get_connection, release_connection
 from app.models import LoanCreate, LoanRepayment, LoanStatusUpdate
 from app.routes.auth import get_current_user
 from app.auth_deps import require_treasurer
+from app.utils import safe_db_error          # ← was missing
 from datetime import datetime, timedelta
 
 router = APIRouter()
@@ -18,7 +19,6 @@ def apply_loan(data: LoanCreate, current_user=Depends(get_current_user)):
         if not member:
             raise HTTPException(status_code=404, detail="Member not found")
 
-        # Members can only apply for themselves; admins can apply for anyone
         if current_user.get("role") == "member":
             cur.execute(
                 "SELECT id FROM members WHERE id=%s AND phone_number="
@@ -53,7 +53,7 @@ def apply_loan(data: LoanCreate, current_user=Depends(get_current_user)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
@@ -66,9 +66,9 @@ def loan_summary(_=Depends(get_current_user)):
     try:
         cur.execute("""
             SELECT
-                COUNT(*) FILTER (WHERE status='pending')  AS pending,
+                COUNT(*) FILTER (WHERE status='pending')   AS pending,
                 COUNT(*) FILTER (WHERE status='disbursed') AS active,
-                COUNT(*) FILTER (WHERE status='repaid')   AS repaid,
+                COUNT(*) FILTER (WHERE status='repaid')    AS repaid,
                 COALESCE(SUM(amount) FILTER (WHERE status='disbursed'), 0) AS total_outstanding,
                 COALESCE(SUM(amount_repaid), 0) AS total_repaid
             FROM loans
@@ -82,6 +82,34 @@ def loan_summary(_=Depends(get_current_user)):
         "pending": r[0], "active": r[1], "repaid": r[2],
         "total_outstanding": float(r[3]), "total_repaid": float(r[4])
     }
+
+
+@router.get("/my")
+def my_loans(current_user: dict = Depends(get_current_user)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT id, member_id, amount, interest_rate, status,
+                      applied_date, approved_date, due_date, balance
+               FROM loans
+               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
+               ORDER BY applied_date DESC""",
+            (current_user["phone_number"],)
+        )
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        release_connection(conn)   # ← was conn.close() in original; kept correct here
+
+    return [
+        {"id": r[0], "member_id": r[1], "amount": float(r[2]),
+         "interest_rate": float(r[3]) if r[3] else None, "status": r[4],
+         "applied_date": str(r[5]), "approved_date": str(r[6]) if r[6] else None,
+         "due_date": str(r[7]) if r[7] else None,
+         "balance": float(r[8]) if r[8] else None}
+        for r in rows
+    ]
 
 
 @router.get("/")
@@ -154,32 +182,6 @@ def get_loan(loan_id: int, _=Depends(get_current_user)):
         ]
     }
 
-@router.get("/my")
-def my_loans(current_user: dict = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            """SELECT id, member_id, amount, interest_rate, status,
-                      applied_date, approved_date, due_date, balance
-               FROM loans
-               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
-               ORDER BY applied_date DESC""",
-            (current_user["phone_number"],)
-        )
-        rows = cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-    return [
-        {"id": r[0], "member_id": r[1], "amount": float(r[2]),
-         "interest_rate": float(r[3]) if r[3] else None, "status": r[4],
-         "applied_date": str(r[5]), "approved_date": str(r[6]) if r[6] else None,
-         "due_date": str(r[7]) if r[7] else None,
-         "balance": float(r[8]) if r[8] else None}
-        for r in rows
-    ]
-
 
 @router.patch("/{loan_id}/status")
 def update_loan_status(
@@ -217,7 +219,7 @@ def update_loan_status(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
@@ -265,7 +267,7 @@ def repay_loan(loan_id: int, data: LoanRepayment, _=Depends(require_treasurer)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)

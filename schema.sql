@@ -160,3 +160,69 @@ CREATE INDEX IF NOT EXISTS idx_loans_status           ON loans(status);
 CREATE INDEX IF NOT EXISTS idx_loans_member           ON loans(member_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_meeting     ON attendance(meeting_id);
 CREATE INDEX IF NOT EXISTS idx_event_contribs_event   ON contributions(event_id);
+
+CREATE TABLE IF NOT EXISTS finance (
+    id          SERIAL PRIMARY KEY,
+    type        TEXT NOT NULL CHECK (type IN ('income','expense')),
+    category    TEXT NOT NULL,
+    amount      NUMERIC(12,2) NOT NULL,
+    description TEXT,
+    date        DATE NOT NULL DEFAULT CURRENT_DATE,
+    recorded_by TEXT,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notices (
+    id         SERIAL PRIMARY KEY,
+    title      TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    priority   TEXT DEFAULT 'normal',
+    created_by TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+-- ============================================================
+-- PROFILE UPDATE REQUESTS  (member-initiated, admin-approved)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS profile_update_requests (
+    id            SERIAL PRIMARY KEY,
+    user_id       INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    requested_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+    status        VARCHAR(20)  NOT NULL DEFAULT 'pending',   -- pending | approved | rejected
+    reviewed_by   INT          REFERENCES users(id),
+    reviewed_at   TIMESTAMP,
+    reject_reason TEXT,
+    -- proposed new values (NULL = no change requested for that field)
+    full_name         VARCHAR(200),
+    email             VARCHAR(200),
+    id_number         VARCHAR(20),
+    date_of_birth     DATE,
+    marital_status    VARCHAR(30),
+    residence         VARCHAR(200),
+    court             VARCHAR(100),
+    house_number      VARCHAR(50),
+    spouse_name       VARCHAR(200),
+    next_of_kin_name  VARCHAR(200),
+    next_of_kin_phone VARCHAR(20),
+    next_of_kin_2     VARCHAR(200),
+    nok2_phone        VARCHAR(20)
+);
+
+-- ============================================================
+-- MEMBER PARENTS  (linked to users)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS member_parents (
+    id                 SERIAL PRIMARY KEY,
+    user_id            INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    full_name          VARCHAR(200),
+    id_number          VARCHAR(20),
+    current_residence  VARCHAR(200),
+    contact_phone      VARCHAR(20)
+);
+
+-- ============================================================
+-- PROFILE UPDATE REQUESTS — extra columns for children/parents
+-- ============================================================
+ALTER TABLE profile_update_requests
+    ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS children_json TEXT,
+    ADD COLUMN IF NOT EXISTS parents_json  TEXT;

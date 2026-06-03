@@ -6,6 +6,15 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import os
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+# Update /login — add Request param and decorator
+
 
 router = APIRouter()
 
@@ -55,7 +64,8 @@ def require_admin(current_user: dict = Depends(get_current_user)):
 #  REGISTER
 # ------------------------------------------------------------------ #
 @router.post("/register", status_code=201)
-def register(data: UserRegister):
+@limiter.limit("3/minute")
+def register(request: Request, data: UserRegister):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -111,7 +121,7 @@ def register(data: UserRegister):
                     VALUES (%s,%s,%s,%s,%s)
                 """, (new_user_id, parent.full_name, parent.id_number,
                       parent.current_residence, parent.contact_phone))
-                
+
         # 4. Mirror basic fields into members table
         cur.execute("""
             INSERT INTO members (
@@ -136,14 +146,15 @@ def register(data: UserRegister):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: UserLogin):
+@limiter.limit("5/minute")
+def login(request: Request, data: UserLogin):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -284,6 +295,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "date_joined": str(user[20]) if user[20] else None,
     "notes": user[21],
     "children": children,
+    "parents": parents
 }
 # ------------------------------------------------------------------ #
 #  ADMIN — list pending, approve, reject, change role
@@ -385,14 +397,15 @@ def approve_user(user_id: int, current_user=Depends(require_admin)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
 
 
 @router.patch("/admin/{user_id}/reject")
-def reject_user(user_id: int, body: dict = {}, current_user=Depends(require_admin)):
+def reject_user(user_id: int, body: dict = None, current_user=Depends(require_admin)):
+    reason = (body or {}).get("reason", "")
     reason = body.get("reason", "")
     conn = get_connection()
     cur = conn.cursor()
@@ -413,11 +426,10 @@ def reject_user(user_id: int, body: dict = {}, current_user=Depends(require_admi
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
-
 
 @router.patch("/admin/{user_id}/role")
 def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
@@ -425,7 +437,11 @@ def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
     new_role = body.get("role")
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
-
+    if new_role == "super_admin" and current_user.get("role") != "super_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only a super_admin can assign the super_admin role"
+        )
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -442,7 +458,7 @@ def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)
@@ -468,7 +484,7 @@ def reinstate_user(user_id: int, current_user=Depends(require_admin)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=500, public_msg="Could not complete the request. Please try again.")
     finally:
         cur.close()
         release_connection(conn)

@@ -10,3 +10,4 @@ python-multipart
 aiofiles
 bcrypt==4.0.1
 africastalking
+slowapi==0.1.9

@@ -275,6 +275,10 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       Admin
     </div>
+    <div class="nav-item" id="nav-profile-updates" style="display:none" onclick="showPage('profile-updates')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+      Profile Requests <span id="update-req-badge" style="display:none;background:#ffc107;color:#000;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;">0</span>
+    </div>
     <div class="nav-item" id="nav-usermgmt" style="display:none" onclick="showPage('usermgmt')">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       User Roles
@@ -1382,6 +1386,31 @@
     </div>
   </div>
 </div>
+
+  <!-- PROFILE UPDATE REQUESTS PAGE -->
+  <div id="page-profile-updates" class="page">
+    <div class="page-header">
+      <h1 class="page-title">Profile Update Requests</h1>
+      <p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0;">Review and approve member-initiated profile changes.</p>
+    </div>
+    <div class="card" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+        <thead>
+          <tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
+            <th style="padding:10px 12px;">Member</th>
+            <th style="padding:10px 12px;">Phone</th>
+            <th style="padding:10px 12px;">Requested</th>
+            <th style="padding:10px 12px;">Proposed Changes</th>
+            <th style="padding:10px 12px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="profile-updates-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1532,6 +1561,7 @@ function showPage(name) {
   if (name==='meetings')      loadMeetings();
   if (name==='notices')       loadNotices();
   if (name==='admin')         loadPendingUsers();
+  if (name==='profile-updates') loadProfileUpdateRequests();
   if (name==='usermgmt')      loadUserMgmt();
   if (name==='finance')       { loadFinance(); finTab('income'); document.getElementById('fin-date').value = new Date().toISOString().split('T')[0]; }
 }
@@ -2895,6 +2925,98 @@ async function submitBulkImport() {
 }
 
 if (token) initApp();
+
+/* ── PROFILE UPDATE REQUESTS (admin) ────────────────────────────── */
+async function loadProfileUpdateRequests() {
+  const tbody = document.getElementById('profile-updates-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const rows = await apiFetch('/profile-updates/');
+    document.getElementById('update-req-badge').style.display = rows.length ? 'inline' : 'none';
+    document.getElementById('update-req-badge').textContent   = rows.length;
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No pending profile update requests.</td></tr>';
+      return;
+    }
+
+    const LABELS = {
+      full_name:'Full Name', phone_number:'Phone', email:'Email', id_number:'ID No.',
+      date_of_birth:'Date of Birth', marital_status:'Marital Status',
+      residence:'Estate', court:'Court', house_number:'House No.',
+      spouse_name:'Spouse', next_of_kin_name:'NOK 1', next_of_kin_phone:'NOK 1 Phone',
+      next_of_kin_2:'NOK 2', nok2_phone:'NOK 2 Phone',
+    };
+
+    tbody.innerHTML = rows.map(r => {
+      const proposed = r.proposed || {};
+      let chips = '';
+
+      // Scalar fields
+      Object.entries(proposed).forEach(([k, v]) => {
+        if (k === 'children' || k === 'parents') return;
+        if (v === null || v === undefined) return;
+        const label = LABELS[k] || k.replace(/_/g,' ');
+        chips += `<span style="display:inline-block;background:rgba(44,180,224,0.12);border-radius:5px;padding:2px 8px;margin:2px;font-size:0.78rem;"><strong>${label}:</strong> ${v}</span>`;
+      });
+
+      // Children
+      if (proposed.children && proposed.children.length) {
+        const list = proposed.children.map(c => c.full_name + (c.date_of_birth ? ` (${c.date_of_birth})` : '') + (c.relationship ? ` · ${c.relationship}` : '')).join('; ');
+        chips += `<span style="display:inline-block;background:rgba(250,200,80,0.15);border-radius:5px;padding:2px 8px;margin:2px;font-size:0.78rem;"><strong>👶 Children:</strong> ${list}</span>`;
+      }
+
+      // Parents
+      if (proposed.parents && proposed.parents.length) {
+        const list = proposed.parents.map(p => p.full_name + (p.contact_phone ? ` · ${p.contact_phone}` : '')).join('; ');
+        chips += `<span style="display:inline-block;background:rgba(130,100,250,0.15);border-radius:5px;padding:2px 8px;margin:2px;font-size:0.78rem;"><strong>👴 Parents:</strong> ${list}</span>`;
+      }
+
+      return `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:10px 12px;font-weight:500;">${r.current_name || '—'}</td>
+        <td style="padding:10px 12px;color:var(--muted);">${r.phone_number || '—'}</td>
+        <td style="padding:10px 12px;color:var(--muted);white-space:nowrap;">${r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
+        <td style="padding:10px 12px;">${chips || '<span style="color:var(--muted)">—</span>'}</td>
+        <td style="padding:10px 12px;white-space:nowrap;">
+          <button onclick="approveProfileUpdate(${r.id})" style="background:#22c55e;color:#000;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:600;font-size:0.78rem;margin-right:6px;">✓ Approve</button>
+          <button onclick="rejectProfileUpdate(${r.id})" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.78rem;">✗ Reject</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Failed to load requests.</td></tr>';
+  }
+}
+
+async function approveProfileUpdate(reqId) {
+  if (!confirm('Approve this profile update? Changes will be applied immediately.')) return;
+  try {
+    const res = await fetch(`${API}/profile-updates/${reqId}/approve`, {
+      method: 'PATCH', headers: {'Authorization':`Bearer ${authToken}`,'Content-Type':'application/json'}
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.detail || 'Approval failed.', 'error'); return; }
+    toast('✅ Profile update approved and applied.');
+    loadProfileUpdateRequests();
+  } catch(e) { toast('Connection error.', 'error'); }
+}
+
+async function rejectProfileUpdate(reqId) {
+  const reason = prompt('Reason for rejection (optional):');
+  if (reason === null) return; // cancelled
+  try {
+    const res = await fetch(`${API}/profile-updates/${reqId}/reject`, {
+      method: 'PATCH',
+      headers: {'Authorization':`Bearer ${authToken}`,'Content-Type':'application/json'},
+      body: JSON.stringify({ reason })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.detail || 'Rejection failed.', 'error'); return; }
+    toast('Update request rejected.');
+    loadProfileUpdateRequests();
+  } catch(e) { toast('Connection error.', 'error'); }
+}
+
 </script>
 </body>
 </html>

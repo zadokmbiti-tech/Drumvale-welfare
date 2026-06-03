@@ -141,6 +141,24 @@ tr:hover td{background:rgba(44,180,224,0.03);}
   .nav-tab{padding:12px 10px;font-size:0.76rem;}
   .search-input{width:100%;}
 }
+
+/* Update Profile Modal */
+#update-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.80);z-index:2000;align-items:center;justify-content:center;}
+#update-modal-backdrop.open{display:flex;}
+#update-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(560px,96vw);max-height:88vh;overflow-y:auto;padding:24px;}
+#update-modal h3{font-family:"Playfair Display",serif;font-size:1.1rem;margin:0 0 4px;}
+#update-modal .um-sub{font-size:0.8rem;color:var(--silver);margin-bottom:18px;}
+#update-modal .um-section{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--sky);margin:18px 0 8px;}
+#update-modal .um-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+#update-modal input,#update-modal select{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;}
+#update-modal input:focus,#update-modal select:focus{outline:none;border-color:var(--sky);}
+#update-modal label{font-size:0.78rem;color:var(--silver);display:block;margin-bottom:4px;}
+#update-modal .um-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+#update-modal .btn-cancel{background:var(--surface);border:1px solid var(--border);color:var(--silver);padding:9px 20px;border-radius:8px;cursor:pointer;}
+#update-modal .btn-submit{background:var(--sky);color:#000;font-weight:600;padding:9px 22px;border-radius:8px;border:none;cursor:pointer;}
+#update-modal .um-error{color:#ff6b6b;font-size:0.82rem;margin-top:10px;display:none;}
+#update-modal .um-note{font-size:0.78rem;color:var(--silver);background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.15);border-radius:8px;padding:10px 14px;margin-top:14px;}
+
 </style>
 </head>
 <body>
@@ -221,6 +239,10 @@ tr:hover td{background:rgba(44,180,224,0.03);}
           <div class="profile-role" id="prof-role">member</div>
           <div class="profile-meta" id="prof-meta">—</div>
         </div>
+      </div>
+      <div style="margin:12px 0 4px;">
+        <button class="btn btn-sm" onclick="openUpdateModal()" style="background:var(--sky);color:#000;font-weight:600;padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;">✏️ Update Profile</button>
+        <span id="pending-badge" style="display:none;margin-left:10px;background:rgba(255,193,7,0.2);color:#ffc107;border:1px solid rgba(255,193,7,0.4);border-radius:6px;padding:4px 10px;font-size:0.78rem;">⏳ Update pending admin approval</span>
       </div>
       <div class="profile-grid" id="profile-grid">
         <div class="loading">Loading profile...</div>
@@ -329,8 +351,10 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 
 <script>
 // ══ FIXED: correct API URL ══
-const API = 'https://drumvale-welfare.onrender.com';
-
+const API = window.CHAMALINK_API ||
+  (location.hostname === '127.0.0.1' || location.hostname === 'localhost' 
+    ? ''
+    : 'https://drumvale-welfare.onrender.com');
 let token = null;
 let currentUser = null;
 let allMembers  = [];
@@ -355,6 +379,163 @@ async function doLogin() {
 }
 
 function signOut() { localStorage.removeItem('member_token'); localStorage.removeItem('member_user'); location.reload(); }
+
+/* ── INACTIVITY AUTO-LOGOUT ─────────────────────────────────────── */
+const INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
+let inactivityTimer = null;
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    if (token) {
+      toast('Session expired due to inactivity. Logging out…');
+      setTimeout(() => { signOut(); }, 1800);
+    }
+  }, INACTIVITY_MS);
+}
+
+function startInactivityWatcher() {
+  ['mousemove','keydown','mousedown','touchstart','scroll','click'].forEach(evt =>
+    document.addEventListener(evt, resetInactivityTimer, { passive: true })
+  );
+  resetInactivityTimer();
+}
+
+/* ── UPDATE PROFILE MODAL ───────────────────────────────────────── */
+const UPDATE_FIELDS = [
+  'full_name','phone_number','email','id_number','date_of_birth','marital_status',
+  'residence','court','house_number','spouse_name',
+  'next_of_kin_name','next_of_kin_phone','next_of_kin_2','nok2_phone'
+];
+
+function openUpdateModal() {
+  document.getElementById('upd-error').style.display = 'none';
+  UPDATE_FIELDS.forEach(f => {
+    const el = document.getElementById('upd-' + f);
+    if (el) el.value = '';
+  });
+  document.getElementById('upd-children-list').innerHTML = '';
+  document.getElementById('upd-parents-list').innerHTML  = '';
+  _childIdx  = 0;
+  _parentIdx = 0;
+  document.getElementById('update-modal-backdrop').classList.add('open');
+}
+function closeUpdateModal() {
+  document.getElementById('update-modal-backdrop').classList.remove('open');
+}
+
+/* ── Dynamic rows ─────────────────────────────────────────────────── */
+let _childIdx = 0, _parentIdx = 0;
+
+function addChildRow() {
+  const idx = ++_childIdx;
+  const row = document.createElement('div');
+  row.id = 'child-row-' + idx;
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1.4fr 1.4fr auto;gap:8px;margin-bottom:8px;align-items:center;';
+  row.innerHTML = `
+    <input type="text"  placeholder="Full name"      id="child-name-${idx}"  style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <input type="date"  title="Date of birth"        id="child-dob-${idx}"   style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <input type="text"  placeholder="Relationship"   id="child-rel-${idx}"   style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);" value="Child">
+    <button onclick="document.getElementById('child-row-${idx}').remove()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:4px;">🗑</button>
+  `;
+  document.getElementById('upd-children-list').appendChild(row);
+}
+
+function addParentRow() {
+  const idx = ++_parentIdx;
+  const row = document.createElement('div');
+  row.id = 'parent-row-' + idx;
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1.3fr 1.3fr auto;gap:8px;margin-bottom:8px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" placeholder="Full name"        id="parent-name-${idx}"  style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <input type="tel"  placeholder="07xxxxxxxx"       id="parent-phone-${idx}" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <input type="text" placeholder="e.g. Father"     id="parent-rel-${idx}"   style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <button onclick="document.getElementById('parent-row-${idx}').remove()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:4px;">🗑</button>
+  `;
+  document.getElementById('upd-parents-list').appendChild(row);
+}
+
+function _collectChildren() {
+  const rows = document.querySelectorAll('#upd-children-list > div');
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('[id^=child-name]')?.value.trim();
+    if (!name) return;
+    result.push({
+      full_name:     name,
+      date_of_birth: row.querySelector('[id^=child-dob]')?.value || null,
+      relationship:  row.querySelector('[id^=child-rel]')?.value.trim() || null,
+      cert_number:   null,
+    });
+  });
+  return result.length ? result : null;
+}
+
+function _collectParents() {
+  const rows = document.querySelectorAll('#upd-parents-list > div');
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('[id^=parent-name]')?.value.trim();
+    if (!name) return;
+    result.push({
+      full_name:         name,
+      contact_phone:     row.querySelector('[id^=parent-phone]')?.value.trim() || null,
+      current_residence: null,
+      id_number:         null,
+    });
+  });
+  return result.length ? result : null;
+}
+
+async function submitProfileUpdate() {
+  const errEl = document.getElementById('upd-error');
+  errEl.style.display = 'none';
+  const body = {};
+  UPDATE_FIELDS.forEach(f => {
+    const el = document.getElementById('upd-' + f);
+    if (el && el.value.trim()) body[f] = el.value.trim();
+  });
+  const children = _collectChildren();
+  const parents  = _collectParents();
+  if (children) body.children = children;
+  if (parents)  body.parents  = parents;
+
+  if (Object.keys(body).length === 0) {
+    errEl.textContent = 'Please fill in at least one field to update.';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/profile-updates/`, {
+      method: 'POST',
+      headers: authH(),
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.detail || 'Submission failed.';
+      errEl.style.display = 'block';
+      return;
+    }
+    closeUpdateModal();
+    toast('✅ Update request submitted — awaiting admin approval.');
+    document.getElementById('pending-badge').style.display = 'inline';
+  } catch(e) {
+    errEl.textContent = 'Could not connect. Try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function checkPendingUpdate() {
+  try {
+    const res = await fetch(`${API}/profile-updates/my`, { headers: authH() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const hasPending = data.some(r => r.status === 'pending');
+    document.getElementById('pending-badge').style.display = hasPending ? 'inline' : 'none';
+  } catch(_) {}
+}
+
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
 
 function initApp() {
@@ -374,6 +555,8 @@ function initApp() {
 
   loadOverview();
   loadProfile();
+  checkPendingUpdate();
+  startInactivityWatcher();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -740,5 +923,72 @@ async function loadMeetings() {
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load meetings.'); }
 }
 </script>
+
+<!-- UPDATE PROFILE MODAL -->
+<div id="update-modal-backdrop">
+  <div id="update-modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <h3>Update My Profile</h3>
+        <div class="um-sub">Only fill in the fields you want to change. Leave others blank.</div>
+      </div>
+      <button onclick="closeUpdateModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;">✕</button>
+    </div>
+
+    <div class="um-section">Personal Details</div>
+    <div class="um-grid">
+      <div><label>Full Name</label><input id="upd-full_name" type="text" placeholder="Current name…"></div>
+      <div><label>Phone Number</label><input id="upd-phone_number" type="tel" placeholder="07xxxxxxxx"></div>
+      <div><label>Email</label><input id="upd-email" type="email" placeholder="email@example.com"></div>
+      <div><label>ID Number</label><input id="upd-id_number" type="text" placeholder="National ID…"></div>
+      <div><label>Date of Birth</label><input id="upd-date_of_birth" type="date"></div>
+      <div><label>Marital Status</label>
+        <select id="upd-marital_status">
+          <option value="">— no change —</option>
+          <option>Single</option><option>Married</option>
+          <option>Widowed</option><option>Divorced</option>
+        </select>
+      </div>
+      <div><label>Spouse Name</label><input id="upd-spouse_name" type="text" placeholder="Spouse full name…"></div>
+    </div>
+
+    <div class="um-section">Residence</div>
+    <div class="um-grid">
+      <div><label>Estate</label><input id="upd-residence" type="text" placeholder="Estate / area…"></div>
+      <div><label>Court</label><input id="upd-court" type="text" placeholder="Court name…"></div>
+      <div><label>House No.</label><input id="upd-house_number" type="text" placeholder="House number…"></div>
+    </div>
+
+    <div class="um-section">Next of Kin 1</div>
+    <div class="um-grid">
+      <div><label>Name</label><input id="upd-next_of_kin_name" type="text" placeholder="Full name…"></div>
+      <div><label>Phone</label><input id="upd-next_of_kin_phone" type="text" placeholder="07xxxxxxxx"></div>
+    </div>
+
+    <div class="um-section">Next of Kin 2</div>
+    <div class="um-grid">
+      <div><label>Name</label><input id="upd-next_of_kin_2" type="text" placeholder="Full name…"></div>
+      <div><label>Phone</label><input id="upd-nok2_phone" type="text" placeholder="07xxxxxxxx"></div>
+    </div>
+
+    <div class="um-section">Children <span style="font-weight:400;font-size:0.8rem;color:var(--muted)">(replaces all existing children on approval)</span></div>
+    <div id="upd-children-list" style="margin-bottom:6px;"></div>
+    <button type="button" onclick="addChildRow()" style="background:none;border:1px dashed var(--border);border-radius:6px;padding:5px 14px;color:var(--muted);cursor:pointer;font-size:0.82rem;margin-bottom:12px;">＋ Add Child</button>
+
+    <div class="um-section">Parents / Guardians <span style="font-weight:400;font-size:0.8rem;color:var(--muted)">(replaces all existing parents on approval)</span></div>
+    <div id="upd-parents-list" style="margin-bottom:6px;"></div>
+    <button type="button" onclick="addParentRow()" style="background:none;border:1px dashed var(--border);border-radius:6px;padding:5px 14px;color:var(--muted);cursor:pointer;font-size:0.82rem;margin-bottom:12px;">＋ Add Parent / Guardian</button>
+
+    <div class="um-note">
+      📋 Your changes will be reviewed by the admin before taking effect. You will see a <strong>pending</strong> badge on your profile until approved.
+    </div>
+    <div class="um-error" id="upd-error"></div>
+    <div class="um-actions">
+      <button class="btn-cancel" onclick="closeUpdateModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitProfileUpdate()">Submit for Approval</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, validator
+from typing import Optional, List, Literal
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -134,3 +134,45 @@ class EventContributionSummary(BaseModel):
     total_raised:      Decimal
     contributor_count: int
     contributions:     list[EventContributionOut]
+
+class FinanceTransactionCreate(BaseModel):
+    type: Literal["income", "expense"]
+    category: str
+    amount: float
+    description: Optional[str] = ""
+    date: date
+
+    @validator("amount")
+    def must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("amount must be positive")
+        return v
+
+    @validator("category")
+    def category_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError("category cannot be empty")
+        return v.strip()    
+
+class NoticeCreate(BaseModel):
+    title: str
+    body: str
+    priority: str = "normal"
+
+class ProfileUpdateRequest(BaseModel):
+    full_name:         Optional[str]  = None
+    email:             Optional[str]  = None
+    id_number:         Optional[str]  = None
+    date_of_birth:     Optional[date] = None
+    marital_status:    Optional[str]  = None
+    residence:         Optional[str]  = None
+    court:             Optional[str]  = None
+    house_number:      Optional[str]  = None
+    spouse_name:       Optional[str]  = None
+    next_of_kin_name:  Optional[str]  = None
+    next_of_kin_phone: Optional[str]  = None
+    next_of_kin_2:     Optional[str]  = None
+    nok2_phone:        Optional[str]  = None
+    phone_number:      Optional[str]       = None
+    children:          Optional[List[ChildIn]]  = None
+    parents:           Optional[List[ParentIn]] = None
