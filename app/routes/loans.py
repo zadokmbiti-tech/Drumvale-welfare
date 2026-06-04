@@ -89,18 +89,21 @@ def my_loans(current_user: dict = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Join users→members via phone_number since members has no user_id FK
         cur.execute(
-            """SELECT id, member_id, amount, interest_rate, status,
-                      applied_date, approved_date, due_date, balance
-               FROM loans
-               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
-               ORDER BY applied_date DESC""",
-            (current_user["phone_number"],)
+            """SELECT l.id, l.member_id, l.amount, l.interest_rate, l.status,
+                      l.applied_date, l.approved_date, l.due_date, l.balance
+               FROM loans l
+               JOIN members m ON l.member_id = m.id
+               JOIN users u   ON u.phone_number = m.phone_number
+               WHERE u.id = %s
+               ORDER BY l.applied_date DESC""",
+            (current_user["user_id"],)
         )
         rows = cur.fetchall()
     finally:
         cur.close()
-        release_connection(conn)   # ← was conn.close() in original; kept correct here
+        release_connection(conn)
 
     return [
         {"id": r[0], "member_id": r[1], "amount": float(r[2]),

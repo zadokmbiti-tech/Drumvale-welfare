@@ -133,12 +133,16 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # monthly_contributions is the correct table; join users→members via phone
         cur.execute(
-            """SELECT id, member_id, amount, month, payment_date, method, reference, notes
-               FROM contributions
-               WHERE member_id = (SELECT id FROM members WHERE phone_number=%s)
-               ORDER BY payment_date DESC""",
-            (current_user["phone_number"],)
+            """SELECT mc.id, mc.member_id, mc.amount, mc.month,
+                      mc.payment_method, mc.reference, mc.notes, mc.recorded_at
+               FROM monthly_contributions mc
+               JOIN members m ON mc.member_id = m.id
+               JOIN users u   ON u.phone_number = m.phone_number
+               WHERE u.id = %s
+               ORDER BY mc.recorded_at DESC""",
+            (current_user["user_id"],)
         )
         rows = cur.fetchall()
     finally:
@@ -146,8 +150,11 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
         release_connection(conn)
     return [
         {"id": r[0], "member_id": r[1], "amount": float(r[2]),
-         "month": r[3], "payment_date": str(r[4]), "method": r[5],
-         "reference": r[6], "notes": r[7]}
+         "month": r[3], "payment_method": r[4], "reference": r[5],
+         "notes": r[6], "recorded_at": str(r[7]) if r[7] else None,
+         # aliases member.html uses
+         "date": str(r[7]) if r[7] else None,
+         "contribution_type": "monthly"}
         for r in rows
     ]
 

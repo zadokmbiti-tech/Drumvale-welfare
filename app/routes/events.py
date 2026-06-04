@@ -38,13 +38,15 @@ def list_events(status: str = "", _=Depends(get_current_user)):
     cur = conn.cursor()
     if status:
         cur.execute("""
-            SELECT e.id, e.title, e.event_type, m.full_name, e.target_amount, e.status, e.date_raised
+            SELECT e.id, e.title, e.event_type, m.full_name,
+                   e.target_amount, e.status, e.date_raised, e.description
             FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
             WHERE e.status = %s ORDER BY e.date_raised DESC
         """, (status,))
     else:
         cur.execute("""
-            SELECT e.id, e.title, e.event_type, m.full_name, e.target_amount, e.status, e.date_raised
+            SELECT e.id, e.title, e.event_type, m.full_name,
+                   e.target_amount, e.status, e.date_raised, e.description
             FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
             ORDER BY e.date_raised DESC
         """)
@@ -53,7 +55,10 @@ def list_events(status: str = "", _=Depends(get_current_user)):
     release_connection(conn)
     return [
         {"id": r[0], "title": r[1], "event_type": r[2], "beneficiary": r[3],
-         "target_amount": r[4], "status": r[5], "date_raised": r[6]}
+         "target_amount": r[4], "status": r[5],
+         "date_raised": str(r[6]) if r[6] else None,
+         "date": str(r[6]) if r[6] else None,   # alias for member.html
+         "description": r[7]}
         for r in rows
     ]
 

@@ -742,7 +742,7 @@ async function loadOverview() {
              <td style="font-weight:500;">${e.title||e.name||'—'}</td>
              <td><span class="badge badge-blue">${e.event_type||e.type||'event'}</span></td>
              <td><span class="badge badge-green">${e.status}</span></td>
-             <td style="color:var(--silver);">${fmtDate(e.date||e.created_at)}</td>
+             <td style="color:var(--silver);">${fmtDate(e.date||e.date_raised||e.created_at)}</td>
            </tr>`).join('')}</tbody></table>`;
     }
     document.getElementById('ov-status').innerHTML = '<span style="color:var(--green);">Active</span>';
@@ -991,13 +991,14 @@ async function loadEvents() {
     if (!res.ok) throw new Error();
     const data = await res.json();
     body.innerHTML = data.length===0 ? emptyState('📅','No events found.')
-      : `<table><thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Date</th><th>Description</th></tr></thead><tbody>
+      : `<table><thead><tr><th>Title</th><th>Type</th><th>Beneficiary</th><th>Status</th><th>Date</th><th>Description</th></tr></thead><tbody>
          ${data.map(e=>`<tr>
-           <td style="font-weight:500;">${e.title||e.name||'—'}</td>
-           <td><span class="badge badge-blue">${e.event_type||e.type||'event'}</span></td>
+           <td style="font-weight:500;">${e.title||'—'}</td>
+           <td><span class="badge badge-blue">${e.event_type||'event'}</span></td>
+           <td style="color:var(--silver);">${e.beneficiary||'—'}</td>
            <td><span class="badge ${e.status==='open'?'badge-green':'badge-amber'}">${e.status}</span></td>
-           <td style="color:var(--silver);">${fmtDate(e.date||e.created_at)}</td>
-           <td style="color:var(--silver);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description||'—'}</td>
+           <td style="color:var(--silver);">${fmtDate(e.date||e.date_raised)}</td>
+           <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description||'—'}</td>
          </tr>`).join('')}</tbody></table>`;
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load events.'); }
 }
