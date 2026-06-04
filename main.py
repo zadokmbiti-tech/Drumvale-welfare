@@ -6,6 +6,7 @@ from app.routes import members, events, meetings, auth, contributions, loans, ev
 from app.routes.auth import get_current_user, require_admin
 from app.database import init_pool, get_connection, release_connection
 from app.schemas import NoticeCreate
+from app.routes import event_reports
 import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -41,8 +42,8 @@ app.include_router(contributions.router,           prefix="/contributions", tags
 app.include_router(loans.router,                   prefix="/loans",         tags=["Loans"])
 app.include_router(event_contributions.router,     prefix="/events",        tags=["Event Contributions"])
 app.include_router(finance.router,                 prefix="/finance",       tags=["Finance"])
-app.include_router(profile_updates.router,       prefix="/profile-updates",   tags=["Profile Updates"])
-
+app.include_router(profile_updates.router,       prefix="/profile-updates", tags=["Profile Updates"])
+app.include_router(event_reports.router,           prefix="/event-reports", tags=["Event Reports"])
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -96,6 +97,23 @@ def startup():
                 id_number          VARCHAR(20),
                 current_residence  VARCHAR(200),
                 contact_phone      VARCHAR(20)
+            );
+
+            CREATE TABLE IF NOT EXISTS case_reports (
+                id                   SERIAL PRIMARY KEY,
+                user_id              INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title                VARCHAR(300) NOT NULL,
+                event_type           VARCHAR(50)  NOT NULL,
+                description          TEXT,
+                occurrence_date      DATE,
+                affected_member_name VARCHAR(200),
+                status               VARCHAR(20)  NOT NULL DEFAULT 'pending'
+                                         CHECK (status IN ('pending','approved','rejected')),
+                reject_reason        TEXT,
+                published_event_id   INT REFERENCES events(id),
+                reviewed_by          INT REFERENCES users(id),
+                reviewed_at          TIMESTAMP,
+                submitted_at         TIMESTAMP NOT NULL DEFAULT NOW()
             );
         """)
         # Add new columns to profile_update_requests idempotently

@@ -279,6 +279,10 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
       Profile Requests <span id="update-req-badge" style="display:none;background:#ffc107;color:#000;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;">0</span>
     </div>
+    <div class="nav-item" id="nav-case-reports" style="display:none" onclick="showPage('case-reports')">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Case Reports <span id="case-reports-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;">0</span>
+    </div>
     <div class="nav-item" id="nav-usermgmt" style="display:none" onclick="showPage('usermgmt')">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       User Roles
@@ -480,6 +484,22 @@
           <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Beneficiary</th><th>Target</th><th>Raised</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="events-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CASE REPORTS PAGE ─────────────────────────────────────── -->
+  <div id="page-case-reports" class="page" style="display:none">
+    <div class="page-header">
+      <div>
+        <h2>📋 Case Reports</h2>
+        <p>Member-submitted welfare cases awaiting committee review</p>
+      </div>
+      <button class="btn btn-outline" onclick="loadPendingReports()">🔄 Refresh</button>
+    </div>
+    <div class="card">
+      <div id="pending-reports-body">
+        <div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>
       </div>
     </div>
   </div>
@@ -1536,6 +1556,11 @@ function initApp() {
   if (isAdmin()) {
     document.getElementById('nav-admin').style.display = 'flex';
     document.getElementById('nav-usermgmt').style.display = 'flex';
+    document.getElementById('nav-profile-updates').style.display = 'flex';
+    document.getElementById('nav-case-reports').style.display = 'flex';
+    // Pre-load badges in background
+    loadProfileUpdateRequests().catch(()=>{});
+    loadPendingReports().catch(()=>{});
   }
   // Finance visible to treasurer, chairperson, admin, super_admin
   const financeRoles = ['treasurer','chairperson','admin','super_admin'];
@@ -1562,6 +1587,7 @@ function showPage(name) {
   if (name==='notices')       loadNotices();
   if (name==='admin')         loadPendingUsers();
   if (name==='profile-updates') loadProfileUpdateRequests();
+  if (name==='case-reports')  loadPendingReports();
   if (name==='usermgmt')      loadUserMgmt();
   if (name==='finance')       { loadFinance(); finTab('income'); document.getElementById('fin-date').value = new Date().toISOString().split('T')[0]; }
 }
@@ -1915,6 +1941,88 @@ async function saveEvent() {
     toast('Event created');
     loadEvents();
   } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadPendingReports() {
+  const body = document.getElementById('pending-reports-body');
+  body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
+  try {
+    const res = await fetch(`${API}/event-reports/`, {headers: authH()});
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    // Update nav badge
+    const badge = document.getElementById('case-reports-badge');
+    if (badge) { badge.style.display = data.length ? 'inline' : 'none'; badge.textContent = data.length; }
+
+    if (!data.length) {
+      body.innerHTML = '<div class="empty" style="padding:40px;text-align:center;color:var(--muted)">✅ No pending case reports.</div>';
+      return;
+    }
+
+    const typeIcon = t => ({bereavement:'🕯️',medical:'🏥',accident:'🚑',fire:'🔥',welfare:'🤝'})[t] || '📋';
+    const typeLabel = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+    body.innerHTML = data.map(r => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">${r.title}</div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;">
+              Reported by <strong>${r.reporter_name || '—'}</strong>
+              ${r.reporter_phone ? `· ${r.reporter_phone}` : ''}
+              · ${r.submitted_at ? fmtDate(r.submitted_at) : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+              <span class="badge badge-blue">${typeIcon(r.event_type)} ${typeLabel(r.event_type)}</span>
+              ${r.date ? `<span style="font-size:0.78rem;color:var(--silver);padding:2px 8px;border:1px solid var(--border);border-radius:5px;">📅 ${fmtDate(r.date)}</span>` : ''}
+              ${r.affected_member_name ? `<span style="font-size:0.78rem;color:var(--silver);padding:2px 8px;border:1px solid var(--border);border-radius:5px;">👤 ${r.affected_member_name}</span>` : ''}
+            </div>
+            ${r.description ? `<div style="font-size:0.83rem;color:var(--silver);background:rgba(255,255,255,0.03);border-radius:7px;padding:8px 12px;margin-top:6px;line-height:1.5;">${r.description}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+            <button onclick="approveReport(${r.id})"
+              style="background:var(--accent);color:#fff;font-weight:600;padding:8px 18px;
+                     border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;min-width:110px;">
+              ✓ Approve
+            </button>
+            <button onclick="rejectReport(${r.id})"
+              style="background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
+                     padding:8px 18px;border-radius:8px;cursor:pointer;font-size:0.82rem;min-width:110px;">
+              ✗ Reject
+            </button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">⚠️ Could not load reports.</div>';
+  }
+}
+
+async function approveReport(id) {
+  if (!confirm('Approve this report and publish it as a public event?')) return;
+  try {
+    const res = await fetch(`${API}/event-reports/${id}/approve`, {method:'PATCH', headers:authH()});
+    const data = await res.json();
+    if (!res.ok) { alert(data.detail || 'Failed.'); return; }
+    toast('✅ Report approved — event published.');
+    loadPendingReports();
+  } catch(e) { alert('Could not connect.'); }
+}
+
+async function rejectReport(id) {
+  const reason = prompt('Rejection reason (optional):');
+  if (reason === null) return; // cancelled
+  try {
+    const res = await fetch(`${API}/event-reports/${id}/reject`, {
+      method: 'PATCH', headers: authH(),
+      body: JSON.stringify({reason})
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.detail || 'Failed.'); return; }
+    toast('Report rejected.');
+    loadPendingReports();
+  } catch(e) { alert('Could not connect.'); }
 }
 
 async function closeEvent(id) {

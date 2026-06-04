@@ -280,13 +280,27 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     </div>
 
     <!-- EVENTS -->
-    <div class="section" id="sec-events">
-      <div class="section-title">Events & Cases</div>
-      <div class="table-wrap">
-        <div class="table-header"><h4>All Events</h4></div>
-        <div id="events-body"><div class="loading">Loading...</div></div>
-      </div>
+<div class="section" id="sec-events">
+  <div class="section-title">Events & Cases</div>
+
+  <!-- My submitted reports -->
+  <div class="table-wrap" style="margin-bottom:20px;">
+    <div class="table-header" style="justify-content:space-between;">
+      <h4>My Reported Cases</h4>
+      <button onclick="openReportModal()"
+        style="background:var(--sky);color:#000;font-weight:600;padding:7px 16px;
+               border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;">
+        ＋ Report a Case
+      </button>
     </div>
+    <div id="my-reports-body"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header"><h4>All Public Events</h4></div>
+    <div id="events-body"><div class="loading">Loading...</div></div>
+  </div>
+</div>
 
     <!-- MEETINGS -->
     <div class="section" id="sec-meetings">
@@ -346,7 +360,86 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     <div class="modal-body" id="modal-member-body"></div>
   </div>
 </div>
+<!-- REPORT EVENT MODAL -->
+<div id="report-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.80);
+  z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    width:min(520px,96vw);max-height:88vh;overflow-y:auto;padding:24px;">
 
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+      <div>
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;margin:0 0 4px;">Report a Case / Event</h3>
+        <div style="font-size:0.8rem;color:var(--silver);">
+          Submit a welfare case or event for committee review. It will be published once approved.
+        </div>
+      </div>
+      <button onclick="closeReportModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;">✕</button>
+    </div>
+
+    <div style="display:grid;gap:14px;">
+
+      <div>
+        <label style="font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Case Title *</label>
+        <input id="rep-title" type="text" placeholder="e.g. Bereavement — John Kamau"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 13px;color:var(--white);font-size:0.9rem;font-family:inherit;outline:none;">
+      </div>
+
+      <div>
+        <label style="font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Event Type *</label>
+        <select id="rep-type"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 13px;color:var(--white);font-size:0.9rem;font-family:inherit;outline:none;">
+          <option value="">— Select type —</option>
+          <option value="bereavement">🕯️ Bereavement (Death)</option>
+          <option value="medical">🏥 Medical / Hospitalization</option>
+          <option value="accident">🚑 Accident / Injury</option>
+          <option value="fire">🔥 Fire / Property Loss</option>
+          <option value="welfare">🤝 General Welfare</option>
+          <option value="other">📋 Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Affected Person's Name</label>
+        <input id="rep-affected" type="text" placeholder="Full name of person affected (if not yourself)"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 13px;color:var(--white);font-size:0.9rem;font-family:inherit;outline:none;">
+      </div>
+
+      <div>
+        <label style="font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Date of Occurrence</label>
+        <input id="rep-date" type="date"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 13px;color:var(--white);font-size:0.9rem;font-family:inherit;outline:none;">
+      </div>
+
+      <div>
+        <label style="font-size:0.75rem;color:var(--silver);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Description</label>
+        <textarea id="rep-desc" rows="3" placeholder="Briefly describe the case…"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 13px;color:var(--white);font-size:0.9rem;font-family:inherit;outline:none;
+                 resize:vertical;"></textarea>
+      </div>
+
+      <div style="font-size:0.78rem;color:var(--silver);background:rgba(44,180,224,0.07);
+        border:1px solid rgba(44,180,224,0.15);border-radius:8px;padding:10px 14px;">
+        📋 Your report will be reviewed by the committee. Once approved it becomes visible to all members as a public event.
+      </div>
+
+      <div id="rep-error" style="color:#f85149;font-size:0.82rem;display:none;"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeReportModal()"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--silver);
+                 padding:9px 20px;border-radius:8px;cursor:pointer;font-family:inherit;">Cancel</button>
+        <button onclick="submitEventReport()"
+          style="background:var(--sky);color:#000;font-weight:600;padding:9px 22px;
+                 border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -574,7 +667,7 @@ function showTab(name) {
   if (name==='members')       loadMembers();
   if (name==='contributions') loadContributions();
   if (name==='loans')         loadLoans();
-  if (name==='events')        loadEvents();
+  if (name==='events') { loadEvents(); loadMyReports(); }
   if (name==='meetings')      loadMeetings();
 }
 
@@ -662,10 +755,15 @@ async function loadOverview() {
 }
 
 /* MY PROFILE */
+
+/* MY PROFILE */
 async function loadProfile() {
   try {
-    const res = await fetch(`${API}/auth/me`,{headers:authH()});
-    if (!res.ok) throw new Error();
+    const res = await fetch(`${API}/auth/me`, {headers:authH()});
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`${res.status}: ${err.detail || 'Unknown error'}`);
+    }
     const u = await res.json();
     let m = {};
     try {
@@ -741,7 +839,8 @@ async function loadProfile() {
     </p>
   </div>`;
   } catch(e) {
-    document.getElementById('profile-grid').innerHTML = emptyState('⚠️','Could not load profile.');
+    console.error('loadProfile error:', e.message);
+    document.getElementById('profile-grid').innerHTML = emptyState('⚠️', `Could not load profile. (${e.message})`);
   }
 }
 
@@ -921,6 +1020,88 @@ async function loadMeetings() {
            <td><span class="badge ${m.status==='scheduled'?'badge-green':'badge-amber'}">${m.status||'scheduled'}</span></td>
          </tr>`).join('')}</tbody></table>`;
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load meetings.'); }
+}
+
+/* ── EVENT REPORTING ─────────────────────────────────────────────── */
+function openReportModal() {
+  ['rep-title','rep-affected','rep-desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('rep-type').value = '';
+  document.getElementById('rep-date').value = '';
+  document.getElementById('rep-error').style.display = 'none';
+  document.getElementById('report-modal-backdrop').style.display = 'flex';
+}
+function closeReportModal() {
+  document.getElementById('report-modal-backdrop').style.display = 'none';
+}
+
+async function submitEventReport() {
+  const errEl = document.getElementById('rep-error');
+  errEl.style.display = 'none';
+  const title     = document.getElementById('rep-title').value.trim();
+  const eventType = document.getElementById('rep-type').value;
+  const affected  = document.getElementById('rep-affected').value.trim();
+  const date      = document.getElementById('rep-date').value;
+  const desc      = document.getElementById('rep-desc').value.trim();
+
+  if (!title)     { errEl.textContent = 'Please enter a case title.';     errEl.style.display='block'; return; }
+  if (!eventType) { errEl.textContent = 'Please select an event type.';   errEl.style.display='block'; return; }
+
+  try {
+    const res = await fetch(`${API}/event-reports/`, {
+      method: 'POST',
+      headers: authH(),
+      body: JSON.stringify({
+        title,
+        event_type: eventType,
+        description: desc || null,
+        date: date || null,
+        affected_member_name: affected || null,
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Submission failed.'; errEl.style.display='block'; return; }
+    closeReportModal();
+    toast('✅ Case reported — awaiting committee approval.');
+    loadMyReports(); // refresh the list
+  } catch(e) {
+    errEl.textContent = 'Could not connect. Try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function loadMyReports() {
+  const body = document.getElementById('my-reports-body');
+  if (!body) return;
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(`${API}/event-reports/my`, {headers:authH()});
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    if (!data.length) { body.innerHTML = emptyState('📋','No cases reported yet.'); return; }
+    const statusBadge = s =>
+      s==='approved' ? '<span class="badge badge-green">Approved</span>' :
+      s==='rejected' ? '<span class="badge badge-red">Rejected</span>'   :
+                       '<span class="badge badge-amber">Pending</span>';
+    body.innerHTML = `<table><thead><tr>
+      <th>Title</th><th>Type</th><th>Date</th><th>Status</th><th>Note</th>
+    </tr></thead><tbody>
+      ${data.map(r=>`<tr>
+        <td style="font-weight:500;">${r.title}</td>
+        <td><span class="badge badge-blue">${r.event_type}</span></td>
+        <td style="color:var(--silver);">${r.date ? fmtDate(r.date) : '—'}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td style="color:var(--silver);font-size:0.8rem;">${
+          r.status==='rejected' && r.reject_reason
+            ? '❌ ' + r.reject_reason
+            : r.status==='approved'
+            ? '✅ Published as public event'
+            : 'Under review'
+        }</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️','Could not load reports.');
+  }
 }
 </script>
 
