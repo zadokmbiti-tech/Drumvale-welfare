@@ -92,12 +92,12 @@ def my_loans(current_user: dict = Depends(get_current_user)):
         # Join users→members via phone_number since members has no user_id FK
         cur.execute(
             """SELECT l.id, l.member_id, l.amount, l.interest_rate, l.status,
-                      l.applied_date, l.approved_date, l.due_date, l.balance
+                      l.created_at, l.total_repayable, l.due_date, l.amount_repaid
                FROM loans l
                JOIN members m ON l.member_id = m.id
                JOIN users u   ON u.phone_number = m.phone_number
                WHERE u.id = %s
-               ORDER BY l.applied_date DESC""",
+               ORDER BY l.created_at DESC""",
             (current_user["user_id"],)
         )
         rows = cur.fetchall()
@@ -108,9 +108,9 @@ def my_loans(current_user: dict = Depends(get_current_user)):
     return [
         {"id": r[0], "member_id": r[1], "amount": float(r[2]),
          "interest_rate": float(r[3]) if r[3] else None, "status": r[4],
-         "applied_date": str(r[5]), "approved_date": str(r[6]) if r[6] else None,
+         "created_at": str(r[5]), "total_repayable": float(r[6]) if r[6] else None,
          "due_date": str(r[7]) if r[7] else None,
-         "balance": float(r[8]) if r[8] else None}
+         "amount_repaid": float(r[8]) if r[8] else None}
         for r in rows
     ]
 
