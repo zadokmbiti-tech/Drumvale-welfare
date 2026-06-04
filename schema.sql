@@ -226,3 +226,22 @@ ALTER TABLE profile_update_requests
     ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20),
     ADD COLUMN IF NOT EXISTS children_json TEXT,
     ADD COLUMN IF NOT EXISTS parents_json  TEXT;
+
+-- ============================================================
+-- CASE REPORTS  (member-reported cases awaiting admin review)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS case_reports (
+    id                   SERIAL PRIMARY KEY,
+    user_id              INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title                VARCHAR(300) NOT NULL,
+    event_type           VARCHAR(50)  NOT NULL,  -- bereavement|medical|accident|fire|welfare
+    description          TEXT,
+    occurrence_date      DATE,                   -- when the event occurred
+    affected_member_name VARCHAR(200),           -- person affected (free text)
+    status               VARCHAR(20)  NOT NULL DEFAULT 'pending',  -- pending|approved|rejected
+    reject_reason        TEXT,
+    published_event_id   INT          REFERENCES events(id),       -- linked event if approved
+    reviewed_by          INT          REFERENCES users(id),        -- admin who reviewed
+    reviewed_at          TIMESTAMP,
+    submitted_at         TIMESTAMP    NOT NULL DEFAULT NOW()
+);
