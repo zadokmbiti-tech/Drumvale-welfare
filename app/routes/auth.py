@@ -1,12 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.database import get_connection, release_connection
 from app.models import UserRegister, UserLogin, TokenResponse
+from app.utils import safe_db_error
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import os
-from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -239,6 +239,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
 )
         user = cur.fetchone()
         children = []
+        parents = []
         if user:
             cur.execute(
                 """SELECT full_name, date_of_birth, relationship, cert_number
@@ -406,7 +407,6 @@ def approve_user(user_id: int, current_user=Depends(require_admin)):
 @router.patch("/admin/{user_id}/reject")
 def reject_user(user_id: int, body: dict = None, current_user=Depends(require_admin)):
     reason = (body or {}).get("reason", "")
-    reason = body.get("reason", "")
     conn = get_connection()
     cur = conn.cursor()
     try:

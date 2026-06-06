@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List, Literal
 from datetime import date, datetime
 from decimal import Decimal
@@ -142,13 +142,15 @@ class FinanceTransactionCreate(BaseModel):
     description: Optional[str] = ""
     date: date
 
-    @validator("amount")
+    @field_validator("amount")
+    @classmethod
     def must_be_positive(cls, v):
         if v <= 0:
             raise ValueError("amount must be positive")
         return v
 
-    @validator("category")
+    @field_validator("category")
+    @classmethod
     def category_not_empty(cls, v):
         if not v.strip():
             raise ValueError("category cannot be empty")
