@@ -13,7 +13,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ── App must be created BEFORE attaching limiter state ──────────────
-app = FastAPI(title="ChamaLink API")
+app = FastAPI(title="ChamaLink API", redirect_slashes=False)
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
