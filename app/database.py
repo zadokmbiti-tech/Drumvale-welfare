@@ -52,4 +52,11 @@ def get_connection():
 
 
 def release_connection(conn):
+    # Roll back any uncommitted transaction so the connection
+    # goes back to the pool in a clean, reusable state.
+    try:
+        if conn and not conn.closed:
+            conn.rollback()
+    except Exception:
+        pass
     _pool.putconn(conn)

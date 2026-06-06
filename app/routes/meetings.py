@@ -40,7 +40,6 @@ def _send_sms(phones: list[str], message: str) -> dict:
         "to":       recipients_str,
         "message":  message,
     }
-    # Use sandbox endpoint during testing; switch to production when ready
     sandbox = AT_USERNAME == "sandbox"
     url = (
         "https://api.sandbox.africastalking.com/version1/messaging"
@@ -60,18 +59,16 @@ def _send_sms(phones: list[str], message: str) -> dict:
         )
         resp.raise_for_status()
         data = resp.json()
-        # AT returns SMSMessageData.Recipients list
         sms_data = data.get("SMSMessageData", {})
         sent = sms_data.get("Recipients", [])
         success = [r for r in sent if r.get("status") == "Success"]
-        # Log all recipient statuses for debugging
         import logging
         logging.warning(f"AT SMS DEBUG — Message: {sms_data.get('Message')} | Recipients: {sent}")
         return {
             "status":     "sent",
             "recipients": len(success),
             "total":      len(formatted),
-            "debug":      sent,  # temporary — remove after fixing
+            "debug":      sent,
         }
     except requests.RequestException as e:
         return {"status": "error", "reason": str(e)}
@@ -88,35 +85,10 @@ def _get_all_active_phones(cur) -> list[str]:
     return [r[0] for r in cur.fetchall()]
 
 
-# ─── Table setup ─────────────────────────────────────────────────────────────
-
-def _ensure_table(cur):
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS meetings (
-            id         SERIAL PRIMARY KEY,
-            title      TEXT NOT NULL,
-            date       DATE NOT NULL,
-            time       TEXT,
-            venue      TEXT,
-            agenda     TEXT,
-            status     TEXT NOT NULL DEFAULT 'scheduled'
-                           CHECK (status IN ('scheduled','completed','cancelled')),
-            created_by TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS meeting_attendance (
-            id         SERIAL PRIMARY KEY,
-            meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
-            member_id  INTEGER REFERENCES members(id)  ON DELETE CASCADE,
-            present    BOOLEAN DEFAULT FALSE,
-            UNIQUE (meeting_id, member_id)
-        )
-    """)
-
-
 # ─── Routes ──────────────────────────────────────────────────────────────────
+# NOTE: _ensure_table() removed. DDL for meetings and attendance tables
+# is handled once at startup in main.py, keeping GET routes clean and
+# preventing dirty connection-pool state from uncommitted DDL transactions.
 
 @router.post("/")
 def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
@@ -132,7 +104,6 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
     conn = get_connection()
     cur  = conn.cursor()
     try:
-        _ensure_table(cur)
         cur.execute("""
             INSERT INTO meetings (title, date, time, venue, agenda, created_by)
             VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
@@ -148,27 +119,18 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
                 f"Venue: {venue or 'TBD'}\n"
                 + (f"\nAgenda:\n{agenda}" if agenda else "")
             )
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS notices (
-                    id         SERIAL PRIMARY KEY,
-                    title      TEXT NOT NULL,
-                    body       TEXT,
-                    posted_by  TEXT,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            """)
             cur.execute(
-                "INSERT INTO notices (title, body, posted_by) VALUES (%s, %s, %s)",
+                "INSERT INTO notices (title, body, created_by) VALUES (%s, %s, %s)",
                 (f"Meeting: {title}", notice_body, current_user.get("sub"))
             )
         except Exception:
-            pass  # notice failure shouldn't block meeting creation
+            pass  # notice failure should not block meeting creation
 
         conn.commit()
 
         # ── Send SMS to all active members ──────────────────────────────────
         phones = _get_all_active_phones(cur)
-        time_str = str(time) if time else ""   # convert datetime.time → str
+        time_str = str(time) if time else ""
         sms_message = (
             f"📅 DRUMVALE MEETING\n"
             f"{title}\n"
@@ -198,7 +160,6 @@ def list_meetings(_=Depends(get_current_user)):
     conn = get_connection()
     cur  = conn.cursor()
     try:
-        _ensure_table(cur)
         cur.execute("""
             SELECT id, title, date::text, time, venue, status, created_at::text
             FROM meetings ORDER BY date DESC, created_at DESC
@@ -222,11 +183,12 @@ def get_meeting(meeting_id: int, _=Depends(get_current_user)):
         cur.execute("SELECT id, title, date::text, time, venue, agenda, status FROM meetings WHERE id=%s", (meeting_id,))
         row = cur.fetchone()
         if not row: raise HTTPException(404, "Meeting not found")
+        # Use the canonical "attendance" table from schema.sql
         cur.execute("""
-            SELECT ma.member_id, m.full_name, ma.present
-            FROM meeting_attendance ma
-            JOIN members m ON m.id = ma.member_id
-            WHERE ma.meeting_id = %s
+            SELECT a.member_id, m.full_name, a.present
+            FROM attendance a
+            JOIN members m ON m.id = a.member_id
+            WHERE a.meeting_id = %s
         """, (meeting_id,))
         attendance = [{"member_id": r[0], "name": r[1], "present": r[2]} for r in cur.fetchall()]
         return {
@@ -238,6 +200,7 @@ def get_meeting(meeting_id: int, _=Depends(get_current_user)):
         cur.close()
         release_connection(conn)
 
+
 @router.get("/my")
 def my_meetings(current_user: dict = Depends(get_current_user)):
     """Return all meetings — all members can view meetings."""
@@ -245,17 +208,18 @@ def my_meetings(current_user: dict = Depends(get_current_user)):
     cur = conn.cursor()
     try:
         cur.execute(
-            "SELECT id, title, meeting_date, venue, agenda, status FROM meetings ORDER BY meeting_date DESC"
+            "SELECT id, title, date::text, venue, agenda, status FROM meetings ORDER BY date DESC"
         )
         rows = cur.fetchall()
     finally:
         cur.close()
         release_connection(conn)
     return [
-        {"id": r[0], "title": r[1], "meeting_date": str(r[2]),
+        {"id": r[0], "title": r[1], "date": str(r[2]),
          "venue": r[3], "agenda": r[4], "status": r[5]}
         for r in rows
     ]
+
 
 @router.patch("/{meeting_id}/status")
 def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secretary)):
@@ -289,7 +253,7 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
         if not row:
             raise HTTPException(404, "Meeting not found")
         title, date, time, venue = row
-        time_str = str(time) if time else ""   # convert datetime.time → str
+        time_str = str(time) if time else ""
         phones = _get_all_active_phones(cur)
         sms_message = (
             f"📅 DRUMVALE MEETING REMINDER\n"
@@ -301,9 +265,8 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
         result = _send_sms(phones, sms_message)
         return result
     except HTTPException:
-        raise  # let 404 pass through cleanly
+        raise
     except Exception as e:
-        # Never crash to 500 — return structured error the frontend can display
         return {"status": "error", "reason": str(e)}
     finally:
         cur.close()
