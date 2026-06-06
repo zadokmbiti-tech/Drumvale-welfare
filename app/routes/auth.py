@@ -55,7 +55,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def require_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") not in ("super_admin", "chairperson", "secretary"):
+    if current_user.get("role") not in ("super_admin", "admin", "chairperson", "secretary", "treasurer"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
