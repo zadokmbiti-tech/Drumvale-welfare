@@ -1440,6 +1440,9 @@ let token = localStorage.getItem('chama_token');
 let currentUser = JSON.parse(localStorage.getItem('chama_user') || 'null');
 let allMembers = [];
 
+// Auth header helper (used by fetch calls throughout)
+const authH = () => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
+
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
@@ -3100,7 +3103,7 @@ async function approveProfileUpdate(reqId) {
   if (!confirm('Approve this profile update? Changes will be applied immediately.')) return;
   try {
     const res = await fetch(`${API}/profile-updates/${reqId}/approve`, {
-      method: 'PATCH', headers: {'Authorization':`Bearer ${authToken}`,'Content-Type':'application/json'}
+      method: 'PATCH', headers: authH()
     });
     const data = await res.json();
     if (!res.ok) { toast(data.detail || 'Approval failed.', 'error'); return; }
@@ -3115,7 +3118,7 @@ async function rejectProfileUpdate(reqId) {
   try {
     const res = await fetch(`${API}/profile-updates/${reqId}/reject`, {
       method: 'PATCH',
-      headers: {'Authorization':`Bearer ${authToken}`,'Content-Type':'application/json'},
+      headers: authH(),
       body: JSON.stringify({ reason })
     });
     const data = await res.json();
