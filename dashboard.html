@@ -1950,7 +1950,7 @@ async function loadPendingReports() {
   const body = document.getElementById('pending-reports-body');
   body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading…</div>';
   try {
-    const res = await fetch(`${API}/event-reports`, {headers: authH()});
+    const res = await fetch(`${API}/event-reports/`, {headers: authH()});
     if (!res.ok) throw new Error();
     const data = await res.json();
 
@@ -3042,7 +3042,7 @@ async function loadProfileUpdateRequests() {
   const tbody = document.getElementById('profile-updates-tbody');
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>';
   try {
-    const rows = await apiFetch('/profile-updates');
+    const rows = await apiFetch('/profile-updates/');
     document.getElementById('update-req-badge').style.display = rows.length ? 'inline' : 'none';
     document.getElementById('update-req-badge').textContent   = rows.length;
 
