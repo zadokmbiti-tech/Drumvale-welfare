@@ -1524,10 +1524,12 @@ function logout() {
 }
 
 async function apiFetch(path, opts={}) {
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
-  });
+  const headers = {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})};
+  let res = await fetch(`${API}${path}`, { ...opts, headers });
+  // FastAPI redirects paths without trailing slash — retry with slash to preserve auth header
+  if ((res.status === 307 || res.status === 308) && !path.endsWith('/')) {
+    res = await fetch(`${API}${path}/`, { ...opts, headers });
+  }
   if (res.status === 401) { logout(); return; }
   if (!res.ok) {
     const e = await res.json().catch(()=>({detail:'Request failed'}));
