@@ -1524,16 +1524,14 @@ function logout() {
 }
 
 async function apiFetch(path, opts={}) {
-  const headers = {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})};
-  let res = await fetch(`${API}${path}`, { ...opts, headers });
-  // FastAPI redirects paths without trailing slash — retry with slash to preserve auth header
-  if ((res.status === 307 || res.status === 308) && !path.endsWith('/')) {
-    res = await fetch(`${API}${path}/`, { ...opts, headers });
-  }
-  if (res.status === 401) { logout(); return; }
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
+  });
+  if (res.status === 401) { logout(); throw new Error('Session expired — please log in again'); }
   if (!res.ok) {
     const e = await res.json().catch(()=>({detail:'Request failed'}));
-    throw new Error(e.detail || 'Request failed');
+    throw new Error(e.detail || `HTTP ${res.status} on ${path}`);
   }
   return res.json();
 }
@@ -1599,27 +1597,37 @@ function showPage(name, el) {
 
 async function loadDashboard() {
   try {
-    // Use the single /stats endpoint for all summary cards — avoids 5 round trips
-    const [stats, members, loans, meetings] = await Promise.all([
+    // Fetch all four independently — one failure won't kill the others
+    const [statsRes, membersRes, loansRes, meetingsRes] = await Promise.allSettled([
       apiFetch('/stats'),
       apiFetch('/members'),
       apiFetch('/loans'),
       apiFetch('/meetings'),
     ]);
 
+    const stats    = statsRes.status    === 'fulfilled' ? statsRes.value    : null;
+    const members  = membersRes.status  === 'fulfilled' ? membersRes.value  : [];
+    const loans    = loansRes.status    === 'fulfilled' ? loansRes.value    : [];
+    const meetings = meetingsRes.status === 'fulfilled' ? meetingsRes.value : [];
+
+    // Log any failures to console for debugging
+    [statsRes, membersRes, loansRes, meetingsRes].forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`Dashboard fetch [${['/stats','/members','/loans','/meetings'][i]}] failed:`, r.reason);
+    });
+
     // ── Stat cards ─────────────────────────────────────────────
-    document.getElementById('stat-members').textContent = stats.total_members ?? members.length;
+    document.getElementById('stat-members').textContent = stats?.total_members ?? members.length;
     document.getElementById('stat-members-sub').textContent =
-      `${stats.active_members ?? members.filter(m=>m.status==='active').length} active`;
+      `${stats?.active_members ?? members.filter(m=>m.status==='active').length} active`;
 
     document.getElementById('stat-contrib').textContent =
-      `KES ${fmt(stats.this_month_contributions ?? 0)}`;
+      `KES ${fmt(stats?.this_month_contributions ?? 0)}`;
 
-    document.getElementById('stat-loans').textContent = stats.active_loans ?? '—';
+    document.getElementById('stat-loans').textContent = stats?.active_loans ?? '—';
     document.getElementById('stat-loans-sub').textContent =
-      `KES ${fmt(stats.outstanding_balance ?? 0)} outstanding`;
+      `KES ${fmt(stats?.outstanding_balance ?? 0)} outstanding`;
 
-    document.getElementById('stat-events').textContent = stats.open_events ?? '—';
+    document.getElementById('stat-events').textContent = stats?.open_events ?? '—';
 
     // Assets & Projects are local-only for now
     document.getElementById('stat-Assets').textContent   = '—';
@@ -1667,10 +1675,12 @@ async function loadDashboard() {
   } catch(e) {
     console.error('Dashboard load error:', e);
     const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-    setEl('stat-members-sub', 'Check API connection');
+    const errMsg = e.message || 'Unknown error';
+    setEl('stat-members-sub', errMsg.includes('expired') ? 'Session expired — please log in' : 'API error');
     setEl('stat-contrib', '—'); setEl('stat-loans', '—'); setEl('stat-events', '—');
     const ml = document.getElementById('dash-members-list');
-    if (ml) ml.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0">⚠️ Could not load data. <a href="#" onclick="loadDashboard();return false;" style="color:var(--accent)">Retry</a></div>`;
+    if (ml) ml.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0">⚠️ ${errMsg}. <a href="#" onclick="loadDashboard();return false;" style="color:var(--accent)">Retry</a></div>`;
+    if (errMsg.includes('expired')) { setTimeout(logout, 1500); }
   }
 }
 
