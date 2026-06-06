@@ -1756,7 +1756,7 @@ async function deactivateMember(id) {
 }
 
 function isAdmin() {
-  const adminRoles = ["super_admin","chairperson","secretary","treasurer"];
+  const adminRoles = ["admin","super_admin","chairperson","secretary","treasurer"];
   return adminRoles.includes(currentUser?.role);
 }
 
