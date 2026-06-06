@@ -231,59 +231,59 @@
     <span>Management System</span>
   </div>
   <nav>
-    <div class="nav-item active" onclick="showPage('dashboard')">
+    <div class="nav-item active" onclick="showPage('dashboard', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Dashboard
     </div>
-    <div class="nav-item" onclick="showPage('members')">
+    <div class="nav-item" onclick="showPage('members', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Members
     </div>
-    <div class="nav-item" onclick="showPage('contributions')">
+    <div class="nav-item" onclick="showPage('contributions', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Contributions
     </div>
-    <div class="nav-item" onclick="showPage('loans')">
+    <div class="nav-item" onclick="showPage('loans', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       Loans
     </div>
-    <div class="nav-item" onclick="showPage('events')">
+    <div class="nav-item" onclick="showPage('events', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Events
       </div>
-    <div class="nav-item" onclick="showPage('Assets')">
+    <div class="nav-item" onclick="showPage('Assets', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
       Assets
     </div>
-    <div class="nav-item" onclick="showPage('Projects')">
+    <div class="nav-item" onclick="showPage('Projects', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       Projects
     </div>
-    <div class="nav-item" onclick="showPage('meetings')">
+    <div class="nav-item" onclick="showPage('meetings', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
       Meetings
     </div>
-    <div class="nav-item" id="nav-finance" style="display:none" onclick="showPage('finance')">
+    <div class="nav-item" id="nav-finance" style="display:none" onclick="showPage('finance', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Finance
     </div>
-    <div class="nav-item" onclick="showPage('notices')">
+    <div class="nav-item" onclick="showPage('notices', this)">
   <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
   Notices
 </div>
-    <div class="nav-item" id="nav-admin" style="display:none" onclick="showPage('admin')">
+    <div class="nav-item" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       Admin
     </div>
-    <div class="nav-item" id="nav-profile-updates" style="display:none" onclick="showPage('profile-updates')">
+    <div class="nav-item" id="nav-profile-updates" style="display:none" onclick="showPage('profile-updates', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
       Profile Requests <span id="update-req-badge" style="display:none;background:#ffc107;color:#000;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;">0</span>
     </div>
-    <div class="nav-item" id="nav-case-reports" style="display:none" onclick="showPage('case-reports')">
+    <div class="nav-item" id="nav-case-reports" style="display:none" onclick="showPage('case-reports', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Case Reports <span id="case-reports-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;">0</span>
     </div>
-    <div class="nav-item" id="nav-usermgmt" style="display:none" onclick="showPage('usermgmt')">
+    <div class="nav-item" id="nav-usermgmt" style="display:none" onclick="showPage('usermgmt', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       User Roles
     </div>
@@ -1572,13 +1572,13 @@ function initApp() {
   }
 }
 
-function showPage(name) {
+function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById(`page-${name}`);
   if (!page) { toast(`Page "${name}" not built yet`, 'error'); return; }
   page.classList.add('active');
-  event.currentTarget.classList.add('active');
+  (el || event?.currentTarget)?.classList.add('active');
   // close sidebar on mobile after navigation
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-overlay').classList.remove('open');
