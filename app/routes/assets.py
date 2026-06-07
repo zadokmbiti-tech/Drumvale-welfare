@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_connection, release_connection
-from app.auth_deps import get_current_user, require_admin
+from app.routes.auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
