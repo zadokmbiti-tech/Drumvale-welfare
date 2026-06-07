@@ -263,134 +263,157 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 
     <!-- CONTRIBUTIONS -->
     <div class="section" id="sec-contributions">
-      <div class="section-title">My Contributions</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div class="section-title" style="margin-bottom:0;">My Contributions</div>
+        <button onclick="openContribModal()" style="background:var(--sky);color:#000;font-weight:600;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;gap:6px;">
+          <span>➕</span> Make Contribution
+        </button>
+      </div>
       <div class="table-wrap">
-        <div class="table-header" style="justify-content:space-between;">
-          <h4>Contribution History</h4>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:0.78rem;color:var(--muted);" id="all-contrib-count"></span>
-            <button onclick="openContribWizard()"
-              style="background:var(--sky);color:#000;font-weight:600;padding:7px 16px;
-                     border-radius:8px;border:none;cursor:pointer;font-size:0.82rem;">
-              ＋ Make Contribution
-            </button>
-          </div>
-        </div>
+        <div class="table-header"><h4>Contribution History</h4><span style="font-size:0.78rem;color:var(--muted);" id="all-contrib-count"></span></div>
         <div id="all-contrib-body"><div class="loading">Loading...</div></div>
       </div>
     </div>
 
-<!-- ── CONTRIBUTION WIZARD MODAL ──────────────────────────────────────── -->
-<div id="contrib-wizard-backdrop" style="display:none;position:fixed;inset:0;
-     background:rgba(0,0,0,0.80);z-index:3000;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
-              width:min(500px,96vw);max-height:90vh;overflow-y:auto;padding:0;">
+    <!-- MAKE CONTRIBUTION MODAL -->
+    <div id="contrib-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:3000;align-items:center;justify-content:center;padding:16px;">
+      <div id="contrib-modal" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(520px,96vw);max-height:90vh;overflow-y:auto;">
 
-    <!-- Header -->
-    <div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;margin:0;">Make a Contribution</h3>
-      <button onclick="closeContribWizard()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;">✕</button>
+        <!-- Modal Header -->
+        <div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;" id="cm-title">Make a Contribution</h3>
+          <button onclick="closeContribModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.3rem;line-height:1;padding:4px;">✕</button>
+        </div>
+
+        <!-- Stepper -->
+        <div id="cm-stepper" style="display:flex;align-items:center;padding:0 24px 16px;gap:0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:6px;flex:1;">
+            <div id="cm-sc1" style="width:26px;height:26px;border-radius:50%;background:var(--sky);color:#000;font-weight:700;font-size:0.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;">1</div>
+            <span id="cm-sl1" style="font-size:0.78rem;color:var(--sky);font-weight:500;white-space:nowrap;">Payment Details</span>
+          </div>
+          <div style="flex:1;height:1px;background:var(--border);margin:0 6px;"></div>
+          <div style="display:flex;align-items:center;gap:6px;flex:1;">
+            <div id="cm-sc2" style="width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--silver);font-weight:700;font-size:0.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;">2</div>
+            <span id="cm-sl2" style="font-size:0.78rem;color:var(--silver);white-space:nowrap;">Amount</span>
+          </div>
+          <div style="flex:1;height:1px;background:var(--border);margin:0 6px;"></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div id="cm-sc3" style="width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--silver);font-weight:700;font-size:0.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;">3</div>
+            <span id="cm-sl3" style="font-size:0.78rem;color:var(--silver);white-space:nowrap;">Confirm</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Lipa na M-Pesa guide -->
+        <div id="cm-step1" style="padding:20px 24px;">
+          <div style="background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.18);border-radius:10px;padding:16px 18px;margin-bottom:18px;">
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--sky);margin-bottom:12px;font-weight:600;">📱 How to Pay — Lipa na M-Pesa</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--sky);color:#000;font-weight:700;font-size:0.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                <p style="font-size:0.85rem;color:var(--silver);line-height:1.5;">Open <strong style="color:var(--white);">M-Pesa</strong> on your phone and select <strong style="color:var(--white);">Lipa na M-Pesa</strong></p>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--sky);color:#000;font-weight:700;font-size:0.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                <p style="font-size:0.85rem;color:var(--silver);line-height:1.5;">Select <strong style="color:var(--white);">Pay Bill</strong>, then enter Paybill number: <strong style="color:var(--sky);font-size:0.95rem;">400200</strong></p>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--sky);color:#000;font-weight:700;font-size:0.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                <p style="font-size:0.85rem;color:var(--silver);line-height:1.5;">Enter Account Number: <strong style="color:var(--sky);font-size:0.95rem;">14394</strong></p>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--sky);color:#000;font-weight:700;font-size:0.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                <p style="font-size:0.85rem;color:var(--silver);line-height:1.5;">Enter the <strong style="color:var(--white);">amount</strong>, your <strong style="color:var(--white);">M-Pesa PIN</strong> and confirm. You will receive an SMS confirmation.</p>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-weight:700;font-size:0.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">5</div>
+                <p style="font-size:0.85rem;color:var(--silver);line-height:1.5;">Once paid, return here and click <strong style="color:var(--white);">Continue</strong> to record your contribution.</p>
+              </div>
+            </div>
+          </div>
+          <div style="background:rgba(61,175,80,0.08);border:1px solid rgba(61,175,80,0.2);border-radius:8px;padding:11px 14px;display:flex;gap:10px;align-items:center;">
+            <span style="font-size:1.1rem;">💡</span>
+            <p style="font-size:0.8rem;color:var(--silver);line-height:1.5;">Keep your <strong style="color:var(--white);">M-Pesa confirmation SMS</strong> — you'll need the transaction code (e.g. <span style="color:var(--sky);">RHX1234ABC</span>) in the next step.</p>
+          </div>
+        </div>
+
+        <!-- Step 2: Enter amount & details -->
+        <div id="cm-step2" style="display:none;padding:20px 24px;">
+          <div class="field">
+            <label>Contribution Type</label>
+            <select id="cm-type" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;">
+              <option value="">— Select type —</option>
+              <option value="Monthly Welfare">Monthly Welfare</option>
+              <option value="Emergency Fund">Emergency Fund</option>
+              <option value="Project Fund">Project Fund</option>
+              <option value="Special Levy">Special Levy</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Period / Month</label>
+            <select id="cm-month" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;">
+              <option value="">— Select period —</option>
+              <option value="June 2026">June 2026</option>
+              <option value="May 2026">May 2026</option>
+              <option value="April 2026">April 2026</option>
+              <option value="March 2026">March 2026</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Amount Paid (KES)</label>
+            <input type="number" id="cm-amount" min="1" placeholder="e.g. 500" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;" />
+          </div>
+          <div class="field">
+            <label>M-Pesa Transaction Code</label>
+            <input type="text" id="cm-mpesa-code" placeholder="e.g. RHX1234ABC" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;text-transform:uppercase;" />
+            <p style="font-size:0.75rem;color:var(--muted);margin-top:5px;">From your M-Pesa SMS confirmation</p>
+          </div>
+          <div class="field">
+            <label>Notes (optional)</label>
+            <input type="text" id="cm-notes" placeholder="Any additional notes" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;" />
+          </div>
+          <div id="cm-step2-err" style="display:none;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.3);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#f85149;margin-top:4px;"></div>
+        </div>
+
+        <!-- Step 3: Review & confirm -->
+        <div id="cm-step3" style="display:none;padding:20px 24px;">
+          <p style="font-size:0.82rem;color:var(--silver);margin-bottom:14px;">Please review your contribution details before submitting.</p>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;">
+            <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span style="color:var(--silver);font-size:0.85rem;">Type</span><span id="rv-type" style="color:var(--white);font-weight:500;font-size:0.85rem;">—</span>
+            </div>
+            <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span style="color:var(--silver);font-size:0.85rem;">Period</span><span id="rv-month" style="color:var(--white);font-weight:500;font-size:0.85rem;">—</span>
+            </div>
+            <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span style="color:var(--silver);font-size:0.85rem;">M-Pesa Code</span><span id="rv-code" style="color:var(--sky);font-weight:600;font-size:0.85rem;letter-spacing:0.04em;">—</span>
+            </div>
+            <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span style="color:var(--silver);font-size:0.85rem;">Notes</span><span id="rv-notes" style="color:var(--silver);font-size:0.85rem;">—</span>
+            </div>
+            <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:var(--white);font-weight:600;font-size:0.9rem;">Total Amount</span>
+              <span id="rv-amount" style="color:var(--green);font-weight:700;font-size:1.15rem;">KES 0</span>
+            </div>
+          </div>
+          <div id="cm-submit-err" style="display:none;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.3);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#f85149;margin-bottom:10px;"></div>
+        </div>
+
+        <!-- Step 4: Success -->
+        <div id="cm-step4" style="display:none;padding:32px 24px;text-align:center;">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(63,185,80,0.15);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 16px;">✅</div>
+          <h4 style="font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:8px;">Contribution Recorded!</h4>
+          <p style="font-size:0.85rem;color:var(--silver);line-height:1.6;margin-bottom:16px;">Your contribution has been successfully recorded.<br>The admin will verify your M-Pesa payment shortly.</p>
+          <div style="display:inline-block;background:rgba(44,180,224,0.1);border:1px solid rgba(44,180,224,0.2);border-radius:8px;padding:8px 18px;font-size:0.85rem;color:var(--sky);font-weight:600;" id="cm-success-code"></div>
+        </div>
+
+        <!-- Footer buttons -->
+        <div id="cm-footer" style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <button id="cm-back-btn" onclick="cmGoBack()" style="background:var(--surface2);border:1px solid var(--border);color:var(--silver);padding:9px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;visibility:hidden;">← Back</button>
+          <button id="cm-next-btn" onclick="cmGoNext()" style="background:var(--sky);color:#000;font-weight:600;padding:9px 22px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;">I've Paid — Continue →</button>
+        </div>
+
+      </div>
     </div>
-
-    <!-- Step indicator -->
-    <div style="display:flex;align-items:center;gap:8px;padding:0 24px 20px;">
-      <div id="wiz-step-1-dot" style="width:26px;height:26px;border-radius:50%;background:var(--sky);color:#000;
-           font-weight:700;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">✓</div>
-      <span id="wiz-step-1-lbl" style="font-size:0.82rem;color:var(--sky);">Payment Details</span>
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-      <div id="wiz-step-2-dot" style="width:26px;height:26px;border-radius:50%;background:var(--sky);color:#000;
-           font-weight:700;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">✓</div>
-      <span id="wiz-step-2-lbl" style="font-size:0.82rem;color:var(--sky);">Amount</span>
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-      <div id="wiz-step-3-dot" style="width:26px;height:26px;border-radius:50%;background:var(--sky);color:#000;
-           font-weight:700;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">3</div>
-      <span id="wiz-step-3-lbl" style="font-size:0.82rem;color:var(--muted);">Confirm</span>
-    </div>
-
-    <!-- Step 1: Payment Details -->
-    <div id="wiz-step-1" style="padding:0 24px 24px;">
-      <p style="font-size:0.85rem;color:var(--silver);margin:0 0 18px;">Enter your M-Pesa payment details below.</p>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:5px;">Contribution Type</label>
-        <select id="wiz-type" style="width:100%;background:var(--bg);border:1px solid var(--border);
-                color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;">
-          <option value="Monthly Welfare">Monthly Welfare</option>
-        </select>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:5px;">Period (Month)</label>
-        <input type="month" id="wiz-month" style="width:100%;background:var(--bg);border:1px solid var(--border);
-               color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;box-sizing:border-box;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:5px;">M-Pesa Code</label>
-        <input type="text" id="wiz-ref" placeholder="e.g. RHE456734F"
-               style="width:100%;background:var(--bg);border:1px solid var(--border);
-                      color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;box-sizing:border-box;text-transform:uppercase;">
-      </div>
-      <div style="margin-bottom:4px;">
-        <label style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:5px;">Notes (optional)</label>
-        <input type="text" id="wiz-notes" placeholder="Any notes..."
-               style="width:100%;background:var(--bg);border:1px solid var(--border);
-                      color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;box-sizing:border-box;">
-      </div>
-      <div id="wiz-err-1" style="display:none;color:#ff6b6b;font-size:0.82rem;margin-top:10px;"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:20px;">
-        <button onclick="wizNext(2)" style="background:var(--sky);color:#000;font-weight:600;
-                padding:9px 24px;border-radius:8px;border:none;cursor:pointer;">Next →</button>
-      </div>
-    </div>
-
-    <!-- Step 2: Amount -->
-    <div id="wiz-step-2" style="display:none;padding:0 24px 24px;">
-      <p style="font-size:0.85rem;color:var(--silver);margin:0 0 18px;">Enter the amount you paid via M-Pesa.</p>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:5px;">Amount (KES)</label>
-        <input type="number" id="wiz-amount" min="1" placeholder="500"
-               style="width:100%;background:var(--bg);border:1px solid var(--border);
-                      color:var(--white);border-radius:8px;padding:9px 11px;font-size:0.85rem;box-sizing:border-box;">
-      </div>
-      <div id="wiz-err-2" style="display:none;color:#ff6b6b;font-size:0.82rem;margin-top:10px;"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:20px;">
-        <button onclick="wizNext(1)" style="background:var(--surface);border:1px solid var(--border);
-                color:var(--silver);padding:9px 20px;border-radius:8px;cursor:pointer;">← Back</button>
-        <button onclick="wizNext(3)" style="background:var(--sky);color:#000;font-weight:600;
-                padding:9px 24px;border-radius:8px;border:none;cursor:pointer;">Next →</button>
-      </div>
-    </div>
-
-    <!-- Step 3: Confirm -->
-    <div id="wiz-step-3" style="display:none;padding:0 24px 24px;">
-      <p style="font-size:0.85rem;color:var(--silver);margin:0 0 16px;">Please review your contribution details before submitting.</p>
-      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <span style="color:var(--silver);">Type</span><span id="conf-type" style="font-weight:600;"></span></div>
-        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <span style="color:var(--silver);">Period</span><span id="conf-month" style="font-weight:600;"></span></div>
-        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <span style="color:var(--silver);">M-Pesa Code</span><span id="conf-ref" style="color:var(--sky);font-weight:600;"></span></div>
-        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <span style="color:var(--silver);">Notes</span><span id="conf-notes"></span></div>
-        <div style="display:flex;justify-content:space-between;padding:12px 16px;background:rgba(44,180,224,0.05);">
-          <span style="font-weight:700;">Total Amount</span><span id="conf-amount" style="color:var(--sky);font-weight:700;font-size:1.05rem;"></span></div>
-      </div>
-      <div id="wiz-err-3" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);
-           border-radius:8px;padding:10px 14px;color:#ff6b6b;font-size:0.83rem;margin-bottom:12px;"></div>
-      <div style="background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.15);border-radius:8px;
-           padding:10px 14px;font-size:0.78rem;color:var(--silver);margin-bottom:16px;">
-        ℹ️ Your submission will be reviewed by an admin before it appears in your confirmed history.
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <button onclick="wizNext(2)" style="background:var(--surface);border:1px solid var(--border);
-                color:var(--silver);padding:9px 20px;border-radius:8px;cursor:pointer;">← Back</button>
-        <button id="wiz-submit-btn" onclick="submitContribution()"
-                style="background:var(--sky);color:#000;font-weight:600;
-                       padding:9px 24px;border-radius:8px;border:none;cursor:pointer;">Submit Contribution</button>
-      </div>
-    </div>
-
-  </div>
-</div>
 
     <!-- LOANS -->
     <div class="section" id="sec-loans">
@@ -1062,6 +1085,142 @@ async function showMemberDetail(id) {
   document.getElementById('modal-member').classList.add('open');
 }
 
+/* MAKE CONTRIBUTION MODAL */
+let cmStep = 1;
+
+function openContribModal() {
+  cmStep = 1;
+  document.getElementById('contrib-modal-backdrop').style.display = 'flex';
+  cmRender();
+}
+function closeContribModal() {
+  document.getElementById('contrib-modal-backdrop').style.display = 'none';
+  // reset form
+  ['cm-type','cm-month','cm-amount','cm-mpesa-code','cm-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['cm-step2-err','cm-submit-err'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display='none'; el.textContent=''; }
+  });
+}
+function cmRender() {
+  // Show/hide panels
+  for (let i = 1; i <= 4; i++) {
+    const p = document.getElementById('cm-step'+i);
+    if (p) p.style.display = i === cmStep ? 'block' : 'none';
+  }
+  // Stepper circles
+  for (let i = 1; i <= 3; i++) {
+    const sc = document.getElementById('cm-sc'+i);
+    const sl = document.getElementById('cm-sl'+i);
+    if (!sc) continue;
+    if (i < cmStep) {
+      sc.style.background='var(--green)'; sc.style.border='none'; sc.style.color='#000'; sc.textContent='✓';
+      if (sl) sl.style.color='var(--green)';
+    } else if (i === cmStep) {
+      sc.style.background='var(--sky)'; sc.style.border='none'; sc.style.color='#000'; sc.textContent=i;
+      if (sl) sl.style.color='var(--sky)';
+    } else {
+      sc.style.background='var(--surface2)'; sc.style.border='1px solid var(--border)'; sc.style.color='var(--silver)'; sc.textContent=i;
+      if (sl) sl.style.color='var(--silver)';
+    }
+  }
+  const backBtn = document.getElementById('cm-back-btn');
+  const nextBtn = document.getElementById('cm-next-btn');
+  const footer  = document.getElementById('cm-footer');
+  const stepper = document.getElementById('cm-stepper');
+  const title   = document.getElementById('cm-title');
+  if (cmStep === 4) {
+    footer.style.display = 'none';
+    stepper.style.display = 'none';
+    title.textContent = 'Contribution Recorded';
+  } else {
+    footer.style.display = 'flex';
+    stepper.style.display = 'flex';
+    title.textContent = 'Make a Contribution';
+    backBtn.style.visibility = cmStep > 1 ? 'visible' : 'hidden';
+    nextBtn.textContent = cmStep === 1 ? "I've Paid — Continue →"
+                        : cmStep === 2 ? 'Review →'
+                        : 'Submit Contribution';
+    nextBtn.disabled = false;
+  }
+}
+function cmGoBack() {
+  if (cmStep > 1) { cmStep--; cmRender(); }
+}
+function cmMonthToYYYYMM(label) {
+  // "June 2026" → "2026-06"
+  const d = new Date(label + ' 1');
+  if (isNaN(d)) return label; // fallback if already YYYY-MM
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+async function cmGoNext() {
+  const errEl2 = document.getElementById('cm-step2-err');
+  const errEl3 = document.getElementById('cm-submit-err');
+  if (cmStep === 1) {
+    cmStep = 2; cmRender();
+  } else if (cmStep === 2) {
+    const type   = document.getElementById('cm-type').value.trim();
+    const month  = document.getElementById('cm-month').value.trim();
+    const amount = parseFloat(document.getElementById('cm-amount').value);
+    const code   = document.getElementById('cm-mpesa-code').value.trim();
+    errEl2.style.display = 'none';
+    if (!type)           { errEl2.textContent='Please select a contribution type.';  errEl2.style.display='block'; return; }
+    if (!month)          { errEl2.textContent='Please select the period.';            errEl2.style.display='block'; return; }
+    if (!amount || amount < 1) { errEl2.textContent='Please enter a valid amount.'; errEl2.style.display='block'; return; }
+    if (!code)           { errEl2.textContent='Please enter your M-Pesa transaction code.'; errEl2.style.display='block'; return; }
+    // populate review
+    document.getElementById('rv-type').textContent   = type;
+    document.getElementById('rv-month').textContent  = month;
+    document.getElementById('rv-code').textContent   = code.toUpperCase();
+    document.getElementById('rv-notes').textContent  = document.getElementById('cm-notes').value.trim() || '—';
+    document.getElementById('rv-amount').textContent = 'KES ' + amount.toLocaleString();
+    cmStep = 3; cmRender();
+  } else if (cmStep === 3) {
+    const nextBtn = document.getElementById('cm-next-btn');
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'Submitting…';
+    errEl3.style.display = 'none';
+    try {
+      const payload = {
+        contribution_type : document.getElementById('cm-type').value.trim(),
+        month             : document.getElementById('cm-month').value.trim(),
+        amount            : parseFloat(document.getElementById('cm-amount').value),
+        mpesa_code        : document.getElementById('cm-mpesa-code').value.trim().toUpperCase(),
+        notes             : document.getElementById('cm-notes').value.trim() || null,
+      };
+      // ✅ Member self-submission endpoint
+      const res = await fetch(`${API}/contributions/submit`, {
+        method : 'POST',
+        headers: { ...authH(), 'Content-Type': 'application/json' },
+        body   : JSON.stringify({
+          amount            : payload.amount,
+          month             : cmMonthToYYYYMM(payload.month),   // see note below
+          payment_method    : 'M-Pesa',
+          reference         : payload.mpesa_code,
+          notes             : payload.notes,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.detail || 'Submission failed. Please try again.');
+      }
+      const data = await res.json();
+      document.getElementById('cm-success-code').textContent =
+        '✅ M-Pesa Code: ' + (data.mpesa_code || payload.mpesa_code);
+      cmStep = 4; cmRender();
+      loadContributions(); // refresh the history table
+    } catch(e) {
+      errEl3.textContent = e.message || 'Something went wrong. Please try again.';
+      errEl3.style.display = 'block';
+      nextBtn.disabled = false;
+      nextBtn.textContent = 'Submit Contribution';
+    }
+  }
+}
+
 /* CONTRIBUTIONS */
 async function loadContributions() {
   const body = document.getElementById('all-contrib-body');
@@ -1071,144 +1230,19 @@ async function loadContributions() {
     if (!res.ok) throw new Error();
     const data = await res.json();
     document.getElementById('all-contrib-count').textContent = `${data.length} total`;
-    const statusBadge = s => {
-      if (s === 'pending')  return `<span class="badge badge-amber">Pending</span>`;
-      if (s === 'rejected') return `<span class="badge badge-red">Rejected</span>`;
-      return `<span class="badge badge-green">Approved</span>`;
-    };
     body.innerHTML = data.length===0 ? emptyState('💸','No contributions yet.')
-      : `<table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Month</th><th>M-Pesa Code</th><th>Status</th></tr></thead><tbody>
+      : `<table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Month</th><th>Notes</th></tr></thead><tbody>
          ${data.map(c=>`<tr>
            <td>${fmtDate(c.date||c.created_at)}</td>
            <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
            <td><span class="badge badge-blue">${c.contribution_type||c.type||'monthly'}</span></td>
            <td style="color:var(--silver);">${c.month||'—'}</td>
-           <td style="color:var(--sky);font-size:0.82rem;">${c.reference||'—'}</td>
-           <td>${statusBadge(c.status||'approved')}</td>
+           <td style="color:var(--silver);">${c.notes||'—'}</td>
          </tr>`).join('')}</tbody></table>`;
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load contributions.'); }
 }
 
-/* ── CONTRIBUTION WIZARD ──────────────────────────────────────────────── */
-let _wizStep = 1;
-
-function openContribWizard() {
-  // Default month to current
-  const now = new Date();
-  const mm = String(now.getMonth()+1).padStart(2,'0');
-  document.getElementById('wiz-month').value = `${now.getFullYear()}-${mm}`;
-  document.getElementById('wiz-ref').value = '';
-  document.getElementById('wiz-notes').value = '';
-  document.getElementById('wiz-amount').value = '';
-  ['wiz-err-1','wiz-err-2','wiz-err-3'].forEach(id=>{
-    const el=document.getElementById(id); el.style.display='none'; el.textContent='';
-  });
-  _wizStep = 1;
-  _showWizStep(1);
-  document.getElementById('contrib-wizard-backdrop').style.display='flex';
-}
-
-function closeContribWizard() {
-  document.getElementById('contrib-wizard-backdrop').style.display='none';
-}
-
-function _showWizStep(n) {
-  [1,2,3].forEach(i => {
-    document.getElementById(`wiz-step-${i}`).style.display = (i===n)?'block':'none';
-    const dot = document.getElementById(`wiz-step-${i}-dot`);
-    const lbl = document.getElementById(`wiz-step-${i}-lbl`);
-    if (i < n) {
-      dot.textContent='✓'; dot.style.background='var(--sky)'; dot.style.color='#000';
-      lbl.style.color='var(--sky)';
-    } else if (i === n) {
-      dot.textContent=String(i); dot.style.background='var(--sky)'; dot.style.color='#000';
-      lbl.style.color='var(--sky)';
-    } else {
-      dot.textContent=String(i); dot.style.background='var(--border)'; dot.style.color='var(--muted)';
-      lbl.style.color='var(--muted)';
-    }
-  });
-  _wizStep = n;
-}
-
-function wizNext(to) {
-  // Validate current step before moving
-  if (_wizStep === 1 && to === 2) {
-    const ref = document.getElementById('wiz-ref').value.trim();
-    const month = document.getElementById('wiz-month').value;
-    const err = document.getElementById('wiz-err-1');
-    if (!month) { err.textContent='Please select a month.'; err.style.display='block'; return; }
-    if (!ref)   { err.textContent='Please enter your M-Pesa code.'; err.style.display='block'; return; }
-    err.style.display='none';
-  }
-  if (_wizStep === 2 && to === 3) {
-    const amount = parseFloat(document.getElementById('wiz-amount').value);
-    const err = document.getElementById('wiz-err-2');
-    if (!amount || amount <= 0) { err.textContent='Please enter a valid amount.'; err.style.display='block'; return; }
-    err.style.display='none';
-    // Populate confirm step
-    const month = document.getElementById('wiz-month').value;
-    const [yr, mo] = month.split('-');
-    const monthName = new Date(yr, parseInt(mo)-1, 1).toLocaleString('default',{month:'long', year:'numeric'});
-    document.getElementById('conf-type').textContent  = document.getElementById('wiz-type').value;
-    document.getElementById('conf-month').textContent = monthName;
-    document.getElementById('conf-ref').textContent   = document.getElementById('wiz-ref').value.trim().toUpperCase() || '—';
-    document.getElementById('conf-notes').textContent = document.getElementById('wiz-notes').value.trim() || '—';
-    document.getElementById('conf-amount').textContent = fmt(amount);
-  }
-  _showWizStep(to);
-}
-
-async function submitContribution() {
-  const btn = document.getElementById('wiz-submit-btn');
-  const err = document.getElementById('wiz-err-3');
-  btn.disabled = true; btn.textContent = 'Submitting…';
-  err.style.display = 'none';
-  try {
-    const body = {
-      amount:         parseFloat(document.getElementById('wiz-amount').value),
-      month:          document.getElementById('wiz-month').value,
-      payment_method: 'M-Pesa',
-      reference:      document.getElementById('wiz-ref').value.trim().toUpperCase() || null,
-      notes:          document.getElementById('wiz-notes').value.trim() || null,
-    };
-    const res = await fetch(`${API}/contributions/submit`, {
-    method : 'POST',
-    headers: { ...authH(), 'Content-Type': 'application/json' },
-    body   : JSON.stringify({
-    amount            : payload.amount,
-    month             : cmMonthToYYYYMM(payload.month),   // see note below
-    payment_method    : 'M-Pesa',
-    reference         : payload.mpesa_code,
-    notes             : payload.notes,
-    }),
-});
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Submission failed');
-    closeContribWizard();
-    // Refresh contributions list
-    loadContributions();
-    loadOverview();
-    // Brief success flash
-    const flash = document.createElement('div');
-    flash.textContent = '✅ Contribution submitted — awaiting admin approval';
-    flash.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:12px 24px;border-radius:10px;font-size:0.85rem;font-weight:600;z-index:9999;';
-    document.body.appendChild(flash);
-    setTimeout(()=>flash.remove(), 4000);
-  } catch(e) {
-    err.textContent = e.message;
-    err.style.display = 'block';
-  } finally {
-    btn.disabled = false; btn.textContent = 'Submit Contribution';
-  }
-}
-
-// Close wizard on backdrop click
-document.getElementById('contrib-wizard-backdrop').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeContribWizard();
-});
-
-
+/* LOANS */
 async function loadLoans() {
   const body = document.getElementById('loans-body');
   body.innerHTML = '<div class="loading">Loading...</div>';
