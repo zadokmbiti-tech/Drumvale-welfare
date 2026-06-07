@@ -263,7 +263,22 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
       Meetings
     </div>
-    <div class="nav-item" id="nav-finance" style="display:none" onclick="showPage('finance', this)">
+    <div class="nav-item" onclick="showPage('my-account', this)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      My Account
+    </div>
+    <div class="nav-item" id="nav-defaulters" style="display:none" onclick="showPage('defaulters', this)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Defaulters
+    </div>
+    <div class="nav-item" id="nav-fin-report" style="display:none" onclick="showPage('fin-report', this)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Finance Report
+    </div>
+    <div class="nav-item" id="nav-audit" style="display:none" onclick="showPage('audit', this)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Audit Log
+    </div>
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Finance
     </div>
@@ -606,6 +621,7 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Members Report
         </button>
+        <button class="btn btn-outline" onclick="openPasswordReset()">🔑 Reset Password</button>
         <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
       </div>
     </div>
@@ -1431,6 +1447,180 @@
     </div>
   </div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MY ACCOUNT PAGE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-my-account" class="page">
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">My Account</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Your personal statement & standing</p></div>
+    <button class="btn btn-outline" onclick="loadMyAccount()">🔄 Refresh</button>
+  </div>
+  <div id="my-account-body">
+    <div style="text-align:center;padding:60px;color:var(--muted)">Loading your account…</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- DEFAULTERS PAGE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-defaulters" class="page">
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Defaulters Report</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Members with contribution arrears or overdue loans</p></div>
+    <button class="btn btn-outline" onclick="loadDefaulters()">🔄 Refresh</button>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:0.84rem">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">
+        <th style="padding:10px 12px">#</th>
+        <th style="padding:10px 12px">Member</th>
+        <th style="padding:10px 12px">Phone</th>
+        <th style="padding:10px 12px">Missed Months</th>
+        <th style="padding:10px 12px">Contribution Arrears</th>
+        <th style="padding:10px 12px">Loan Balance</th>
+        <th style="padding:10px 12px">Total Owed</th>
+      </tr></thead>
+      <tbody id="defaulters-tbody">
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="defaulters-summary" style="margin-top:16px"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- FINANCE REPORT PAGE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-fin-report" class="page">
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div><h1 class="page-title">Finance Report</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Annual income, expenses & loan book summary</p></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="fin-report-year" class="form-control" style="width:100px" onchange="loadFinReport()">
+      </select>
+      <button class="btn btn-outline" onclick="loadFinReport()">🔄 Load</button>
+    </div>
+  </div>
+  <div id="fin-report-totals" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px"></div>
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">
+        <th style="padding:10px 12px">Month</th>
+        <th style="padding:10px 12px">Monthly Contribs</th>
+        <th style="padding:10px 12px">Loan Repayments</th>
+        <th style="padding:10px 12px">Event Contribs</th>
+        <th style="padding:10px 12px">Other Income</th>
+        <th style="padding:10px 12px">Total In</th>
+        <th style="padding:10px 12px">Expenses</th>
+        <th style="padding:10px 12px">Loans Disbursed</th>
+        <th style="padding:10px 12px">Net</th>
+      </tr></thead>
+      <tbody id="fin-report-tbody">
+        <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Select a year to load report</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- AUDIT LOG PAGE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-audit" class="page">
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Audit Log</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Full trail of all system actions</p></div>
+    <button class="btn btn-outline" onclick="loadAuditLog()">🔄 Refresh</button>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">
+        <th style="padding:10px 12px">Time</th>
+        <th style="padding:10px 12px">Action</th>
+        <th style="padding:10px 12px">Performed By</th>
+        <th style="padding:10px 12px">Detail</th>
+        <th style="padding:10px 12px">Target</th>
+      </tr></thead>
+      <tbody id="audit-tbody">
+        <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="audit-pagination" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PASSWORD RESET MODAL trigger in Admin page -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="modal-reset-password" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('modal-reset-password')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h2 class="modal-title">🔑 Reset Member Password</h2><button class="modal-close" onclick="closeModal('modal-reset-password')">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div id="reset-step-1">
+        <label class="form-label">Member Phone Number</label>
+        <input id="reset-phone" class="form-control" placeholder="e.g. 0712345678">
+        <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="requestPasswordReset()">Generate OTP</button>
+      </div>
+      <div id="reset-step-2" style="display:none">
+        <div id="reset-otp-display" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:8px;padding:16px;text-align:center;margin-bottom:12px">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">OTP for member (share via phone/WhatsApp):</div>
+          <div id="reset-otp-value" style="font-size:2rem;font-weight:900;letter-spacing:8px;color:var(--accent)">------</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Expires in 15 minutes</div>
+        </div>
+        <label class="form-label">New Password (if resetting directly)</label>
+        <input id="reset-new-pass" class="form-control" type="password" placeholder="Min 6 characters">
+        <label class="form-label" style="margin-top:10px">Confirm OTP</label>
+        <input id="reset-otp-input" class="form-control" placeholder="Enter OTP shown above">
+        <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="confirmPasswordReset()">Reset Password</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ATTENDANCE MODAL -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="modal-attendance" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('modal-attendance')">
+  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header"><h2 class="modal-title">📋 Meeting Attendance & Minutes</h2><button class="modal-close" onclick="closeModal('modal-attendance')">✕</button></div>
+    <div style="padding:20px">
+      <div id="attendance-meeting-info" style="margin-bottom:16px"></div>
+      <div style="margin-bottom:16px">
+        <label class="form-label">Meeting Minutes</label>
+        <textarea id="attendance-minutes" class="form-control" rows="4" placeholder="Record meeting minutes here…" style="resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <strong>Attendance Register</strong>
+        <div style="font-size:0.8rem;color:var(--muted)"><span id="present-count">0</span> present</div>
+      </div>
+      <div id="attendance-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-outline" style="flex:1" onclick="markAll(true)">✅ Mark All Present</button>
+        <button class="btn btn-outline" style="flex:1" onclick="markAll(false)">❌ Mark All Absent</button>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveAttendance()">💾 Save Attendance & Minutes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- DISBURSEMENT MODAL -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="modal-disbursement" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('modal-disbursement')">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><h2 class="modal-title">💸 Record Disbursement</h2><button class="modal-close" onclick="closeModal('modal-disbursement')">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <input type="hidden" id="disb-event-id">
+      <div><label class="form-label">Recipient Name</label><input id="disb-recipient" class="form-control" placeholder="Who received the funds?"></div>
+      <div><label class="form-label">Amount (KES)</label><input id="disb-amount" class="form-control" type="number" placeholder="0.00"></div>
+      <div><label class="form-label">Payment Method</label>
+        <select id="disb-method" class="form-control">
+          <option>M-Pesa</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option>
+        </select>
+      </div>
+      <div><label class="form-label">Reference / Transaction ID</label><input id="disb-ref" class="form-control" placeholder="Optional"></div>
+      <div><label class="form-label">Notes</label><textarea id="disb-notes" class="form-control" rows="2" placeholder="Optional notes"></textarea></div>
+      <button class="btn btn-primary" onclick="saveDisbursement()">Record Disbursement</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1561,6 +1751,9 @@ function initApp() {
     document.getElementById('nav-usermgmt').style.display = 'flex';
     document.getElementById('nav-profile-updates').style.display = 'flex';
     document.getElementById('nav-case-reports').style.display = 'flex';
+    document.getElementById('nav-defaulters').style.display = 'flex';
+    document.getElementById('nav-fin-report').style.display = 'flex';
+    document.getElementById('nav-audit').style.display = 'flex';
     // Pre-load badges in background
     loadProfileUpdateRequests().catch(()=>{});
     loadPendingReports().catch(()=>{});
@@ -1592,6 +1785,10 @@ function showPage(name, el) {
   if (name==='profile-updates') loadProfileUpdateRequests();
   if (name==='case-reports')  loadPendingReports();
   if (name==='usermgmt')      loadUserMgmt();
+  if (name==='my-account')    loadMyAccount();
+  if (name==='defaulters')    loadDefaulters();
+  if (name==='fin-report')    loadFinReport();
+  if (name==='audit')         loadAuditLog();
   if (name==='assets')        loadAssets();
   if (name==='projects')      loadProjects();
   if (name==='finance')       { loadFinance(); finTab('income'); document.getElementById('fin-date').value = new Date().toISOString().split('T')[0]; }
@@ -1930,7 +2127,8 @@ async function loadEvents() {
       const isOpen = ev.status.toLowerCase() === 'open';
       const statusBadge = isOpen ? 'badge-green' : 'badge-gray';
       const manageBtn = `<button class="btn btn-sm btn-outline" style="color:var(--accent);border-color:var(--accent)" onclick="openManageEvent(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">Manage</button>`;
-      const closeBtn  = isOpen ? `<button class="btn btn-sm btn-danger" onclick="closeEvent(${ev.id})">Close</button>` : '';
+      const disburseBtn = `<button class="btn btn-sm" style="background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.3)" onclick="openDisbursement(${ev.id})">💸 Disburse</button>`;
+      const closeBtn  = isAdmin() && isOpen ? `<button class="btn btn-sm btn-danger" onclick="closeEvent(${ev.id})">Close</button>` : '';
       return `
         <tr>
           <td>${i+1}</td>
@@ -1941,7 +2139,7 @@ async function loadEvents() {
           <td>KES ${fmt(ev.total_raised||0)}</td>
           <td><span class="badge ${statusBadge}">${ev.status}</span></td>
           <td>${ev.date_raised||'—'}</td>
-          <td style="display:flex;gap:6px;align-items:center">${manageBtn}${closeBtn}</td>
+          <td style="display:flex;gap:6px;align-items:center">${manageBtn}${disburseBtn}${closeBtn}</td>
         </tr>`;
     }).join('');
   } catch(e) { console.error('loadEvents:',e); tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadEvents();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
@@ -2072,6 +2270,7 @@ async function loadMeetings() {
         <td><span class="badge ${statusBadge(m.status)}">${m.status}</span></td>
         <td style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-sm btn-outline" onclick="viewMeeting(${m.id})">View</button>
+          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.3)" onclick="openAttendance(${m.id})">📋 Attendance</button>
           ${m.status==='scheduled' ? `<button class="btn btn-sm" style="background:rgba(44,180,224,.12);color:#2cb4e0;border:1px solid rgba(44,180,224,.3)" onclick="resendMeetingSMS(${m.id},'${m.title.replace(/'/g,"\\'")}')">📲 SMS</button>` : ''}
         </td>
       </tr>`).join('');
@@ -2426,6 +2625,363 @@ async function deleteProject(id) {
     loadProjects();
     loadDashboard();
   } catch(e) { toast('Failed to delete project', 'error'); }
+}
+
+}
+
+// ══════════════════════════════════════════════════════════════
+// MY ACCOUNT
+// ══════════════════════════════════════════════════════════════
+async function loadMyAccount() {
+  const body = document.getElementById('my-account-body');
+  body.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">Loading…</div>';
+  try {
+    const s = await apiFetch('/statements/my');
+    const m = s.member;
+    const arrearsColor = s.arrears_count > 0 ? '#ef4444' : '#22c55e';
+    const loanColor    = s.total_loan_balance > 0 ? '#f59e0b' : '#22c55e';
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+        <div class="card" style="border-top:3px solid #22c55e">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Total Contributions</div>
+          <div style="font-size:1.8rem;font-weight:800;margin:6px 0">KES ${fmt(s.total_contributions)}</div>
+          <div style="font-size:0.8rem;color:var(--muted)">${s.contributions.length} payments recorded</div>
+        </div>
+        <div class="card" style="border-top:3px solid ${arrearsColor}">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Contribution Arrears</div>
+          <div style="font-size:1.8rem;font-weight:800;margin:6px 0;color:${arrearsColor}">${s.arrears_count} months</div>
+          <div style="font-size:0.8rem;color:var(--muted)">KES ${fmt(s.total_arrears_amount)} owed</div>
+        </div>
+        <div class="card" style="border-top:3px solid ${loanColor}">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Loan Balance</div>
+          <div style="font-size:1.8rem;font-weight:800;margin:6px 0;color:${loanColor}">KES ${fmt(s.total_loan_balance)}</div>
+          <div style="font-size:0.8rem;color:var(--muted)">${s.loans.filter(l=>l.status==='active').length} active loan(s)</div>
+        </div>
+        <div class="card" style="border-top:3px solid #6366f1">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Event Contributions</div>
+          <div style="font-size:1.8rem;font-weight:800;margin:6px 0">KES ${fmt(s.total_event_contributions)}</div>
+          <div style="font-size:0.8rem;color:var(--muted)">${s.event_contributions.length} event(s) supported</div>
+        </div>
+      </div>
+
+      ${s.arrears_months.length ? `
+      <div class="card" style="border-left:4px solid #ef4444;margin-bottom:16px">
+        <strong style="color:#ef4444">⚠️ Unpaid Months</strong>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+          ${s.arrears_months.map(m=>`<span style="background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);padding:2px 10px;border-radius:20px;font-size:0.78rem">${m}</span>`).join('')}
+        </div>
+      </div>` : '<div class="card" style="border-left:4px solid #22c55e;margin-bottom:16px"><strong style="color:#22c55e">✅ All monthly contributions up to date</strong></div>'}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <strong style="font-size:0.9rem">Recent Contributions</strong>
+          <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:0.82rem">
+            <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+              <th style="padding:6px 8px;text-align:left">Month</th><th style="padding:6px 8px;text-align:left">Amount</th><th style="padding:6px 8px;text-align:left">Via</th>
+            </tr></thead>
+            <tbody>${s.contributions.slice(0,10).map(c=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 8px">${c.month}</td>
+                <td style="padding:6px 8px">KES ${fmt(c.amount)}</td>
+                <td style="padding:6px 8px;color:var(--muted)">${c.payment_method}</td>
+              </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted)">No contributions yet</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <strong style="font-size:0.9rem">Loans</strong>
+          <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:0.82rem">
+            <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+              <th style="padding:6px 8px;text-align:left">Amount</th><th style="padding:6px 8px;text-align:left">Balance</th><th style="padding:6px 8px;text-align:left">Status</th>
+            </tr></thead>
+            <tbody>${s.loans.map(l=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 8px">KES ${fmt(l.amount)}</td>
+                <td style="padding:6px 8px;color:${l.balance>0?'#f59e0b':'#22c55e'}">KES ${fmt(l.balance)}</td>
+                <td style="padding:6px 8px"><span class="badge ${l.overdue?'badge-red':l.status==='active'?'badge-blue':'badge-green'}">${l.overdue?'OVERDUE':l.status}</span></td>
+              </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted)">No loans</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch(e) {
+    body.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">⚠️ ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DEFAULTERS
+// ══════════════════════════════════════════════════════════════
+async function loadDefaulters() {
+  const tbody = document.getElementById('defaulters-tbody');
+  const summary = document.getElementById('defaulters-summary');
+  try {
+    const data = await apiFetch('/statements/defaulters');
+    const list = data.defaulters;
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#22c55e">✅ No defaulters — all members are up to date!</td></tr>';
+      summary.innerHTML = '';
+      return;
+    }
+    tbody.innerHTML = list.map((d,i) => `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px">${i+1}</td>
+        <td style="padding:10px 12px"><strong>${d.full_name}</strong></td>
+        <td style="padding:10px 12px;color:var(--muted)">${d.phone_number}</td>
+        <td style="padding:10px 12px"><span style="color:#ef4444;font-weight:700">${d.arrears_months}</span></td>
+        <td style="padding:10px 12px">KES ${fmt(d.arrears_amount)}</td>
+        <td style="padding:10px 12px">${d.loan_balance > 0 ? `KES ${fmt(d.loan_balance)}${d.overdue_loans>0?' <span style="color:#ef4444;font-size:0.75rem">(OVERDUE)</span>':''}` : '—'}</td>
+        <td style="padding:10px 12px"><strong style="color:#ef4444">KES ${fmt(d.total_owed)}</strong></td>
+      </tr>`).join('');
+    const totalOwed = list.reduce((s,d)=>s+d.total_owed,0);
+    summary.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div class="card" style="flex:1;min-width:160px;border-top:3px solid #ef4444">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Total Defaulters</div>
+          <div style="font-size:1.6rem;font-weight:800;color:#ef4444">${list.length}</div>
+        </div>
+        <div class="card" style="flex:1;min-width:160px;border-top:3px solid #f59e0b">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Total Amount Owed</div>
+          <div style="font-size:1.6rem;font-weight:800;color:#f59e0b">KES ${fmt(totalOwed)}</div>
+        </div>
+      </div>`;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// FINANCE REPORT
+// ══════════════════════════════════════════════════════════════
+async function loadFinReport() {
+  const yearEl = document.getElementById('fin-report-year');
+  // Populate year dropdown once
+  if (!yearEl.options.length) {
+    const curYear = new Date().getFullYear();
+    for (let y = curYear; y >= curYear - 4; y--) {
+      yearEl.add(new Option(y, y));
+    }
+  }
+  const year = yearEl.value || new Date().getFullYear();
+  const tbody = document.getElementById('fin-report-tbody');
+  const totalsEl = document.getElementById('fin-report-totals');
+  try {
+    const data = await apiFetch(`/statements/finance-report?year=${year}`);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    tbody.innerHTML = data.months.map((m,i) => {
+      const hasData = m.total_income > 0 || m.total_outflow > 0;
+      const netColor = m.net >= 0 ? '#22c55e' : '#ef4444';
+      return `<tr style="border-bottom:1px solid var(--border);${!hasData?'color:var(--muted)':''}">
+        <td style="padding:8px 12px;font-weight:600">${months[i]}</td>
+        <td style="padding:8px 12px">${m.monthly_contributions>0?'KES '+fmt(m.monthly_contributions):'—'}</td>
+        <td style="padding:8px 12px">${m.loan_repayments>0?'KES '+fmt(m.loan_repayments):'—'}</td>
+        <td style="padding:8px 12px">${m.event_contributions>0?'KES '+fmt(m.event_contributions):'—'}</td>
+        <td style="padding:8px 12px">${m.other_income>0?'KES '+fmt(m.other_income):'—'}</td>
+        <td style="padding:8px 12px;font-weight:600;color:#22c55e">${m.total_income>0?'KES '+fmt(m.total_income):'—'}</td>
+        <td style="padding:8px 12px;color:#ef4444">${m.expenses>0?'KES '+fmt(m.expenses):'—'}</td>
+        <td style="padding:8px 12px;color:#f59e0b">${m.loans_disbursed>0?'KES '+fmt(m.loans_disbursed):'—'}</td>
+        <td style="padding:8px 12px;font-weight:700;color:${netColor}">${m.net!==0?'KES '+fmt(Math.abs(m.net))+(m.net<0?' (deficit)':''):'—'}</td>
+      </tr>`;
+    }).join('');
+    const t = data.totals;
+    totalsEl.innerHTML = `
+      <div class="card" style="border-top:3px solid #22c55e">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Total Income</div>
+        <div style="font-size:1.5rem;font-weight:800;color:#22c55e">KES ${fmt(t.total_income)}</div>
+      </div>
+      <div class="card" style="border-top:3px solid #ef4444">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Total Expenditure</div>
+        <div style="font-size:1.5rem;font-weight:800;color:#ef4444">KES ${fmt(t.total_expense)}</div>
+      </div>
+      <div class="card" style="border-top:3px solid ${t.net>=0?'#22c55e':'#ef4444'}">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Net Position</div>
+        <div style="font-size:1.5rem;font-weight:800;color:${t.net>=0?'#22c55e':'#ef4444'}">KES ${fmt(Math.abs(t.net))} ${t.net<0?'deficit':''}</div>
+      </div>
+      <div class="card" style="border-top:3px solid #f59e0b">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:var(--muted)">Active Loan Book</div>
+        <div style="font-size:1.5rem;font-weight:800;color:#f59e0b">KES ${fmt(t.loan_book)}</div>
+      </div>`;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// AUDIT LOG
+// ══════════════════════════════════════════════════════════════
+let auditPage = 1;
+async function loadAuditLog(page=1) {
+  auditPage = page;
+  const tbody = document.getElementById('audit-tbody');
+  const pager = document.getElementById('audit-pagination');
+  try {
+    const data = await apiFetch(`/audit?page=${page}&limit=50`);
+    if (!data.logs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No audit entries yet</td></tr>';
+      return;
+    }
+    const actionColors = {login:'#22c55e',logout:'#6b7280',approve:'#22c55e',reject:'#ef4444',delete:'#ef4444',create:'#6366f1',update:'#f59e0b'};
+    tbody.innerHTML = data.logs.map(l => {
+      const color = Object.entries(actionColors).find(([k])=>l.action.toLowerCase().includes(k))?.[1] || 'var(--muted)';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 12px;color:var(--muted);font-size:0.78rem;white-space:nowrap">${fmtDate(l.created_at)}</td>
+        <td style="padding:8px 12px"><span style="color:${color};font-weight:600">${l.action}</span></td>
+        <td style="padding:8px 12px">${l.performed_by}</td>
+        <td style="padding:8px 12px;color:var(--muted)">${l.detail||'—'}</td>
+        <td style="padding:8px 12px;color:var(--muted)">${l.target||'—'}</td>
+      </tr>`;
+    }).join('');
+    const totalPages = Math.ceil(data.total / 50);
+    pager.innerHTML = totalPages > 1 ? `
+      ${page > 1 ? `<button class="btn btn-outline btn-sm" onclick="loadAuditLog(${page-1})">← Prev</button>` : ''}
+      <span style="color:var(--muted);font-size:0.82rem;align-self:center">Page ${page} of ${totalPages}</span>
+      ${page < totalPages ? `<button class="btn btn-outline btn-sm" onclick="loadAuditLog(${page+1})">Next →</button>` : ''}` : '';
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PASSWORD RESET
+// ══════════════════════════════════════════════════════════════
+function openPasswordReset() {
+  document.getElementById('reset-step-1').style.display = 'block';
+  document.getElementById('reset-step-2').style.display = 'none';
+  document.getElementById('reset-phone').value = '';
+  document.getElementById('modal-reset-password').style.display = 'flex';
+}
+
+async function requestPasswordReset() {
+  const phone = document.getElementById('reset-phone').value.trim();
+  if (!phone) { toast('Enter phone number', 'error'); return; }
+  try {
+    const res = await apiFetch('/reset/request', {method:'POST', body:JSON.stringify({phone_number:phone})});
+    document.getElementById('reset-otp-value').textContent = res.otp || '------';
+    document.getElementById('reset-otp-input').value = res.otp || '';
+    document.getElementById('reset-step-1').style.display = 'none';
+    document.getElementById('reset-step-2').style.display = 'block';
+    toast('OTP generated — share with member');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function confirmPasswordReset() {
+  const phone   = document.getElementById('reset-phone').value.trim();
+  const otp     = document.getElementById('reset-otp-input').value.trim();
+  const newPass = document.getElementById('reset-new-pass').value.trim();
+  if (!newPass) { toast('Enter new password','error'); return; }
+  try {
+    await apiFetch('/reset/confirm', {method:'POST', body:JSON.stringify({phone_number:phone, otp, new_password:newPass})});
+    toast('Password reset successfully');
+    closeModal('modal-reset-password');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ATTENDANCE & MINUTES
+// ══════════════════════════════════════════════════════════════
+let currentMeetingId = null;
+let attendanceData   = [];
+
+async function openAttendance(meetingId) {
+  currentMeetingId = meetingId;
+  const list = document.getElementById('attendance-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading…</div>';
+  document.getElementById('modal-attendance').style.display = 'flex';
+  try {
+    const data = await apiFetch(`/meeting-attendance/${meetingId}`);
+    attendanceData = data.members;
+    document.getElementById('attendance-minutes').value = data.meeting.minutes || '';
+    document.getElementById('attendance-meeting-info').innerHTML = `
+      <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:12px">
+        <strong>${data.meeting.title}</strong> &mdash; ${fmtDate(data.meeting.date)}
+        <span style="float:right;color:var(--muted);font-size:0.8rem">${data.present_count}/${data.total_members} present${data.quorum_met?' ✅ Quorum':' ⚠️ No quorum'}</span>
+      </div>`;
+    renderAttendanceList();
+  } catch(e) { list.innerHTML = `<div style="color:#ef4444;padding:16px">⚠️ ${e.message}</div>`; }
+}
+
+function renderAttendanceList() {
+  const list = document.getElementById('attendance-list');
+  list.innerHTML = attendanceData.map((m,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border)">
+      <span style="font-size:0.85rem">${m.full_name} <span style="color:var(--muted);font-size:0.75rem">${m.role}</span></span>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem">
+        <input type="checkbox" ${m.present?'checked':''} onchange="toggleAttendance(${i},this.checked)" style="width:16px;height:16px;cursor:pointer">
+        <span id="att-label-${i}" style="color:${m.present?'#22c55e':'var(--muted)'}">${m.present?'Present':'Absent'}</span>
+      </label>
+    </div>`).join('');
+  updatePresentCount();
+}
+
+function toggleAttendance(i, present) {
+  attendanceData[i].present = present;
+  const label = document.getElementById(`att-label-${i}`);
+  if (label) { label.textContent = present?'Present':'Absent'; label.style.color = present?'#22c55e':'var(--muted)'; }
+  updatePresentCount();
+}
+
+function updatePresentCount() {
+  const count = attendanceData.filter(m=>m.present).length;
+  document.getElementById('present-count').textContent = count;
+}
+
+function markAll(present) {
+  attendanceData.forEach((_,i) => { attendanceData[i].present = present; });
+  renderAttendanceList();
+}
+
+async function saveAttendance() {
+  if (!currentMeetingId) return;
+  const minutes = document.getElementById('attendance-minutes').value;
+  try {
+    await Promise.all([
+      apiFetch(`/meeting-attendance/${currentMeetingId}/mark`, {
+        method:'POST',
+        body: JSON.stringify({attendance: attendanceData.map(m=>({member_id:m.member_id,present:m.present}))})
+      }),
+      apiFetch(`/meeting-attendance/${currentMeetingId}/minutes`, {
+        method:'PUT',
+        body: JSON.stringify({minutes})
+      })
+    ]);
+    toast('Attendance & minutes saved');
+    closeModal('modal-attendance');
+    loadMeetings();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DISBURSEMENTS
+// ══════════════════════════════════════════════════════════════
+function openDisbursement(eventId) {
+  document.getElementById('disb-event-id').value = eventId;
+  document.getElementById('disb-recipient').value = '';
+  document.getElementById('disb-amount').value = '';
+  document.getElementById('disb-ref').value = '';
+  document.getElementById('disb-notes').value = '';
+  document.getElementById('modal-disbursement').style.display = 'flex';
+}
+
+async function saveDisbursement() {
+  const eventId = document.getElementById('disb-event-id').value;
+  const amount  = document.getElementById('disb-amount').value;
+  if (!amount || parseFloat(amount) <= 0) { toast('Valid amount required','error'); return; }
+  try {
+    await apiFetch(`/disbursements/event/${eventId}`, {
+      method:'POST',
+      body: JSON.stringify({
+        amount: parseFloat(amount),
+        recipient_name: document.getElementById('disb-recipient').value,
+        payment_method: document.getElementById('disb-method').value,
+        reference: document.getElementById('disb-ref').value,
+        notes: document.getElementById('disb-notes').value,
+      })
+    });
+    toast('Disbursement recorded');
+    closeModal('modal-disbursement');
+    loadEvents();
+  } catch(e) { toast(e.message,'error'); }
 }
 
 // ── (original) Event Contributions ──────────────────────────────────────────

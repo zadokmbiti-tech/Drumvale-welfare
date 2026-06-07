@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance, profile_updates, assets, projects
+from app.routes import statements, audit, password_reset, meeting_attendance, disbursements
 from app.routes.auth import get_current_user, require_admin
 from app.database import init_pool, get_connection, release_connection
 from app.schemas import NoticeCreate
@@ -46,6 +47,11 @@ app.include_router(profile_updates.router,       prefix="/profile-updates", tags
 app.include_router(event_reports.router,           prefix="/event-reports", tags=["Event Reports"])
 app.include_router(assets.router)
 app.include_router(projects.router)
+app.include_router(statements.router)
+app.include_router(audit.router)
+app.include_router(password_reset.router)
+app.include_router(meeting_attendance.router)
+app.include_router(disbursements.router)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 

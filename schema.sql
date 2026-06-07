@@ -268,3 +268,32 @@ CREATE TABLE IF NOT EXISTS projects (
     deadline   DATE,
     created_at TIMESTAMP    DEFAULT NOW()
 );
+
+-- ============================================================
+-- AUDIT LOG
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_log (
+    id           SERIAL PRIMARY KEY,
+    action       VARCHAR(100) NOT NULL,
+    performed_by VARCHAR(200) NOT NULL,
+    detail       TEXT,
+    target       VARCHAR(200),
+    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_action  ON audit_log(action);
+
+-- ============================================================
+-- DISBURSEMENTS  (welfare event payouts)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS disbursements (
+    id              SERIAL PRIMARY KEY,
+    event_id        INT           NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    amount          NUMERIC(12,2) NOT NULL,
+    recipient_name  VARCHAR(200),
+    payment_method  VARCHAR(50)   DEFAULT 'M-Pesa',
+    reference       VARCHAR(100),
+    notes           TEXT,
+    disbursed_by    VARCHAR(200),
+    disbursed_at    TIMESTAMP     NOT NULL DEFAULT NOW()
+);

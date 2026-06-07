@@ -11,3 +11,4 @@ aiofiles
 bcrypt==4.0.1
 africastalking
 slowapi==0.1.9
+python-dateutil>=2.8.2
