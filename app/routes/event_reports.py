@@ -125,8 +125,22 @@ def list_pending_reports(_=Depends(require_admin)):
             ORDER BY cr.submitted_at ASC
         """)
         rows = cur.fetchall()
-    finally:
+    except Exception as e:
+        conn.rollback()
+        err_msg = str(e).lower()
+        if "does not exist" in err_msg or "undefined table" in err_msg:
+            # Table hasn't been created on this DB yet — return empty list
+            cur.close()
+            release_connection(conn)
+            return []
         cur.close()
+        release_connection(conn)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
         release_connection(conn)
 
     return [
@@ -275,12 +289,12 @@ def get_events_by_status(status: str = Query("open"), _=Depends(get_current_user
     cur  = conn.cursor()
     try:
         cur.execute("""
-            SELECT id, title, date_raised, description, status, date_raised
-            FROM events WHERE status = %s ORDER BY date_raised DESC
+            SELECT id, event_name, event_date, description, status, created_at
+            FROM events WHERE status = %s ORDER BY event_date DESC
         """, (status,))
         rows = cur.fetchall()
         return [
-            {"id": r[0], "title": r[1], "date_raised": str(r[2]),
+            {"id": r[0], "event_name": r[1], "event_date": str(r[2]),
              "description": r[3], "status": r[4], "created_at": str(r[5])}
             for r in rows
         ]
@@ -294,7 +308,7 @@ def get_event_contributions_summary(event_id: int, _=Depends(get_current_user)):
     conn = get_connection()
     cur  = conn.cursor()
     try:
-        cur.execute("SELECT title FROM events WHERE id=%s", (event_id,))
+        cur.execute("SELECT event_name FROM events WHERE id=%s", (event_id,))
         event = cur.fetchone()
         if not event:
             raise HTTPException(404, "Event not found")
@@ -305,7 +319,7 @@ def get_event_contributions_summary(event_id: int, _=Depends(get_current_user)):
         """, (event_id,))
         stats = cur.fetchone()
         return {
-            "event_id": event_id, "title": event[0],
+            "event_id": event_id, "event_name": event[0],
             "total_contributors": stats[0], "total_amount": float(stats[1]),
             "avg_contribution": float(stats[2]), "max_contribution": float(stats[3]),
             "min_contribution": float(stats[4]),
