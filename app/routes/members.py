@@ -113,7 +113,7 @@ def list_members(_=Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, full_name, phone_number, role, status, date_joined FROM members ORDER BY full_name"
+        "SELECT id, full_name, phone_number, role, status, date_joined FROM members ORDER BY id DESC"
     )
     rows = cur.fetchall()
     cur.close()

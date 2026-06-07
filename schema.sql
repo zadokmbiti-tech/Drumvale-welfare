@@ -245,3 +245,26 @@ CREATE TABLE IF NOT EXISTS case_reports (
     reviewed_at          TIMESTAMP,
     submitted_at         TIMESTAMP    NOT NULL DEFAULT NOW()
 );
+-- ============================================================
+-- ASSETS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS assets (
+    id         SERIAL PRIMARY KEY,
+    name       VARCHAR(200) NOT NULL,
+    category   VARCHAR(100),
+    value      NUMERIC(12,2) DEFAULT 0,
+    status     VARCHAR(50)  DEFAULT 'available',
+    created_at TIMESTAMP    DEFAULT NOW()
+);
+
+-- ============================================================
+-- PROJECTS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS projects (
+    id         SERIAL PRIMARY KEY,
+    name       VARCHAR(200) NOT NULL,
+    budget     NUMERIC(12,2) DEFAULT 0,
+    status     VARCHAR(50)  DEFAULT 'planning',
+    deadline   DATE,
+    created_at TIMESTAMP    DEFAULT NOW()
+);

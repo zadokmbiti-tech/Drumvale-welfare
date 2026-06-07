@@ -1592,6 +1592,8 @@ function showPage(name, el) {
   if (name==='profile-updates') loadProfileUpdateRequests();
   if (name==='case-reports')  loadPendingReports();
   if (name==='usermgmt')      loadUserMgmt();
+  if (name==='assets')        loadAssets();
+  if (name==='projects')      loadProjects();
   if (name==='finance')       { loadFinance(); finTab('income'); document.getElementById('fin-date').value = new Date().toISOString().split('T')[0]; }
 }
 
@@ -1619,9 +1621,9 @@ async function loadDashboard() {
 
     document.getElementById('stat-events').textContent = stats.open_events ?? '—';
 
-    // Assets & Projects are local-only for now
-    document.getElementById('stat-Assets').textContent   = '—';
-    document.getElementById('stat-Projects').textContent = '—';
+    // Assets & Projects from stats
+    document.getElementById('stat-Assets').textContent   = stats.total_assets ?? 0;
+    document.getElementById('stat-Projects').textContent = stats.total_projects ?? 0;
 
     // ── Recent Members mini-table ──────────────────────────────
     const recent = [...members].slice(0, 5);
@@ -2294,68 +2296,117 @@ function toast(msg, type='success') {
 }
 
 async function saveAsset() {
-
-  const tbody = document.getElementById('assets-tbody');
-
-  const name = document.getElementById('a-name').value;
+  const name     = document.getElementById('a-name').value.trim();
   const category = document.getElementById('a-category').value;
-  const value = document.getElementById('a-value').value;
-  const status = document.getElementById('a-status').value;
+  const value    = document.getElementById('a-value').value;
+  const status   = document.getElementById('a-status').value;
 
-  tbody.innerHTML += `
-    <tr>
-      <td>${tbody.rows.length}</td>
-      <td><strong>${name}</strong></td>
-      <td>${category}</td>
-      <td>KES ${Number(value).toLocaleString()}</td>
-      <td>
-        <span class="badge badge-green">${status}</span>
-      </td>
-      <td>
-        <button class="btn btn-sm btn-danger">
-          Delete
-        </button>
-      </td>
-    </tr>
-  `;
+  if (!name) { toast('Asset name is required', 'error'); return; }
 
-  closeModal('modal-add-asset');
-
-  toast('Asset added successfully');
+  try {
+    await apiFetch('/assets', {
+      method: 'POST',
+      body: JSON.stringify({ name, category, value: parseFloat(value) || 0, status })
+    });
+    closeModal('modal-add-asset');
+    toast('Asset added successfully');
+    loadAssets();
+    loadDashboard();
+  } catch(e) {
+    toast('Failed to save asset', 'error');
+  }
 }
 
 async function saveProject() {
-
-  const tbody = document.getElementById('projects-tbody');
-
-  const name = document.getElementById('p-name').value;
-  const budget = document.getElementById('p-budget').value;
+  const name     = document.getElementById('p-name').value.trim();
+  const budget   = document.getElementById('p-budget').value;
   const deadline = document.getElementById('p-deadline').value;
-  const status = document.getElementById('p-status').value;
+  const status   = document.getElementById('p-status').value;
 
-  tbody.innerHTML += `
-    <tr>
-      <td>${tbody.rows.length}</td>
-      <td><strong>${name}</strong></td>
-      <td>KES ${Number(budget).toLocaleString()}</td>
-      <td>
-        <span class="badge badge-blue">${status}</span>
-      </td>
-      <td>${deadline}</td>
-      <td>
-        <button class="btn btn-sm btn-danger">
-          Delete
-        </button>
-      </td>
-    </tr>
-  `;
+  if (!name) { toast('Project name is required', 'error'); return; }
 
-  closeModal('modal-add-project');
-
-  toast('Project added successfully');
+  try {
+    await apiFetch('/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name, budget: parseFloat(budget) || 0, deadline: deadline || null, status })
+    });
+    closeModal('modal-add-project');
+    toast('Project added successfully');
+    loadProjects();
+    loadDashboard();
+  } catch(e) {
+    toast('Failed to save project', 'error');
+  }
 }
 
 // ── Event Contributions ──────────────────────────────────────────
+async function loadAssets() {
+  const tbody = document.getElementById('assets-tbody');
+  if (!tbody) return;
+  try {
+    const assets = await apiFetch('/assets');
+    if (!assets.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No assets added yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = assets.map((a, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${a.name}</strong></td>
+        <td>${a.category || '—'}</td>
+        <td>KES ${fmt(a.value)}</td>
+        <td><span class="badge badge-green">${a.status}</span></td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteAsset(${a.id})">Delete</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load assets</td></tr>';
+  }
+}
+
+async function deleteAsset(id) {
+  if (!confirm('Delete this asset?')) return;
+  try {
+    await apiFetch(`/assets/${id}`, { method: 'DELETE' });
+    toast('Asset deleted');
+    loadAssets();
+    loadDashboard();
+  } catch(e) { toast('Failed to delete asset', 'error'); }
+}
+
+async function loadProjects() {
+  const tbody = document.getElementById('projects-tbody');
+  if (!tbody) return;
+  try {
+    const projects = await apiFetch('/projects');
+    if (!projects.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No projects added yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = projects.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${p.name}</strong></td>
+        <td>KES ${fmt(p.budget)}</td>
+        <td><span class="badge badge-blue">${p.status}</span></td>
+        <td>${p.deadline || '—'}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteProject(${p.id})">Delete</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load projects</td></tr>';
+  }
+}
+
+async function deleteProject(id) {
+  if (!confirm('Delete this project?')) return;
+  try {
+    await apiFetch(`/projects/${id}`, { method: 'DELETE' });
+    toast('Project deleted');
+    loadProjects();
+    loadDashboard();
+  } catch(e) { toast('Failed to delete project', 'error'); }
+}
+
+// ── (original) Event Contributions ──────────────────────────────────────────
 let currentEventId = null;
 
 async function openManageEvent(eventId, title) {

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance, profile_updates
+from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance, profile_updates, assets, projects
 from app.routes.auth import get_current_user, require_admin
 from app.database import init_pool, get_connection, release_connection
 from app.schemas import NoticeCreate
@@ -44,6 +44,8 @@ app.include_router(event_contributions.router,     prefix="/events",        tags
 app.include_router(finance.router,                 prefix="/finance",       tags=["Finance"])
 app.include_router(profile_updates.router,       prefix="/profile-updates", tags=["Profile Updates"])
 app.include_router(event_reports.router,           prefix="/event-reports", tags=["Event Reports"])
+app.include_router(assets.router)
+app.include_router(projects.router)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -247,6 +249,21 @@ def dashboard_stats(_=Depends(get_current_user)):
         cur.execute("SELECT COUNT(*) FROM users WHERE registration_status='pending'")
         pending_users = cur.fetchone()[0]
 
+        # Assets & Projects counts (tables may not exist yet — handle gracefully)
+        try:
+            cur.execute("SELECT COUNT(*) FROM assets")
+            total_assets = cur.fetchone()[0]
+        except Exception:
+            conn.rollback()
+            total_assets = 0
+
+        try:
+            cur.execute("SELECT COUNT(*) FROM projects")
+            total_projects = cur.fetchone()[0]
+        except Exception:
+            conn.rollback()
+            total_projects = 0
+
         return {
             "active_members": active_members,
             "total_members": total_members,
@@ -256,6 +273,8 @@ def dashboard_stats(_=Depends(get_current_user)):
             "outstanding_balance": outstanding,
             "open_events": open_events,
             "pending_registrations": pending_users,
+            "total_assets": total_assets,
+            "total_projects": total_projects,
         }
     finally:
         cur.close()
