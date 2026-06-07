@@ -450,6 +450,22 @@
         </table>
       </div>
     </div>
+
+    <!-- Pending member-submitted contributions awaiting approval -->
+    <div class="card" style="margin-top:0;">
+      <div style="display:flex;align-items:center;margin-bottom:16px;gap:12px;">
+        <div class="card-title" style="margin:0;flex:1;">⏳ Member Submissions — Awaiting Approval</div>
+        <button class="btn btn-sm" onclick="loadPendingContribs()" style="font-size:0.8rem;">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Member</th><th>Amount</th><th>Month</th><th>M-Pesa Code</th><th>Submitted</th><th>Actions</th></tr></thead>
+          <tbody id="pending-contrib-tbody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div id="page-loans" class="page">
@@ -1786,7 +1802,7 @@ function showPage(name, el) {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-overlay').classList.remove('open');
   if (name==='members')       loadMembers();
-  if (name==='contributions') { loadContribSummary(); loadContribStatus(); }
+  if (name==='contributions') { loadContribSummary(); loadContribStatus(); loadPendingContribs(); }
   if (name==='loans')         { loadLoanSummary(); loadLoans(); }
   if (name==='events')        loadEvents();
   if (name==='meetings')      loadMeetings();
@@ -2041,8 +2057,52 @@ async function saveContrib() {
     });
     closeModal('modal-add-contrib');
     toast('Contribution recorded');
-    loadContribSummary(); loadContribStatus();
+    loadContribSummary(); loadContribStatus(); loadPendingContribs();
   } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadPendingContribs() {
+  const tbody = document.getElementById('pending-contrib-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const rows = await apiFetch('/contributions/pending');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No pending submissions</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td style="font-weight:600;">${r.member}</td>
+        <td style="color:#10b981;font-weight:600;">KES ${fmt(r.amount)}</td>
+        <td>${r.month}</td>
+        <td style="color:#3b82f6;font-family:monospace;">${r.reference||'—'}</td>
+        <td style="color:var(--muted);font-size:0.8rem;">${r.recorded_at ? new Date(r.recorded_at).toLocaleDateString() : '—'}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="approveContrib(${r.id})" style="margin-right:6px;">✓ Approve</button>
+          <button class="btn btn-sm btn-danger"  onclick="rejectContrib(${r.id})">✗ Reject</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+async function approveContrib(id) {
+  try {
+    await apiFetch(`/contributions/${id}/approve`, { method: 'PATCH' });
+    toast('Contribution approved');
+    loadPendingContribs(); loadContribSummary(); loadContribStatus();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function rejectContrib(id) {
+  if (!confirm('Reject this contribution? The member will need to resubmit.')) return;
+  try {
+    await apiFetch(`/contributions/${id}/reject`, { method: 'PATCH' });
+    toast('Contribution rejected');
+    loadPendingContribs();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function loadLoanSummary() {

@@ -3,9 +3,20 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection, release_connection
 from app.models import MonthlyContributionCreate
 from app.routes.auth import get_current_user
-from app.auth_deps import require_treasurer, require_chairperson
+from app.auth_deps import require_treasurer, require_chairperson, require_member
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter()
+
+
+# ── Schema for member self-submission ────────────────────────────────────────
+class MemberContributionSubmit(BaseModel):
+    amount: float
+    month: str                          # YYYY-MM  e.g. "2026-06"
+    payment_method: str = "M-Pesa"
+    reference: Optional[str] = None    # M-Pesa code
+    notes: Optional[str] = None
 
 
 @router.post("/")
@@ -137,7 +148,8 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
         # monthly_contributions is the correct table; join users→members via phone
         cur.execute(
             """SELECT mc.id, mc.member_id, mc.amount, mc.month,
-                      mc.payment_method, mc.reference, mc.notes, mc.recorded_at
+                      mc.payment_method, mc.reference, mc.notes, mc.recorded_at,
+                      mc.status
                FROM monthly_contributions mc
                JOIN members m ON mc.member_id = m.id
                JOIN users u   ON u.phone_number = m.phone_number
@@ -153,11 +165,156 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
         {"id": r[0], "member_id": r[1], "amount": float(r[2]),
          "month": r[3], "payment_method": r[4], "reference": r[5],
          "notes": r[6], "recorded_at": str(r[7]) if r[7] else None,
-         # aliases member.html uses
          "date": str(r[7]) if r[7] else None,
-         "contribution_type": "monthly"}
+         "contribution_type": "monthly",
+         "status": r[8] if r[8] else "approved"}   # legacy rows have no status
         for r in rows
     ]
+
+
+# ── Member self-submission (status = pending, awaits admin approval) ──────────
+@router.post("/submit")
+def member_submit_contribution(
+    data: MemberContributionSubmit,
+    current_user: dict = Depends(require_member)
+):
+    """Any logged-in member can submit their own contribution for admin approval."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # Resolve this user → members row via shared phone number
+        cur.execute(
+            "SELECT id FROM members WHERE phone_number = "
+            "(SELECT phone_number FROM users WHERE id = %s)",
+            (current_user["user_id"],)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail="No member record linked to your account. Contact an admin."
+            )
+        member_id = row[0]
+
+        cur.execute("""
+            INSERT INTO monthly_contributions
+                (member_id, amount, month, payment_method, reference, notes,
+                 status, submitted_by)
+            VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s)
+            RETURNING id
+        """, (member_id, data.amount, data.month,
+              data.payment_method, data.reference, data.notes,
+              current_user["user_id"]))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {
+            "message": "Contribution submitted and awaiting admin approval",
+            "id": new_id,
+            "status": "pending"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# ── Admin approve / reject a pending contribution ────────────────────────────
+@router.patch("/{contribution_id}/approve")
+def approve_contribution(
+    contribution_id: int,
+    current_user: dict = Depends(require_treasurer)
+):
+    """Treasurer or above can approve a pending member-submitted contribution."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, status FROM monthly_contributions WHERE id = %s",
+            (contribution_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Contribution not found")
+        if row[1] == "approved":
+            return {"message": "Already approved"}
+
+        cur.execute(
+            "UPDATE monthly_contributions SET status = 'approved' WHERE id = %s",
+            (contribution_id,)
+        )
+        conn.commit()
+        return {"message": "Contribution approved", "id": contribution_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+@router.patch("/{contribution_id}/reject")
+def reject_contribution(
+    contribution_id: int,
+    current_user: dict = Depends(require_treasurer)
+):
+    """Treasurer or above can reject a pending member-submitted contribution."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE monthly_contributions SET status = 'rejected' WHERE id = %s RETURNING id",
+            (contribution_id,)
+        )
+        row = cur.fetchone()
+        conn.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="Contribution not found")
+        return {"message": "Contribution rejected", "id": contribution_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# ── Admin: list pending submissions for review ───────────────────────────────
+@router.get("/pending")
+def list_pending_contributions(_=Depends(require_treasurer)):
+    """Returns all contributions awaiting admin approval."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT mc.id, m.full_name, mc.amount, mc.month,
+                   mc.payment_method, mc.reference, mc.notes,
+                   mc.recorded_at, mc.status
+            FROM monthly_contributions mc
+            JOIN members m ON mc.member_id = m.id
+            WHERE mc.status = 'pending'
+            ORDER BY mc.recorded_at ASC
+        """)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        release_connection(conn)
+    return [
+        {
+            "id": r[0], "member": r[1], "amount": float(r[2]),
+            "month": r[3], "payment_method": r[4], "reference": r[5],
+            "notes": r[6], "recorded_at": str(r[7]), "status": r[8]
+        }
+        for r in rows
+    ]
+
 
 @router.delete("/{contribution_id}")
 def delete_contribution(
