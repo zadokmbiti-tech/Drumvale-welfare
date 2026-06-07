@@ -1173,10 +1173,16 @@ async function submitContribution() {
       notes:          document.getElementById('wiz-notes').value.trim() || null,
     };
     const res = await fetch(`${API}/contributions/submit`, {
-      method: 'POST',
-      headers: { ...authH(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    method : 'POST',
+    headers: { ...authH(), 'Content-Type': 'application/json' },
+    body   : JSON.stringify({
+    amount            : payload.amount,
+    month             : cmMonthToYYYYMM(payload.month),   // see note below
+    payment_method    : 'M-Pesa',
+    reference         : payload.mpesa_code,
+    notes             : payload.notes,
+    }),
+});
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Submission failed');
     closeContribWizard();
