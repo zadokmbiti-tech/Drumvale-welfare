@@ -2299,6 +2299,7 @@ async function rejectUser(id, name) {
 }
 
 function fmt(n) { return Number(n||0).toLocaleString('en-KE'); }
+function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-KE', {day:'numeric',month:'short',year:'numeric'}); } catch(e) { return d; } }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); populateMemberSelects(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
