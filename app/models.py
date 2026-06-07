@@ -35,6 +35,15 @@ from app.schemas import (
     LoanCreate,
     LoanRepayment,
     LoanStatusUpdate,
+
+    # Finance
+    FinanceTransactionCreate,
+
+    # Notices
+    NoticeCreate,
+
+    # Profile updates
+    ProfileUpdateRequest,
 )
 
 __all__ = [
@@ -55,4 +64,7 @@ __all__ = [
     "LoanCreate",
     "LoanRepayment",
     "LoanStatusUpdate",
+    "FinanceTransactionCreate",
+    "NoticeCreate",
+    "ProfileUpdateRequest",
 ]

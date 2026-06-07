@@ -25,15 +25,26 @@ _pool = None
 
 def init_pool():
     global _pool
-    _pool = pool.SimpleConnectionPool(
-        minconn=1,
-        maxconn=10,
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT", "5432"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        from urllib.parse import urlparse
+        u = urlparse(db_url)
+        kwargs = dict(
+            host=u.hostname,
+            port=u.port or 5432,
+            dbname=u.path.lstrip("/"),
+            user=u.username,
+            password=u.password,
+        )
+    else:
+        kwargs = dict(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT", "5432"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+        )
+    _pool = pool.SimpleConnectionPool(minconn=1, maxconn=10, **kwargs)
 
 
 def get_connection():
@@ -41,4 +52,11 @@ def get_connection():
 
 
 def release_connection(conn):
+    # Roll back any uncommitted transaction so the connection
+    # goes back to the pool in a clean, reusable state.
+    try:
+        if conn and not conn.closed:
+            conn.rollback()
+    except Exception:
+        pass
     _pool.putconn(conn)
