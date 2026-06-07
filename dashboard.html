@@ -140,6 +140,12 @@
   .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; line-height:1; }
   .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
 
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200;
+    display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  }
+  .modal-overlay .modal { width: 100%; max-width: 520px; }
+
   #login-screen {
     position: fixed; inset: 0; background: var(--bg); z-index: 500;
     display: flex; align-items: center; justify-content: center;
@@ -2504,8 +2510,17 @@ async function rejectUser(id, name) {
 function fmt(n) { return Number(n||0).toLocaleString('en-KE'); }
 function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-KE', {day:'numeric',month:'short',year:'numeric'}); } catch(e) { return d; } }
 
-function openModal(id) { document.getElementById(id).classList.add('open'); populateMemberSelects(); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('modal-overlay')) { el.style.display = 'flex'; }
+  else { el.classList.add('open'); }
+  populateMemberSelects();
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('modal-overlay')) { el.style.display = 'none'; }
+  else { el.classList.remove('open'); }
+}
 
 document.querySelectorAll('.modal-backdrop').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
