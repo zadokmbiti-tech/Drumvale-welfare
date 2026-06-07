@@ -1599,13 +1599,24 @@ function showPage(name, el) {
 
 async function loadDashboard() {
   try {
-    // Use the single /stats endpoint for all summary cards — avoids 5 round trips
-    const [stats, members, loans, meetings] = await Promise.all([
+    // Use allSettled so one bad endpoint doesn't kill the whole dashboard
+    const [statsR, membersR, loansR, meetingsR] = await Promise.allSettled([
       apiFetch('/stats'),
       apiFetch('/members'),
       apiFetch('/loans'),
       apiFetch('/meetings'),
     ]);
+
+    const stats    = statsR.status   === 'fulfilled' ? statsR.value   : {};
+    const members  = membersR.status === 'fulfilled' ? membersR.value : [];
+    const loans    = loansR.status   === 'fulfilled' ? loansR.value   : [];
+    const meetings = meetingsR.status=== 'fulfilled' ? meetingsR.value: [];
+
+    // Log any failures to console for debugging
+    if (statsR.status    === 'rejected') console.error('/stats failed:',    statsR.reason);
+    if (membersR.status  === 'rejected') console.error('/members failed:',  membersR.reason);
+    if (loansR.status    === 'rejected') console.error('/loans failed:',    loansR.reason);
+    if (meetingsR.status === 'rejected') console.error('/meetings failed:', meetingsR.reason);
 
     // ── Stat cards ─────────────────────────────────────────────
     document.getElementById('stat-members').textContent = stats.total_members ?? members.length;
@@ -1692,11 +1703,17 @@ function populateMemberSelects() {
 }
 
 async function loadMembers() {
+  const tbody = document.getElementById('members-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
   try {
     const members = await apiFetch('/members');
     allMembers = members;
     renderMembersTable(members);
-  } catch(e) { toast('Failed to load members','error'); }
+  } catch(e) {
+    console.error('loadMembers error:', e);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
+    toast('Failed to load members: ' + e.message, 'error');
+  }
 }
 
 function renderMembersTable(members) {
@@ -1788,10 +1805,10 @@ async function loadContribSummary() {
 
 async function loadContribStatus() {
   const month = document.getElementById('contrib-month-filter').value;
+  const tbody = document.getElementById('contrib-tbody');
   if (!month) return;
   try {
     const rows = await apiFetch(`/contributions/status/${month}`);
-    const tbody = document.getElementById('contrib-tbody');
     tbody.innerHTML = rows.map(r => `
       <tr>
         <td>${r.full_name}</td>
@@ -1799,7 +1816,7 @@ async function loadContribStatus() {
         <td><span class="badge ${r.paid?'badge-green':'badge-red'}">${r.paid?'Paid':'Unpaid'}</span></td>
         <td>—</td><td>—</td>
       </tr>`).join('');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { console.error('loadContribStatus:',e); tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadContribStatus();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveContrib() {
@@ -1833,9 +1850,9 @@ async function loadLoanSummary() {
 
 async function loadLoans() {
   const status = document.getElementById('loan-filter').value;
+  const tbody = document.getElementById('loans-tbody');
   try {
     const loans = await apiFetch(`/loans${status?'?status='+status:''}`);
-    const tbody = document.getElementById('loans-tbody');
     if (!loans.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No loans found</div></td></tr>'; return; }
     const statusBadge = s => ({pending:'badge-yellow',disbursed:'badge-blue',repaid:'badge-green',rejected:'badge-red'}[s]||'badge-gray');
     tbody.innerHTML = loans.map((l,i) => `
@@ -1854,7 +1871,7 @@ async function loadLoans() {
           ${l.status==='disbursed'?`<button class="btn btn-sm btn-outline" onclick="openRepay(${l.id})">Repay</button>`:''}
         </td>
       </tr>`).join('');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { console.error('loadLoans:',e); tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadLoans();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveLoan() {
@@ -1905,9 +1922,9 @@ async function saveRepayment() {
 }
 
 async function loadEvents() {
+  const tbody = document.getElementById('events-tbody');
   try {
     const events = await apiFetch('/events');
-    const tbody = document.getElementById('events-tbody');
     if (!events.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">No events yet</div></td></tr>'; return; }
     tbody.innerHTML = events.map((ev,i) => {
       const isOpen = ev.status.toLowerCase() === 'open';
@@ -1927,7 +1944,7 @@ async function loadEvents() {
           <td style="display:flex;gap:6px;align-items:center">${manageBtn}${closeBtn}</td>
         </tr>`;
     }).join('');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { console.error('loadEvents:',e); tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadEvents();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveEvent() {
@@ -2041,9 +2058,9 @@ async function closeEvent(id) {
 }
 
 async function loadMeetings() {
+  const tbody = document.getElementById('meetings-tbody');
   try {
     const meetings = await apiFetch('/meetings');
-    const tbody = document.getElementById('meetings-tbody');
     if (!meetings.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No meetings yet</div></td></tr>'; return; }
     const statusBadge = s => ({scheduled:'badge-blue',completed:'badge-green',cancelled:'badge-red'}[s]||'badge-gray');
     tbody.innerHTML = meetings.map((m,i) => `
@@ -2058,7 +2075,7 @@ async function loadMeetings() {
           ${m.status==='scheduled' ? `<button class="btn btn-sm" style="background:rgba(44,180,224,.12);color:#2cb4e0;border:1px solid rgba(44,180,224,.3)" onclick="resendMeetingSMS(${m.id},'${m.title.replace(/'/g,"\\'")}')">📲 SMS</button>` : ''}
         </td>
       </tr>`).join('');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { console.error('loadMeetings:',e); tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMeetings();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveMeeting() {
