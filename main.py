@@ -13,7 +13,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ── App must be created BEFORE attaching limiter state ──────────────
-app = FastAPI(title="ChamaLink API", redirect_slashes=False)
+app = FastAPI(title="ChamaLink API", redirect_slashes=True)
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -58,26 +58,6 @@ def startup():
     cur = conn.cursor()
     try:
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS meetings (
-                id         SERIAL PRIMARY KEY,
-                title      TEXT NOT NULL,
-                date       DATE NOT NULL,
-                time       TEXT,
-                venue      TEXT,
-                agenda     TEXT,
-                minutes    TEXT,
-                status     TEXT NOT NULL DEFAULT 'scheduled'
-                               CHECK (status IN ('scheduled','completed','cancelled')),
-                created_by TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-            CREATE TABLE IF NOT EXISTS attendance (
-                id         SERIAL PRIMARY KEY,
-                meeting_id INT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-                member_id  INT NOT NULL REFERENCES members(id)  ON DELETE CASCADE,
-                present    BOOLEAN DEFAULT FALSE,
-                UNIQUE (meeting_id, member_id)
-            );
             CREATE TABLE IF NOT EXISTS finance (
                 id          SERIAL PRIMARY KEY,
                 type        TEXT NOT NULL CHECK (type IN ('income','expense')),

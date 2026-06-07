@@ -41,6 +41,7 @@ def record_contribution(
         release_connection(conn)
 
 
+@router.get("")
 @router.get("/")
 def list_contributions(
     month: str = "",

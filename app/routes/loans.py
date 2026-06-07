@@ -115,6 +115,7 @@ def my_loans(current_user: dict = Depends(get_current_user)):
     ]
 
 
+@router.get("")
 @router.get("/")
 def list_loans(status: str = "", _=Depends(get_current_user)):
     conn = get_connection()

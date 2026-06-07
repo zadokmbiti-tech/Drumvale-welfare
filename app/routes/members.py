@@ -108,6 +108,7 @@ async def bulk_import_members(
 
 # ── Static GET routes MUST come before /{member_id} ──────────────────────────
 
+@router.get("")
 @router.get("/")
 def list_members(_=Depends(get_current_user)):
     conn = get_connection()

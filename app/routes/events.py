@@ -32,6 +32,7 @@ def create_event(
         release_connection(conn)
 
 
+@router.get("")
 @router.get("/")
 def list_events(status: str = "", _=Depends(get_current_user)):
     conn = get_connection()

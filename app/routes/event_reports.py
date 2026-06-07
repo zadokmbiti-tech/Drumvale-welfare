@@ -108,6 +108,7 @@ def my_case_reports(current_user: dict = Depends(get_current_user)):
 
 
 # ── GET  /event-reports/  — admin: all pending ────────────────────────
+@router.get("")
 @router.get("/")
 def list_pending_reports(_=Depends(require_admin)):
     conn = get_connection()
