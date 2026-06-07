@@ -1658,7 +1658,7 @@ async function doLogin() {
   try {
     const ctrl = new AbortController();
     const tid  = setTimeout(() => ctrl.abort(), 3000);
-    const res  = await fetch(`${API}/auth/login`, {
+    const res  = await fetch(`${API}/auth/login/`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({phone_number: phone, password: pass}),
@@ -1714,7 +1714,10 @@ function logout() {
 }
 
 async function apiFetch(path, opts={}) {
-  const res = await fetch(`${API}${path}`, {
+  // Ensure trailing slash to prevent FastAPI 307 redirects that strip Authorization headers
+  const [_base, _qs] = path.split('?');
+  const safePath = (_base.endsWith('/') ? _base : _base + '/') + (_qs ? '?' + _qs : '');
+  const res = await fetch(`${API}${safePath}`, {
     ...opts,
     headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
   });
