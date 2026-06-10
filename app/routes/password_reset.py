@@ -11,7 +11,7 @@ from passlib.context import CryptContext
 import random, string
 from datetime import datetime, timedelta
 
-Limiter = Limiter(key_func=get_remote_address)  # Create a limiter instance
+Limiter = Limiter(key_func=get_remote_address)  # Create a Limiter instance
 
 router = APIRouter(prefix="/reset", tags=["Password Reset"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -21,7 +21,7 @@ _otp_store: dict = {}
 
 
 @router.post("/request/")
-@limiter.limit("5/minute")  # Prevent abuse of OTP generation
+@Limiter.limit("5/minute")  # Prevent abuse of OTP generation
 def request_reset( request:Request, data: dict):
     phone = data.get("phone_number", "").strip()
     if not phone:
@@ -53,7 +53,7 @@ def request_reset( request:Request, data: dict):
 
 
 @router.post("/confirm/")
-@limiter.limit("10/minute")  # Prevent brute-force OTP attempts
+@Limiter.limit("10/minute")  # Prevent brute-force OTP attempts
 def confirm_reset(request: Request, data: dict):
     phone    = data.get("phone_number", "").strip()
     otp      = data.get("otp", "").strip()
