@@ -159,6 +159,21 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 #update-modal .um-error{color:#ff6b6b;font-size:0.82rem;margin-top:10px;display:none;}
 #update-modal .um-note{font-size:0.78rem;color:var(--silver);background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.15);border-radius:8px;padding:10px 14px;margin-top:14px;}
 
+/* Forgot / Reset Password screens */
+#forgot-screen,#reset-screen{display:none;align-items:center;justify-content:center;min-height:100vh;padding:20px;
+  background:radial-gradient(ellipse at 60% 20%,rgba(44,180,224,0.08) 0%,transparent 60%),var(--ink);}
+#forgot-screen.active,#reset-screen.active{display:flex;}
+.reset-info{background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.18);border-radius:10px;
+  padding:14px 16px;font-size:0.82rem;color:var(--silver);line-height:1.6;margin-bottom:18px;}
+.reset-info strong{color:var(--white);}
+.reset-step-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(44,180,224,0.12);
+  color:var(--sky);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;
+  letter-spacing:0.04em;margin-bottom:16px;}
+.back-link{display:inline-flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);
+  text-decoration:none;cursor:pointer;margin-bottom:20px;transition:color 0.2s;}
+.back-link:hover{color:var(--sky);}
+.field-hint{font-size:0.74rem;color:var(--muted);margin-top:5px;}
+
 </style>
 </head>
 <body>
@@ -179,8 +194,65 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     <button class="btn-primary" onclick="doLogin()">Sign In</button>
     <div class="login-error" id="login-error"></div>
     <div class="login-footer">
+      <a href="#" onclick="showForgot();return false;" style="color:var(--muted);font-size:0.78rem;">Forgot password?</a>
+      <span style="margin:0 8px;color:var(--muted);">·</span>
       Not a member? <a href="/">Register on homepage</a> &nbsp;·&nbsp;
       <a href="/dashboard">Committee Login</a>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div id="forgot-screen">
+  <div class="login-card">
+    <span class="back-link" onclick="showLogin()">← Back to Sign In</span>
+    <div class="login-logo">Drumvale</div>
+    <div class="login-sub">PASSWORD RESET</div>
+    <div class="reset-step-badge">Step 1 of 2 — Request OTP</div>
+    <div class="reset-info">
+      Enter your registered phone number below. The system will flag your account,
+      then <strong>contact the admin/secretary</strong> to receive your one-time password (OTP) via SMS or WhatsApp.
+    </div>
+    <div class="field">
+      <label>Phone Number</label>
+      <input type="tel" id="fp-phone" placeholder="07XXXXXXXX" autocomplete="tel"/>
+      <div class="field-hint">Use the phone number you registered with.</div>
+    </div>
+    <button class="btn-primary" onclick="requestOtp()">Request OTP →</button>
+    <div class="login-error" id="fp-error"></div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD -->
+<div id="reset-screen">
+  <div class="login-card">
+    <span class="back-link" onclick="showForgot()">← Back</span>
+    <div class="login-logo">Drumvale</div>
+    <div class="login-sub">SET NEW PASSWORD</div>
+    <div class="reset-step-badge">Step 2 of 2 — Enter OTP & New Password</div>
+    <div class="reset-info" id="rp-info">
+      Your request has been submitted for <strong id="rp-phone-display">your number</strong>.
+      The <strong>admin or secretary</strong> has received your OTP and will share it with you via phone or WhatsApp.
+      Enter it below together with your new password.
+    </div>
+    <div class="field">
+      <label>OTP Code</label>
+      <input type="text" id="rp-otp" placeholder="Enter OTP from admin" maxlength="10" style="letter-spacing:0.1em;font-weight:600;"/>
+      <div class="field-hint">The admin will share this with you via SMS/WhatsApp.</div>
+    </div>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="rp-pass1" placeholder="New password" autocomplete="new-password"/>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input type="password" id="rp-pass2" placeholder="Repeat new password" autocomplete="new-password"/>
+    </div>
+    <button class="btn-primary" onclick="doResetPassword()">Reset Password</button>
+    <div class="login-error" id="rp-error"></div>
+    <div id="rp-success" style="display:none;background:rgba(63,185,80,0.12);border:1px solid rgba(63,185,80,0.3);
+      border-radius:8px;padding:12px 14px;font-size:0.85rem;color:var(--green);margin-top:14px;text-align:center;">
+      ✅ Password reset successfully! <a href="#" onclick="showLogin();return false;" style="color:var(--sky);margin-left:6px;">Sign In →</a>
     </div>
   </div>
 </div>
@@ -1351,8 +1423,97 @@ async function submitEventReport() {
   }
 }
 
-async function loadMyReports() {
-  const body = document.getElementById('my-reports-body');
+/* ── FORGOT / RESET PASSWORD ────────────────────────────────────── */
+let _fpPhone = '';
+
+function showLogin() {
+  document.getElementById('login-screen').style.display  = 'flex';
+  document.getElementById('forgot-screen').classList.remove('active');
+  document.getElementById('reset-screen').classList.remove('active');
+}
+
+function showForgot() {
+  document.getElementById('login-screen').style.display  = 'none';
+  document.getElementById('forgot-screen').classList.add('active');
+  document.getElementById('reset-screen').classList.remove('active');
+  document.getElementById('fp-error').style.display = 'none';
+  document.getElementById('fp-phone').value = '';
+}
+
+function showReset(phone) {
+  _fpPhone = phone;
+  document.getElementById('login-screen').style.display  = 'none';
+  document.getElementById('forgot-screen').classList.remove('active');
+  document.getElementById('reset-screen').classList.add('active');
+  document.getElementById('rp-phone-display').textContent = phone;
+  document.getElementById('rp-error').style.display = 'none';
+  document.getElementById('rp-success').style.display = 'none';
+  ['rp-otp','rp-pass1','rp-pass2'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function requestOtp() {
+  const phone = document.getElementById('fp-phone').value.trim();
+  const errEl = document.getElementById('fp-error');
+  errEl.style.display = 'none';
+  if (!phone) { errEl.textContent = 'Please enter your phone number.'; errEl.style.display='block'; return; }
+  const btn = document.querySelector('#forgot-screen .btn-primary');
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/reset/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: phone })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errEl.textContent = data.detail || 'No account found with that phone number.';
+      errEl.style.display = 'block';
+    } else {
+      showReset(phone);
+    }
+  } catch(e) {
+    errEl.textContent = 'Could not connect to server. Try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Request OTP →'; btn.disabled = false;
+  }
+}
+
+async function doResetPassword() {
+  const otp   = document.getElementById('rp-otp').value.trim();
+  const pass1 = document.getElementById('rp-pass1').value;
+  const pass2 = document.getElementById('rp-pass2').value;
+  const errEl = document.getElementById('rp-error');
+  errEl.style.display = 'none';
+  if (!otp)   { errEl.textContent = 'Please enter the OTP.';            errEl.style.display='block'; return; }
+  if (!pass1) { errEl.textContent = 'Please enter a new password.';     errEl.style.display='block'; return; }
+  if (pass1.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display='block'; return; }
+  if (pass1 !== pass2)  { errEl.textContent = 'Passwords do not match.'; errEl.style.display='block'; return; }
+  const btn = document.querySelector('#reset-screen .btn-primary');
+  btn.textContent = 'Resetting…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/reset/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: _fpPhone, otp, new_password: pass1 })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errEl.textContent = data.detail || 'Invalid OTP or reset failed.';
+      errEl.style.display = 'block';
+    } else {
+      btn.style.display = 'none';
+      document.getElementById('rp-success').style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Could not connect to server. Try again.';
+    errEl.style.display = 'block';
+  } finally {
+    if (btn.style.display !== 'none') { btn.textContent = 'Reset Password'; btn.disabled = false; }
+  }
+}
+
+async function loadMyReports() {  const body = document.getElementById('my-reports-body');
   if (!body) return;
   body.innerHTML = '<div class="loading">Loading...</div>';
   try {
