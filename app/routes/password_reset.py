@@ -3,11 +3,15 @@ Password reset flow (admin-assisted OTP via phone):
   POST /reset/request   — generate a 6-digit OTP for a phone number
   POST /reset/confirm   — validate OTP + set new password
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.database import get_connection, release_connection
 from passlib.context import CryptContext
 import random, string
 from datetime import datetime, timedelta
+
+Limiter = Limiter(key_func=get_remote_address)  # Create a limiter instance
 
 router = APIRouter(prefix="/reset", tags=["Password Reset"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -18,7 +22,7 @@ _otp_store: dict = {}
 
 @router.post("/request/")
 @limiter.limit("5/minute")  # Prevent abuse of OTP generation
-def request_reset(data: dict):
+def request_reset( request:Request, data: dict):
     phone = data.get("phone_number", "").strip()
     if not phone:
         raise HTTPException(status_code=400, detail="Phone number required")
@@ -49,7 +53,8 @@ def request_reset(data: dict):
 
 
 @router.post("/confirm/")
-def confirm_reset(data: dict):
+@limiter.limit("10/minute")  # Prevent brute-force OTP attempts
+def confirm_reset(request: Request, data: dict):
     phone    = data.get("phone_number", "").strip()
     otp      = data.get("otp", "").strip()
     new_pass = data.get("new_password", "").strip()
