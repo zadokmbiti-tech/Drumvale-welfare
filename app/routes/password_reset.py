@@ -16,7 +16,8 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _otp_store: dict = {}
 
 
-@router.post("/request")
+@router.post("/request/")
+@limiter.limit("5/minute")  # Prevent abuse of OTP generation
 def request_reset(data: dict):
     phone = data.get("phone_number", "").strip()
     if not phone:
@@ -47,7 +48,7 @@ def request_reset(data: dict):
     }
 
 
-@router.post("/confirm")
+@router.post("/confirm/")
 def confirm_reset(data: dict):
     phone    = data.get("phone_number", "").strip()
     otp      = data.get("otp", "").strip()

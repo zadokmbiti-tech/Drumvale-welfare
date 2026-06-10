@@ -35,6 +35,7 @@ def init_pool():
             dbname=u.path.lstrip("/"),
             user=u.username,
             password=u.password,
+            sslmode="require",
         )
     else:
         kwargs = dict(
