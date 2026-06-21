@@ -433,7 +433,7 @@ def reject_user(user_id: int, body: dict = None, current_user=Depends(require_ad
 
 @router.patch("/admin/{user_id}/role")
 def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
-    valid_roles = ("member", "treasurer", "secretary", "chairperson", "super_admin")
+    valid_roles = ("member", "admin", "treasurer", "secretary", "chairperson", "super_admin")
     new_role = body.get("role")
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
