@@ -330,7 +330,7 @@ def change_member_role(
     Also syncs the role to the users table if a matching phone_number exists.
     Only super_admin can call this.
     """
-    valid_roles = ("member", "treasurer", "secretary", "chairperson", "super_admin")
+    valid_roles = ("member", "admin", "treasurer", "secretary", "chairperson", "super_admin")
     new_role = body.get("role")
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
