@@ -22,7 +22,6 @@
     html { scroll-behavior: smooth; }
     body { background: var(--deep); color: var(--white); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
 
-    /* ── NAV ── */
     nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 18px 48px; background: rgba(10,31,46,0.92); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(44,180,224,0.15); }
     .nav-brand { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.04em; color: var(--sky); text-decoration: none; }
     .nav-links { display: flex; gap: 28px; list-style: none; align-items: center; }
@@ -37,7 +36,6 @@
     .nav-btn-register { background: var(--sky); color: var(--deep); }
     .nav-btn-register:hover { background: #4ec8f0; transform: translateY(-1px); }
 
-    /* ── HERO ── */
     .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 120px 24px 80px; position: relative; text-align: center; overflow: hidden; isolation: isolate; }
     .hero::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 30%, var(--deep) 75%), radial-gradient(ellipse 80% 60% at 50% 110%, rgba(44,180,224,0.18) 0%, transparent 70%); pointer-events: none; }
     .ripple { position: absolute; border-radius: 50%; border: 1px solid rgba(44,180,224,0.12); animation: ripple-out 7s ease-out infinite; pointer-events: none; }
@@ -62,7 +60,6 @@
     .btn-outline { padding: 14px 32px; border: 1.5px solid var(--sky); color: var(--sky); font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.88rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; background: transparent; cursor: pointer; transition: background 0.25s, color 0.25s, transform 0.2s; display: inline-block; }
     .btn-outline:hover { background: rgba(44,180,224,0.12); transform: translateY(-2px); }
 
-    /* ── PUBLIC STATS STRIP ── */
     .public-stats-strip { background: var(--ink); border-top: 1px solid rgba(44,180,224,0.18); border-bottom: 1px solid rgba(44,180,224,0.18); padding: 40px 48px; }
     .public-stats-strip h3 { text-align: center; font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 8px; color: var(--white); }
     .public-stats-strip p { text-align: center; font-size: 0.82rem; color: var(--silver); margin-bottom: 32px; letter-spacing: 0.05em; }
@@ -73,7 +70,6 @@
     .pub-stat-num { font-family: 'Playfair Display', serif; font-size: 2rem; color: var(--sky); line-height: 1; margin-bottom: 4px; }
     .pub-stat-label { font-size: 0.73rem; color: var(--silver); letter-spacing: 0.08em; text-transform: uppercase; }
 
-    /* ── PILLARS ── */
     .pillars { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(44,180,224,0.15); border-bottom: 1px solid rgba(44,180,224,0.15); }
     .pillar { padding: 48px 36px; border-right: 1px solid rgba(44,180,224,0.1); transition: background 0.3s; }
     .pillar:last-child { border-right: none; }
@@ -82,7 +78,6 @@
     .pillar-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 10px; }
     .pillar-text { font-size: 0.88rem; color: var(--silver); line-height: 1.65; }
 
-    /* ── ABOUT ── */
     .about { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; padding: 100px 80px; max-width: 1200px; margin: 0 auto; }
     .about-label { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--sky); margin-bottom: 14px; }
     .about-heading { font-family: 'Playfair Display', serif; font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; margin-bottom: 24px; }
@@ -97,7 +92,6 @@
     .vision-text { font-family: 'Playfair Display', serif; font-size: 1.15rem; line-height: 1.6; color: var(--white); margin-bottom: 24px; }
     .mission-text { font-size: 0.9rem; color: var(--silver); line-height: 1.7; }
 
-    /* ── CONTACT ── */
     .contact-section { background: var(--ink); border-top: 1px solid rgba(44,180,224,0.12); padding: 80px 48px; text-align: center; }
     .contact-section h2 { font-family: 'Playfair Display', serif; font-size: 2rem; margin-bottom: 12px; }
     .contact-section p { color: var(--silver); font-size: 0.95rem; margin-bottom: 36px; }
@@ -110,7 +104,6 @@
     footer { background: rgba(0,0,0,0.4); border-top: 1px solid rgba(44,180,224,0.1); padding: 24px 48px; display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--silver); }
     footer a { color: var(--sky); text-decoration: none; }
 
-    /* ── MODALS ── */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(5,15,25,0.92); backdrop-filter: blur(8px); z-index: 500; align-items: center; justify-content: center; padding: 24px; }
     .modal-overlay.active { display: flex; }
     .modal { background: var(--ink); border: 1px solid rgba(44,180,224,0.25); border-radius: 6px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 44px 40px; position: relative; animation: modalIn 0.3s ease both; }
@@ -122,6 +115,7 @@
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); margin-bottom: 7px; }
     .form-group input, .form-group select { width: 100%; background: var(--steel); border: 1px solid rgba(44,180,224,0.2); border-radius: 3px; padding: 11px 14px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.92rem; transition: border-color 0.25s; outline: none; }
+    .form-group input.field-error { border-color: var(--red); }
     .form-group input:focus, .form-group select:focus { border-color: var(--sky); }
     .form-group select option { background: var(--ink); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -163,14 +157,12 @@
     .constitution-download-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(44,180,224,0.15); flex-wrap: wrap; gap: 12px; }
     .constitution-download-bar span { font-size: 0.82rem; color: var(--silver); }
 
-    /* ── DASHBOARD ── */
     .dashboard { display: none; min-height: 100vh; padding: 100px 48px 60px; max-width: 1200px; margin: 0 auto; }
     .dashboard.active { display: block; }
     .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; flex-wrap: wrap; gap: 16px; }
     .dashboard-greeting { font-family: 'Playfair Display', serif; font-size: 1.8rem; }
     .dashboard-greeting span { color: var(--sky); }
 
-    /* ── DASHBOARD STATS OVERVIEW ── */
     .dash-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 36px; }
     .dash-kpi { background: var(--steel); border: 1px solid rgba(44,180,224,0.15); border-radius: 4px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; transition: border-color 0.2s, transform 0.2s; }
     .dash-kpi:hover { border-color: rgba(44,180,224,0.4); transform: translateY(-2px); }
@@ -179,7 +171,6 @@
     .dash-kpi-sub { font-size: 0.72rem; color: var(--silver); }
     .dash-kpi-icon { font-size: 1.2rem; margin-bottom: 4px; }
 
-    /* ── TABS ── */
     .dashboard-tabs { display: flex; gap: 0; border: 1px solid rgba(44,180,224,0.2); border-radius: 3px; overflow: hidden; margin-bottom: 36px; flex-wrap: wrap; }
     .tab-btn { padding: 11px 20px; background: transparent; border: none; color: var(--silver); font-family: 'DM Sans', sans-serif; font-size: 0.79rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-right: 1px solid rgba(44,180,224,0.15); transition: all 0.2s; }
     .tab-btn:last-child { border-right: none; }
@@ -189,7 +180,6 @@
     .tab-content.active { display: block; }
     .dash-section-title { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--sky); margin-bottom: 20px; }
 
-    /* ── CARDS ── */
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
     .dash-card { background: var(--steel); border: 1px solid rgba(44,180,224,0.15); border-radius: 4px; padding: 24px; transition: border-color 0.25s, transform 0.2s; }
     .dash-card:hover { border-color: rgba(44,180,224,0.4); transform: translateY(-3px); }
@@ -204,16 +194,13 @@
     .dash-card-date { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 0.76rem; color: var(--sky); }
     .dash-card-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
 
-    /* ── ATTENDANCE REGISTER BTN ── */
     .attend-btn { padding: 7px 14px; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 2px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; border: 1px solid var(--green); color: var(--green); background: rgba(52,211,153,0.1); }
     .attend-btn:hover { background: rgba(52,211,153,0.2); }
     .attend-btn.attended { background: rgba(52,211,153,0.2); border-color: var(--green); color: var(--green); cursor: default; }
 
-    /* ── MEETINGS SPECIFIC ── */
     .meeting-card { background: var(--steel); border: 1px solid rgba(52,211,153,0.2); border-radius: 4px; padding: 24px; transition: border-color 0.25s, transform 0.2s; }
     .meeting-card:hover { border-color: rgba(52,211,153,0.45); transform: translateY(-3px); }
 
-    /* ── ADMIN PANEL ── */
     .admin-section { margin-bottom: 36px; }
     .admin-section-heading { font-size: 0.72rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(232,184,75,0.2); display: flex; align-items: center; gap: 8px; }
     .admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
@@ -224,7 +211,6 @@
     .admin-action-desc { font-size: 0.76rem; color: var(--silver); }
     .admin-badge { display: inline-block; background: rgba(232,184,75,0.15); color: var(--gold); font-size: 0.65rem; padding: 2px 7px; border-radius: 2px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
 
-    /* ── MEMBERS TABLE ── */
     .members-table-wrap { overflow-x: auto; margin-top: 16px; }
     .members-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .members-table th { background: rgba(44,180,224,0.1); color: var(--sky); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1px solid rgba(44,180,224,0.2); }
@@ -235,7 +221,6 @@
     .status-pending { background: rgba(232,184,75,0.15); color: var(--gold); }
     .status-arrears { background: rgba(248,113,113,0.15); color: var(--red); }
 
-    /* ── NOTICE INLINE FORM ── */
     .inline-form { background: rgba(28,61,85,0.5); border: 1px solid rgba(44,180,224,0.2); border-radius: 4px; padding: 24px; margin-bottom: 24px; }
     .inline-form h4 { font-size: 0.76rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sky); margin-bottom: 16px; }
     .inline-form textarea { width: 100%; background: var(--steel); border: 1px solid rgba(44,180,224,0.2); border-radius: 3px; padding: 10px 14px; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; resize: vertical; outline: none; transition: border-color 0.2s; }
@@ -244,15 +229,17 @@
     .logout-btn { background: transparent; border: 1px solid rgba(255,100,100,0.3); color: #ff9a9a; padding: 8px 18px; border-radius: 2px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
     .logout-btn:hover { background: rgba(255,100,100,0.1); }
 
-    /* ── TOAST ── */
     .toast { position: fixed; bottom: 32px; right: 32px; background: var(--steel); border: 1px solid var(--sky); border-radius: 4px; padding: 14px 20px; font-size: 0.85rem; color: var(--white); z-index: 999; animation: toastIn 0.3s ease; display: none; max-width: 320px; }
     .toast.show { display: block; }
     @keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ── ROLE BADGE ── */
     .role-tag { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.1em; text-transform: uppercase; margin-left: 8px; background: rgba(232,184,75,0.15); color: var(--gold); vertical-align: middle; }
-
-    /* ── RESPONSIVE ── */
+    .status-radio-group { display: flex; gap: 12px; align-items: center; }
+    .status-radio-group label { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--silver); cursor: pointer; text-transform: none; letter-spacing: 0; margin-bottom: 0; }
+    .status-radio-group input[type="radio"] { accent-color: var(--sky); width: 14px; height: 14px; cursor: pointer; }
+    .status-radio-group input[type="radio"].radio-deceased { accent-color: var(--red); }
+    td.status-radio-cell { padding: 4px 8px !important; min-width: 130px; }
+    
     @media (max-width: 900px) {
       .dash-overview { grid-template-columns: repeat(2, 1fr); }
       .public-stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -318,7 +305,6 @@
       </div>
     </section>
 
-    <!-- PUBLIC STATS STRIP -->
     <section class="public-stats-strip">
       <h3>Our Community at a Glance</h3>
       <p>Live figures updated by the committee — visible to all residents and prospective members</p>
@@ -346,7 +332,6 @@
       </div>
     </section>
 
-    <!-- PILLARS -->
     <div class="pillars">
       <div class="pillar">
         <div class="pillar-icon">🤝</div>
@@ -365,7 +350,6 @@
       </div>
     </div>
 
-    <!-- NOTICES -->
     <section style="background:var(--ink);border-top:1px solid rgba(44,180,224,0.15);border-bottom:1px solid rgba(44,180,224,0.15);padding:60px 48px;">
       <h3 style="text-align:center;font-family:'Playfair Display',serif;font-size:1.3rem;margin-bottom:8px;color:var(--white);">📢 Community Notices</h3>
       <p style="text-align:center;font-size:0.82rem;color:var(--silver);margin-bottom:32px;letter-spacing:0.05em;">Latest announcements from the committee</p>
@@ -374,7 +358,6 @@
       </div>
     </section>
 
-    <!-- ABOUT -->
     <section id="about">
       <div class="about">
         <div>
@@ -398,7 +381,6 @@
       </div>
     </section>
 
-    <!-- CONTACT -->
     <section class="contact-section" id="contact">
       <h2>Get In Touch</h2>
       <p>We are here for every member of the Drumvale Riverview community.</p>
@@ -415,12 +397,10 @@
       <span>© 2026 Drumvale Riverview Welfare Group. All rights reserved.</span>
       <span>Kamulu · Machakos County · <a href="#home">Back to top ↑</a></span>
     </footer>
-  </div><!-- /public-site -->
+  </div>
 
-  <!-- ═══════════════ TOAST ═══════════════ -->
   <div class="toast" id="toast"></div>
 
-  <!-- ═══════════════ LOGIN MODAL ═══════════════ -->
   <div class="modal-overlay" id="modal-login">
     <div class="modal">
       <button class="modal-close" onclick="closeModal('login')">✕</button>
@@ -428,7 +408,6 @@
       <h2 class="modal-title">Sign In</h2>
       <div class="form-error" id="login-error">Invalid credentials. Please try again.</div>
 
-      <!-- Smart field: auto-detects phone vs email -->
       <div class="form-group">
         <label>Phone Number</label>
         <input type="text" id="login-identifier"
@@ -451,28 +430,27 @@
     </div>
   </div>
 
-  <!-- ═══════════════ REGISTER MODAL ═══════════════ -->
   <div class="modal-overlay" id="modal-register">
     <div class="modal" style="max-width:680px;">
       <button class="modal-close" onclick="closeModal('register')">✕</button>
       <p class="modal-eyebrow">Drumvale Riverview Welfare Group</p>
       <h2 class="modal-title" style="font-size:1.4rem;">Membership Registration Form</h2>
-      <p style="font-size:0.78rem;color:var(--silver);margin-bottom:20px;">I the undersigned wish to join the Drumvale Riverview Social Welfare Group and accept to abide by its rules and regulations/bylaws.</p>
-
+      <p style="font-size:0.78rem;color:var(--silver);margin-bottom:4px;">I the undersigned wish to join the Drumvale Riverview Social Welfare Group and accept to abide by its rules and regulations/bylaws.</p>
+      <p style="font-size:0.72rem;color:var(--red);margin-bottom:20px;">* All fields marked with an asterisk are required.</p>
       <div id="register-form-body">
         <div class="form-group"><label>Principal Member's Full Name *</label><input type="text" id="reg-fname" placeholder="Full name as in ID" /></div>
         <div class="form-group"><label>Member ID *</label><input type="text" id="reg-memberid" placeholder="e.g. 001" /></div>
         <div class="form-row">
           <div class="form-group"><label>Phone Number *</label><input type="tel" id="reg-phone" placeholder="07XX XXX XXX" /></div>
-          <div class="form-group"><label>ID Number</label><input type="text" id="reg-idno" placeholder="National ID No." /></div>
+          <div class="form-group"><label>ID Number *</label><input type="text" id="reg-idno" placeholder="National ID No." /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Date of Birth</label><input type="date" id="reg-dob" /></div>
+          <div class="form-group"><label>Date of Birth *</label><input type="date" id="reg-dob" /></div>
           <div class="form-group"><label>Marital Status</label><select id="reg-marital"><option value="">Select</option><option>Married</option><option>Single</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Residence / Estate</label><input type="text" id="reg-residence" placeholder="Drumvale Riverview" /></div>
-          <div class="form-group"><label>Court *</label><input type="text" id="reg-court" placeholder="Court 1, 2, 3 or 4" /></div>
+          <div class="form-group"><label>Residence / Estate *</label><input type="text" id="reg-residence" placeholder="Drumvale Riverview" /></div>
+          <div class="form-group"><label>Court *</label><input type="text" id="reg-court" placeholder="Enter your Court Name" /></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>House No</label><input type="text" id="reg-houseno" placeholder="e.g. A4" /></div>
@@ -486,13 +464,12 @@
           <div class="form-group"><label>Next of Kin 2</label><input type="text" id="reg-nok2" placeholder="Full name" /></div>
           <div class="form-group"><label>Mobile 2</label><input type="tel" id="reg-nok2tel" placeholder="07XX XXX XXX" /></div>
         </div>
-        <div class="form-group"><label>Email Address (for portal login)</label><input type="email" id="reg-email" placeholder="you@example.com" /></div>
+        <div class="form-group"><label>Email Address *</label><input type="email" id="reg-email" placeholder="you@example.com" /></div>
         <div class="form-row">
           <div class="form-group"><label>Create Password *</label><input type="password" id="reg-password" placeholder="Min. 8 characters" /></div>
           <div class="form-group"><label>Confirm Password *</label><input type="password" id="reg-password2" placeholder="Repeat password" /></div>
         </div>
 
-        <!-- Children -->
         <div style="margin-bottom:18px;">
           <label style="display:block;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--silver);margin-bottom:10px;">Children Details</label>
           <div style="overflow-x:auto;">
@@ -517,38 +494,43 @@
           </div>
           <button type="button" onclick="addChildRow()" style="margin-top:8px;background:transparent;border:1px solid rgba(44,180,224,0.3);color:var(--sky);font-family:inherit;font-size:0.75rem;padding:5px 12px;border-radius:2px;cursor:pointer;">+ Add Child</button>
         </div>
-<!-- Parents / Parents-in-law -->
         <div style="margin-bottom:18px;margin-top:18px;">
-          <label style="display:block;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--silver);margin-bottom:10px;">Parents & Parents-in-Law <span style="color:var(--sky);font-size:0.7rem;">(Biological only)</span></label>
+          <label style="display:block;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--silver);margin-bottom:4px;">Parents &amp; Parents-in-Law * <span style="color:var(--sky);font-size:0.7rem;">(Biological only — at least one required)</span></label>
+<p style="font-size:0.72rem;color:var(--silver);margin-bottom:10px;">For each parent, tick whether they are <strong style="color:var(--green);">Alive</strong> or <strong style="color:var(--red);">Deceased</strong>.</p>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
               <thead><tr style="background:rgba(44,180,224,0.1);">
-                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);width:32px;">#</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Full Name</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">ID No</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Current Residence</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Contact Phone</th>
-              </tr></thead>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);width:32px;">#</th>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Full Name *</th>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Status * <span style="color:var(--red);font-size:0.65rem;">(required)</span></th>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">ID No</th>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Current Residence</th>
+  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Contact Phone</th>
+</tr></thead>
               <tbody id="parents-tbody">
-                <tr>
-                  <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">1</td>
-                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-                  <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-                </tr>
-              </tbody>
+  <tr>
+    <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">1</td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
+      <div class="status-radio-group">
+        <label><input type="radio" name="parent_status_1" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
+        <label><input type="radio" name="parent_status_1" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
+      </div>
+    </td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+  </tr>
+</tbody>
             </table>
           </div>
           <button type="button" onclick="addParentRow()" style="margin-top:8px;background:transparent;border:1px solid rgba(44,180,224,0.3);color:var(--sky);font-family:inherit;font-size:0.75rem;padding:5px 12px;border-radius:2px;cursor:pointer;">+ Add Parent</button>
         </div>
-        <!-- PDF note -->
         <div style="background:rgba(44,180,224,0.07);border:1px solid rgba(44,180,224,0.2);border-radius:4px;padding:14px 16px;margin-bottom:18px;">
           <p style="font-size:0.8rem;color:var(--silver);margin-bottom:10px;">📋 <strong style="color:var(--white);">Full Registration Form:</strong> Download and submit the complete PDF form to the Secretary with supporting documents.</p>
           <a class="btn-sm btn-sm-solid" href="https://drive.google.com/uc?export=download&id=136_yv6XefI1drtthZYjcYcqZ_LFpYIzr" target="_blank">⬇ Download Full Registration Form (PDF)</a>
         </div>
 
-        <!-- Terms -->
         <div class="terms-box">
           <div class="terms-box-header">📋 Welfare Bylaws (Terms & Conditions)</div>
           <div class="terms-scroll">
@@ -587,7 +569,6 @@
     </div>
   </div>
 
-  <!-- ═══════════════ CONSTITUTION MODAL ═══════════════ -->
   <div class="modal-overlay" id="modal-constitution">
     <div class="modal constitution-modal">
       <button class="modal-close" onclick="closeModal('constitution')">✕</button>
@@ -612,7 +593,6 @@
   </div>
 
   <script>
-    /* ══════════ MODAL HELPERS ══════════ */
     function openModal(name) {
       document.getElementById('modal-' + name).classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -628,14 +608,12 @@
       });
     });
 
-    /* ══════════ TERMS ══════════ */
     function validateTerms() {
       const t = document.getElementById('chk-terms').checked;
       const c = document.getElementById('chk-constitution').checked;
       document.getElementById('reg-submit').disabled = !(t && c);
     }
 
-    /* ══════════ TOAST ══════════ */
     function showToast(msg, duration = 3000) {
       const t = document.getElementById('toast');
       t.textContent = msg; t.classList.add('show');
@@ -643,7 +621,6 @@
     }
     function showAdminToast(msg) { showToast('⚙️ ' + msg); }
 
-    /* ══════════ ATTENDANCE / INVOLVEMENT ══════════ */
     function registerAttendance(btn, eventName) {
       btn.textContent = '✅ Registered!';
       btn.classList.add('attended');
@@ -657,7 +634,6 @@
       showToast('✅ Your involvement marked for: ' + itemName);
     }
 
-    /* ══════════ ADMIN NOTICE FORM ══════════ */
     function openAdminNoticeForm() {
       const f = document.getElementById('admin-notice-form');
       f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -670,10 +646,8 @@
       document.getElementById('admin-notice-form').style.display = 'none';
     }
 
-    /* ══════════ LOGIN ══════════ */
     const API = "";
 
-    // Detect whether the user is typing a phone or email and update the hint
     function detectLoginType() {
       const val  = (document.getElementById('login-identifier').value || '').trim();
       const hint = document.getElementById('login-type-hint');
@@ -687,25 +661,22 @@
       }
     }
 
-    // Build the correct payload depending on whether identifier is email or phone
     function buildLoginPayload(identifier, password) {
       if (identifier.includes('@')) {
         return { email: identifier, password };
       } else {
-        // Normalise phone: strip spaces/dashes, keep digits and leading +
         const phone = identifier.replace(/[\s\-()]/g, '');
         return { phone_number: phone, password };
       }
     }
 
-    // Generate a deterministic offline member number from identifier string
     function offlineMemberNo(identifier) {
       let hash = 0;
       for (let i = 0; i < identifier.length; i++) {
         hash = ((hash << 5) - hash) + identifier.charCodeAt(i);
         hash |= 0;
       }
-      return String(Math.abs(hash) % 9000 + 1000); // 4-digit number 1000–9999
+      return String(Math.abs(hash) % 9000 + 1000);
     }
 
 async function handleLogin() {
@@ -714,7 +685,6 @@ async function handleLogin() {
   const phone    = document.getElementById('login-identifier').value.trim();
   const password = document.getElementById('login-password').value;
 
-  // Phone validation — must start with 07 or 01, exactly 10 digits
   const phoneRegex = /^(07|01)\d{8}$/;
   if (!phone || !password) {
     errEl.textContent = 'Please enter your phone number and password.';
@@ -725,7 +695,6 @@ async function handleLogin() {
     errEl.style.display = 'block'; return;
   }
 
-  // Normalize to +254 format before sending to backend
   const normalizedPhone = '+254' + phone.substring(1);
 
   try {
@@ -738,7 +707,7 @@ async function handleLogin() {
 
     if (response.ok) {
       localStorage.setItem('token', data.access_token);
-      window.location.href = '/member';   // ✅ redirects to member dashboard
+      window.location.href = '/member';
     } else {
       errEl.textContent = data.detail || 'Invalid phone number or password.';
       errEl.style.display = 'block';
@@ -749,81 +718,139 @@ async function handleLogin() {
   }
 }
 
-    /* ══════════ REGISTER ══════════ */
-    async function handleRegister() {
-      const errEl = document.getElementById('reg-error');
-      errEl.style.display = 'none';
-      const pass  = document.getElementById('reg-password').value;
-      const pass2 = document.getElementById('reg-password2').value;
-      const btn   = document.getElementById('reg-submit');
+function highlightField(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('field-error'); el.addEventListener('input', () => el.classList.remove('field-error'), { once: true }); }
+}
 
-      if (pass !== pass2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+async function handleRegister() {
+  const errEl = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('reg-submit');
 
-      const children = [];
-      document.querySelectorAll('#children-tbody tr').forEach(row => {
-        const inputs = row.querySelectorAll('input, select');
-        const name = inputs[0]?.value?.trim();
-        if (name) children.push({ full_name: name, date_of_birth: inputs[1]?.value || null, relationship: inputs[2]?.value || null, cert_number: inputs[3]?.value?.trim() || null });
-      });
-      const parents = [];
-      document.querySelectorAll('#parents-tbody tr').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const name = inputs[0]?.value?.trim();
-        if (name) parents.push({ full_name: name, id_number: inputs[1]?.value?.trim() || null, current_residence: inputs[2]?.value?.trim() || null, contact_phone: inputs[3]?.value?.trim() || null });
-      });
+  const fname     = document.getElementById('reg-fname').value.trim();
+  const memberid  = document.getElementById('reg-memberid').value.trim();
+  const phone     = document.getElementById('reg-phone').value.trim();
+  const idno      = document.getElementById('reg-idno').value.trim();
+  const dob       = document.getElementById('reg-dob').value;
+  const residence = document.getElementById('reg-residence').value.trim();
+  const court     = document.getElementById('reg-court').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const pass      = document.getElementById('reg-password').value;
+  const pass2     = document.getElementById('reg-password2').value;
 
-      const payload = {
-        member_id:         document.getElementById('reg-memberid').value.trim() || null,
-        full_name:         document.getElementById('reg-fname').value.trim(),
-        phone_number:      document.getElementById('reg-phone').value.trim(),
-        email:             document.getElementById('reg-email').value.trim() || null,
-        id_number:         document.getElementById('reg-idno').value.trim() || null,
-        date_of_birth:     document.getElementById('reg-dob').value || null,
-        marital_status:    document.getElementById('reg-marital').value || null,
-        residence:         document.getElementById('reg-residence').value.trim() || null,
-        court:             document.getElementById('reg-court').value.trim() || null,
-        house_number:      document.getElementById('reg-houseno').value.trim() || null,
-        spouse_name:       document.getElementById('reg-spouse').value.trim() || null,
-        next_of_kin_name:  document.getElementById('reg-nok1').value.trim() || null,
-        next_of_kin_phone: document.getElementById('reg-nok1tel').value.trim() || null,
-        next_of_kin_2:     document.getElementById('reg-nok2').value.trim() || null,
-        nok2_phone:        document.getElementById('reg-nok2tel').value.trim() || null,
-        password: pass, children, parents
-      };
+  const missing = [];
+  if (!fname)     { missing.push('Full Name'); highlightField('reg-fname'); }
+  if (!memberid)  { missing.push('Member ID'); highlightField('reg-memberid'); }
+  if (!phone)     { missing.push('Phone Number'); highlightField('reg-phone'); }
+  if (!idno)      { missing.push('ID Number'); highlightField('reg-idno'); }
+  if (!dob)       { missing.push('Date of Birth'); highlightField('reg-dob'); }
+  if (!residence) { missing.push('Residence / Estate'); highlightField('reg-residence'); }
+  if (!court)     { missing.push('Court'); highlightField('reg-court'); }
+  if (!email)     { missing.push('Email Address'); highlightField('reg-email'); }
+  if (!pass)      { missing.push('Password'); highlightField('reg-password'); }
 
-      if (!payload.full_name || !payload.phone_number || !payload.password) {
-        errEl.textContent = 'Full name, phone number and password are required.';
-        errEl.style.display = 'block'; return;
-      }
+  if (pass && pass2 && pass !== pass2) {
+    errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block';
+    highlightField('reg-password'); highlightField('reg-password2'); return;
+  }
+  if (pass && pass.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display = 'block';
+    highlightField('reg-password'); return;
+  }
 
-      btn.disabled = true; btn.textContent = 'Submitting…';
-      try {
-        const res  = await fetch(`${API}/auth/register`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.detail || 'Registration failed.'; errEl.style.display = 'block'; }
-        else { document.getElementById('register-form-body').style.display = 'none'; document.getElementById('register-success').style.display = 'block'; }
-      } catch (e) {
-        /* Offline — show success anyway for demo */
-        document.getElementById('register-form-body').style.display = 'none';
-        document.getElementById('register-success').style.display = 'block';
-      } finally {
-        btn.disabled = false; btn.textContent = 'Submit Registration';
+  const parentRows = document.querySelectorAll('#parents-tbody tr');
+  let hasParent = false;
+  let parentStatusMissing = false;
+  parentRows.forEach((row, i) => {
+    const nameInput = row.querySelector('.parent-name');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (name) {
+      hasParent = true;
+      const radios = row.querySelectorAll('input[type="radio"]');
+      const checked = Array.from(radios).some(r => r.checked);
+      if (!checked) {
+        parentStatusMissing = true;
+        const cell = row.querySelector('.status-radio-cell');
+        if (cell) cell.style.outline = '2px solid var(--red)';
       }
     }
+  });
+  if (!hasParent) { missing.push('at least one Parent / Parent-in-Law'); }
+  if (parentStatusMissing) { missing.push('Alive/Deceased status for each parent entered'); }
 
-    /* ══════════ DASHBOARD ══════════ */
+  if (missing.length > 0) {
+    errEl.textContent = 'Required fields missing: ' + missing.join(', ') + '.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const children = [];
+  document.querySelectorAll('#children-tbody tr').forEach(row => {
+    const inputs = row.querySelectorAll('input, select');
+    const name = inputs[0]?.value?.trim();
+    if (name) children.push({ full_name: name, date_of_birth: inputs[1]?.value || null, relationship: inputs[2]?.value || null, cert_number: inputs[3]?.value?.trim() || null });
+  });
+
+  const parents = [];
+  document.querySelectorAll('#parents-tbody tr').forEach((row, i) => {
+    const nameInput = row.querySelector('.parent-name');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (name) {
+      const allInputs = row.querySelectorAll('input[type="text"], input[type="tel"]');
+      const radios = row.querySelectorAll('input[type="radio"]');
+      let status = null;
+      radios.forEach(r => { if (r.checked) status = r.value; });
+      parents.push({
+        full_name: name,
+        status: status,
+        id_number: allInputs[1]?.value?.trim() || null,
+        current_residence: allInputs[2]?.value?.trim() || null,
+        contact_phone: allInputs[3]?.value?.trim() || null
+      });
+    }
+  });
+
+  const payload = {
+    member_id: memberid || null,
+    full_name: fname,
+    phone_number: phone,
+    email: email || null,
+    id_number: idno || null,
+    date_of_birth: dob || null,
+    marital_status: document.getElementById('reg-marital').value || null,
+    residence: residence || null,
+    court: court || null,
+    house_number: document.getElementById('reg-houseno').value.trim() || null,
+    spouse_name: document.getElementById('reg-spouse').value.trim() || null,
+    next_of_kin_name: document.getElementById('reg-nok1').value.trim() || null,
+    next_of_kin_phone: document.getElementById('reg-nok1tel').value.trim() || null,
+    next_of_kin_2: document.getElementById('reg-nok2').value.trim() || null,
+    nok2_phone: document.getElementById('reg-nok2tel').value.trim() || null,
+    password: pass, children, parents
+  };
+
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const res = await fetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Registration failed.'; errEl.style.display = 'block'; }
+    else { document.getElementById('register-form-body').style.display = 'none'; document.getElementById('register-success').style.display = 'block'; }
+  } catch (e) {
+    document.getElementById('register-form-body').style.display = 'none';
+    document.getElementById('register-success').style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit Registration';
+  }
+}
+
     function showDashboard(user) {
       document.getElementById('public-site').style.display = 'none';
       document.getElementById('dashboard').classList.add('active');
 
-      // Build the name display — first name only for a friendly feel
       const fullName  = user.fname || 'Member';
       const firstName = fullName.split(' ')[0];
       document.getElementById('dash-name').textContent = firstName;
 
-      // Member number badge — show right after the name
       const memNo    = user.member_number || user.user_id || '—';
       const memBadge = document.getElementById('dash-member-no');
       if (memBadge) {
@@ -831,7 +858,6 @@ async function handleLogin() {
         memBadge.style.display = 'inline-block';
       }
 
-      // Role tag
       const roleTag  = document.getElementById('dash-role-tag');
       const adminBtn = document.getElementById('admin-tab-btn');
       const adminRoles = ['admin','super_admin','chairperson','secretary','treasurer'];
@@ -853,7 +879,6 @@ async function handleLogin() {
       document.getElementById('public-site').style.display = '';
     }
 
-    /* ══════════ TABS ══════════ */
     function switchTab(group, name) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -861,7 +886,6 @@ async function handleLogin() {
       event.currentTarget.classList.add('active');
     }
 
-    /* ══════════ CHILDREN TABLE ══════════ */
     function addChildRow() {
       const tbody = document.getElementById('children-tbody');
       const rowNum = tbody.rows.length + 1;
@@ -874,20 +898,34 @@ async function handleLogin() {
         <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="No." style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
       tbody.appendChild(row);
     }
-    function addParentRow() {
-      const tbody = document.getElementById('parents-tbody');
-      const n = tbody.rows.length + 1;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">${n}</td>
-        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-        <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
-      tbody.appendChild(tr);
-    }
+let parentRowCount = 1;
+function addParentRow() {
+  parentRowCount++;
+  const tbody = document.getElementById('parents-tbody');
+  const n = parentRowCount;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">${n}</td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
+      <div class="status-radio-group">
+        <label><input type="radio" name="parent_status_${n}" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
+        <label><input type="radio" name="parent_status_${n}" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
+      </div>
+    </td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
+  tbody.appendChild(tr);
+}
 
-    /* ══════════ LOGO FALLBACK ══════════ */
+document.querySelectorAll('#parents-tbody input[type="radio"]').forEach(radio => {
+  radio.addEventListener('change', function() {
+    const cell = this.closest('.status-radio-cell');
+    if (cell) cell.style.outline = '';
+  });
+});
+
     function showLogoFallback() {
       const img = document.querySelector('.hero-logo img');
       const fallback = document.getElementById('logo-fallback');
@@ -895,7 +933,6 @@ async function handleLogin() {
       if (fallback) fallback.style.display = 'flex';
     }
 
-    /* ══════════ AUTO-LOGIN ══════════ */
     (function() {
       const raw = localStorage.getItem('drwg_session');
       if (raw) {
@@ -906,7 +943,6 @@ async function handleLogin() {
       }
     })();
 
-/* ══════════ NOTICES ══════════ */
 async function loadNotices() {
   try {
     const res = await fetch('/notices');
@@ -925,16 +961,14 @@ async function loadNotices() {
 }
 loadNotices();
 
-/* ══════════ LIVE PUBLIC STATS ══════════ */
 async function loadPublicStats() {
   const setEl = (id, v) => { const el = document.getElementById(id); if (el && v !== null && v !== undefined) el.textContent = v; };
 
   try {
-    // Primary: /stats (public endpoint)
     const res = await fetch('/stats');
     if (res.ok) {
       const d = await res.json();
-      console.log('[Stats] /stats response:', d); // ← shows keys in browser console
+      console.log('[Stats] /stats response:', d);
 
       const memberCount = d.total_members ?? d.members_count ?? d.member_count ?? d.members ?? null;
       if (memberCount !== null) setEl('pub-members', memberCount);
@@ -953,7 +987,6 @@ async function loadPublicStats() {
     console.log('[Stats] /stats failed:', e.message);
   }
 
-  // Fallback: pull member count directly if still showing —
   const membEl = document.getElementById('pub-members');
   if (membEl && membEl.textContent === '—') {
     try {
