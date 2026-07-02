@@ -570,7 +570,10 @@ tr:hover td{background:rgba(44,180,224,0.03);}
   <div class="modal">
     <div class="modal-header">
       <h3 id="modal-member-name">Member Details</h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="modal-edit-btn" onclick="openAdminEditModal()" style="display:none;background:none;border:1px solid var(--border);border-radius:6px;color:var(--sky);padding:5px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit;">✏️ Edit</button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
     </div>
     <div class="modal-body" id="modal-member-body"></div>
   </div>
@@ -714,6 +717,13 @@ const UPDATE_FIELDS = [
 ];
 
 function openUpdateModal() {
+  _adminEditTargetId = null;
+  document.getElementById('um-title').textContent = 'Update My Profile';
+  document.getElementById('um-subtitle').textContent = 'Only fill in the fields you want to change. Leave others blank.';
+  document.getElementById('upd-note').innerHTML =
+    '📋 Your changes will be reviewed by the admin before taking effect. You will see a <strong>pending</strong> badge on your profile until approved.';
+  document.getElementById('upd-submit-btn').textContent = 'Submit for Approval';
+
   document.getElementById('upd-error').style.display = 'none';
   UPDATE_FIELDS.forEach(f => {
     const el = document.getElementById('upd-' + f);
@@ -727,9 +737,51 @@ function openUpdateModal() {
 }
 function closeUpdateModal() {
   document.getElementById('update-modal-backdrop').classList.remove('open');
+  _adminEditTargetId = null;
 }
 
 let _childIdx = 0, _parentIdx = 0;
+let _adminEditTargetId = null;
+
+// Admin-only: opens the same update form, prefilled with an existing member's
+// full profile, and routes submission to the immediate admin-edit endpoint
+// instead of the member's own pending-approval flow.
+function openAdminEditModal() {
+  const full = _lastViewedMember;
+  if (!full || !full.id) return;
+  _adminEditTargetId = full.id;
+
+  document.getElementById('um-title').textContent = `Edit ${full.full_name || 'Member'}'s Profile`;
+  document.getElementById('um-subtitle').textContent = 'Admin edit — applies immediately, no approval needed.';
+  document.getElementById('upd-note').innerHTML =
+    '⚡ You are editing this member\'s profile directly. Changes take effect immediately — there is no approval step.';
+  document.getElementById('upd-submit-btn').textContent = 'Save Changes';
+
+  document.getElementById('upd-error').style.display = 'none';
+  UPDATE_FIELDS.forEach(f => {
+    const el = document.getElementById('upd-' + f);
+    if (el) el.value = full[f] || '';
+  });
+
+  document.getElementById('upd-children-list').innerHTML = '';
+  document.getElementById('upd-parents-list').innerHTML  = '';
+  _childIdx  = 0;
+  _parentIdx = 0;
+  (full.children || []).forEach(c => {
+    addChildRow();
+    document.getElementById('child-name-' + _childIdx).value = c.full_name || '';
+    document.getElementById('child-dob-'  + _childIdx).value = c.date_of_birth || '';
+    document.getElementById('child-rel-'  + _childIdx).value = c.relationship || '';
+  });
+  (full.parents || []).forEach(p => {
+    addParentRow();
+    document.getElementById('parent-name-'  + _parentIdx).value = p.full_name || '';
+    document.getElementById('parent-phone-' + _parentIdx).value = p.contact_phone || '';
+  });
+
+  closeModal();
+  document.getElementById('update-modal-backdrop').classList.add('open');
+}
 
 function addChildRow() {
   const idx = ++_childIdx;
@@ -809,9 +861,14 @@ async function submitProfileUpdate() {
     errEl.style.display = 'block';
     return;
   }
+
+  const isAdminEdit = !!_adminEditTargetId;
+  const url    = isAdminEdit ? `${API}/members/${_adminEditTargetId}/admin-edit` : `${API}/profile-updates/`;
+  const method = isAdminEdit ? 'PUT' : 'POST';
+
   try {
-    const res = await fetch(`${API}/profile-updates/`, {
-      method: 'POST',
+    const res = await fetch(url, {
+      method,
       headers: authH(),
       body: JSON.stringify(body)
     });
@@ -821,9 +878,16 @@ async function submitProfileUpdate() {
       errEl.style.display = 'block';
       return;
     }
+    const editedId = _adminEditTargetId;
     closeUpdateModal();
-    toast('✅ Update request submitted — awaiting admin approval.');
-    document.getElementById('pending-badge').style.display = 'inline';
+    if (isAdminEdit) {
+      toast('✅ Member profile updated.');
+      if (typeof loadMembers === 'function') loadMembers();
+      showMemberDetail(editedId);
+    } else {
+      toast('✅ Update request submitted — awaiting admin approval.');
+      document.getElementById('pending-badge').style.display = 'inline';
+    }
   } catch(e) {
     errEl.textContent = 'Could not connect. Try again.';
     errEl.style.display = 'block';
@@ -1171,8 +1235,13 @@ async function showMemberDetail(id) {
     ${full.notes ? `<div class="modal-section-label">Notes</div>
     <div style="font-size:0.83rem;color:var(--silver);padding:8px 0;">${full.notes}</div>` : ''}
   `;
+  _lastViewedMember = full;
+  const editBtn = document.getElementById('modal-edit-btn');
+  editBtn.style.display = isAdmin ? 'inline-block' : 'none';
   document.getElementById('modal-member').classList.add('open');
 }
+
+let _lastViewedMember = null;
 
 let cmStep = 1;
 
@@ -1562,8 +1631,8 @@ async function loadMyReports() {  const body = document.getElementById('my-repor
   <div id="update-modal">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div>
-        <h3>Update My Profile</h3>
-        <div class="um-sub">Only fill in the fields you want to change. Leave others blank.</div>
+        <h3 id="um-title">Update My Profile</h3>
+        <div class="um-sub" id="um-subtitle">Only fill in the fields you want to change. Leave others blank.</div>
       </div>
       <button onclick="closeUpdateModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;">✕</button>
     </div>
@@ -1612,13 +1681,13 @@ async function loadMyReports() {  const body = document.getElementById('my-repor
     <div id="upd-parents-list" style="margin-bottom:6px;"></div>
     <button type="button" onclick="addParentRow()" style="background:none;border:1px dashed var(--border);border-radius:6px;padding:5px 14px;color:var(--muted);cursor:pointer;font-size:0.82rem;margin-bottom:12px;">＋ Add Parent / Guardian</button>
 
-    <div class="um-note">
+    <div class="um-note" id="upd-note">
       📋 Your changes will be reviewed by the admin before taking effect. You will see a <strong>pending</strong> badge on your profile until approved.
     </div>
     <div class="um-error" id="upd-error"></div>
     <div class="um-actions">
       <button class="btn-cancel" onclick="closeUpdateModal()">Cancel</button>
-      <button class="btn-submit" onclick="submitProfileUpdate()">Submit for Approval</button>
+      <button class="btn-submit" id="upd-submit-btn" onclick="submitProfileUpdate()">Submit for Approval</button>
     </div>
   </div>
 </div>
