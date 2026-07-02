@@ -4,7 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from app.database import get_connection, release_connection
 from app.models import MemberCreate
-from app.routes.auth import get_current_user
+from app.schemas import ProfileUpdateRequest
+from app.routes.auth import get_current_user, require_admin
 from app.auth_deps import require_secretary, require_chairperson, require_super_admin
 
 router = APIRouter()
@@ -280,6 +281,107 @@ def update_member(
         ))
         conn.commit()
         return {"message": "Member updated"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+@router.put("/{member_id}/admin-edit")
+def admin_edit_full_profile(
+    member_id: int,
+    body: ProfileUpdateRequest,
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Admin edits a member's full profile directly — no approval step,
+    since the admin performing this IS the approver.
+
+    Reuses the exact same field set and semantics as the member
+    self-service update flow (see app/routes/profile_updates.py):
+    scalar fields go to users (+ mirrored subset to members),
+    children/parents lists REPLACE all existing rows for that user.
+    """
+    SCALAR_FIELDS = [
+        "full_name", "phone_number", "email", "id_number", "date_of_birth",
+        "marital_status", "residence", "court", "house_number", "spouse_name",
+        "next_of_kin_name", "next_of_kin_phone", "next_of_kin_2", "nok2_phone",
+    ]
+    MEMBERS_MIRROR_FIELDS = {
+        "full_name", "phone_number", "id_number",
+        "next_of_kin_name", "next_of_kin_phone",
+    }
+
+    data = body.dict(exclude_none=True)
+    children = data.pop("children", None)
+    parents  = data.pop("parents", None)
+    changes  = {f: data[f] for f in SCALAR_FIELDS if f in data}
+
+    if not changes and children is None and parents is None:
+        raise HTTPException(400, "No fields provided — nothing to update.")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT phone_number FROM members WHERE id=%s", (member_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Member not found")
+        old_phone = row[0]
+
+        cur.execute("SELECT id FROM users WHERE phone_number=%s", (old_phone,))
+        user_row = cur.fetchone()
+        if not user_row:
+            raise HTTPException(
+                400,
+                "This member has no linked users record (never registered/logged in), "
+                "so full-profile fields, children, and parents can't be set. "
+                "Only basic member fields can be edited via the standard member update."
+            )
+        user_id = user_row[0]
+
+        # 1. Apply scalar changes to users table
+        if changes:
+            set_u = ", ".join(f"{k}=%s" for k in changes)
+            cur.execute(f"UPDATE users SET {set_u} WHERE id=%s", (*changes.values(), user_id))
+
+            # 2. Mirror subset to members table
+            m_changes = {k: v for k, v in changes.items() if k in MEMBERS_MIRROR_FIELDS}
+            if m_changes:
+                set_m = ", ".join(f"{k}=%s" for k in m_changes)
+                cur.execute(f"UPDATE members SET {set_m} WHERE id=%s",
+                            (*m_changes.values(), member_id))
+
+        # 3. Replace children if provided
+        if children is not None:
+            cur.execute("DELETE FROM member_children WHERE user_id=%s", (user_id,))
+            for c in children:
+                if c.get("full_name"):
+                    cur.execute("""
+                        INSERT INTO member_children
+                            (user_id, full_name, date_of_birth, relationship, cert_number)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (user_id, c.get("full_name"), c.get("date_of_birth"),
+                          c.get("relationship"), c.get("cert_number")))
+
+        # 4. Replace parents if provided
+        if parents is not None:
+            cur.execute("DELETE FROM member_parents WHERE user_id=%s", (user_id,))
+            for p in parents:
+                if p.get("full_name"):
+                    cur.execute("""
+                        INSERT INTO member_parents
+                            (user_id, full_name, id_number, current_residence, contact_phone)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (user_id, p.get("full_name"), p.get("id_number"),
+                          p.get("current_residence"), p.get("contact_phone")))
+
+        conn.commit()
+        return {"message": "Member profile updated by admin."}
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))

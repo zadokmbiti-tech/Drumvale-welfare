@@ -1034,6 +1034,29 @@ async function loadProfile() {
       </tbody>
     </table>
   </div>` : ''}
+  ${merged.parents && merged.parents.length > 0 ? `
+  <div class="profile-card" style="grid-column:1/-1;">
+    <h4>Parents / Guardians</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+      <thead>
+        <tr style="color:var(--silver);text-align:left;border-bottom:1px solid var(--border);">
+          <th style="padding:6px 8px;">Name</th>
+          <th style="padding:6px 8px;">ID Number</th>
+          <th style="padding:6px 8px;">Current Residence</th>
+          <th style="padding:6px 8px;">Contact Phone</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${merged.parents.map(p => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 8px;">${p.full_name||'—'}</td>
+            <td style="padding:6px 8px;">${p.id_number||'—'}</td>
+            <td style="padding:6px 8px;">${p.current_residence||'—'}</td>
+            <td style="padding:6px 8px;">${p.contact_phone||'—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
   <div class="profile-card" style="grid-column:1/-1;background:rgba(44,180,224,0.04);border:1px dashed rgba(44,180,224,0.2);">
     <p style="font-size:0.82rem;color:var(--silver);margin:0;">
       📋 Fields showing <em>Not provided</em> were not captured at registration.
@@ -1102,6 +1125,13 @@ async function showMemberDetail(id) {
       `).join('')
     : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
 
+  const parentRows = (full.parents||[]).length
+    ? full.parents.map(p=>`
+        <div class="modal-row"><span class="lbl">${p.full_name||'—'}</span>
+        <span class="val">ID: ${p.id_number||'—'} · ${p.current_residence||'—'} · ${p.contact_phone||'—'}</span></div>
+      `).join('')
+    : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
+
   document.getElementById('modal-member-body').innerHTML = `
     <div class="modal-section-label">Personal</div>
     <div class="modal-row"><span class="lbl">Full Name</span><span class="val">${v(full.full_name)}</span></div>
@@ -1133,6 +1163,9 @@ async function showMemberDetail(id) {
 
     <div class="modal-section-label">Children / Dependants</div>
     ${childRows}
+
+    <div class="modal-section-label">Parents / Guardians</div>
+    ${parentRows}
     ` : ''}
 
     ${full.notes ? `<div class="modal-section-label">Notes</div>
