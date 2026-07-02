@@ -9,3 +9,4 @@ dist/
 build/
 drumvale_backup.sql 
 *.sql 
+logs/
