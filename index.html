@@ -508,18 +508,21 @@
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Contact Phone</th>
 </tr></thead>
               <tbody id="parents-tbody">
-  <tr>
+  <tr class="parent-row">
     <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">1</td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);">
+      <input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" />
+      <span class="parent-status-badge" style="display:none;font-size:0.65rem;letter-spacing:0.03em;font-weight:600;"></span>
+    </td>
     <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
       <div class="status-radio-group">
         <label><input type="radio" name="parent_status_1" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
         <label><input type="radio" name="parent_status_1" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
       </div>
     </td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" class="parent-idno" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" class="parent-phone" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
   </tr>
 </tbody>
             </table>
@@ -904,26 +907,68 @@ function addParentRow() {
   const tbody = document.getElementById('parents-tbody');
   const n = parentRowCount;
   const tr = document.createElement('tr');
+  tr.className = 'parent-row';
   tr.innerHTML = `
     <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">${n}</td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);">
+      <input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" />
+      <span class="parent-status-badge" style="display:none;font-size:0.65rem;letter-spacing:0.03em;font-weight:600;"></span>
+    </td>
     <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
       <div class="status-radio-group">
         <label><input type="radio" name="parent_status_${n}" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
         <label><input type="radio" name="parent_status_${n}" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
       </div>
     </td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" class="parent-idno" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
-    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
+    <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" class="parent-phone" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
   tbody.appendChild(tr);
 }
 
-document.querySelectorAll('#parents-tbody input[type="radio"]').forEach(radio => {
-  radio.addEventListener('change', function() {
-    const cell = this.closest('.status-radio-cell');
-    if (cell) cell.style.outline = '';
+function applyParentStatusUI(row, status) {
+  const idInput = row.querySelector('.parent-idno');
+  const phoneInput = row.querySelector('.parent-phone');
+  const badge = row.querySelector('.parent-status-badge');
+  const deceased = status === 'deceased';
+  [idInput, phoneInput].forEach(inp => {
+    if (!inp) return;
+    inp.disabled = deceased;
+    if (deceased) {
+      inp.value = '';
+      inp.placeholder = 'N/A (Deceased)';
+      inp.style.opacity = '0.4';
+      inp.style.cursor = 'not-allowed';
+    } else {
+      inp.style.opacity = '';
+      inp.style.cursor = '';
+    }
   });
+  if (idInput && !deceased) idInput.placeholder = 'ID No';
+  if (phoneInput && !deceased) phoneInput.placeholder = '07XX XXX XXX';
+  if (badge) {
+    if (status === 'alive') {
+      badge.textContent = '● Alive';
+      badge.style.color = 'var(--green)';
+      badge.style.display = 'inline';
+    } else if (status === 'deceased') {
+      badge.textContent = '● Deceased';
+      badge.style.color = 'var(--red)';
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  row.style.background = deceased ? 'rgba(255,90,90,0.06)' : '';
+}
+
+document.getElementById('parents-tbody').addEventListener('change', function(e) {
+  if (e.target.matches('input[type="radio"]')) {
+    const cell = e.target.closest('.status-radio-cell');
+    if (cell) cell.style.outline = '';
+    const row = e.target.closest('.parent-row');
+    if (row) applyParentStatusUI(row, e.target.value);
+  }
 });
 
     function showLogoFallback() {
