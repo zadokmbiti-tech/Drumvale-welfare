@@ -2570,6 +2570,7 @@ async function rejectUser(id, name) {
 
 function fmt(n) { return Number(n||0).toLocaleString('en-KE'); }
 function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-KE', {day:'numeric',month:'short',year:'numeric'}); } catch(e) { return d; } }
+function fmtDateTime(d) { if (!d) return '—'; try { return new Date(d).toLocaleString('en-KE', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch(e) { return d; } }
 
 function openModal(id) {
   const el = document.getElementById(id);
@@ -2916,7 +2917,7 @@ async function loadAuditLog(page=1) {
     tbody.innerHTML = data.logs.map(l => {
       const color = Object.entries(actionColors).find(([k])=>l.action.toLowerCase().includes(k))?.[1] || 'var(--muted)';
       return `<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:8px 12px;color:var(--muted);font-size:0.78rem;white-space:nowrap">${fmtDate(l.created_at)}</td>
+        <td style="padding:8px 12px;color:var(--muted);font-size:0.78rem;white-space:nowrap">${fmtDateTime(l.created_at)}</td>
         <td style="padding:8px 12px"><span style="color:${color};font-weight:600">${l.action}</span></td>
         <td style="padding:8px 12px">${l.performed_by}</td>
         <td style="padding:8px 12px;color:var(--muted)">${l.detail||'—'}</td>
