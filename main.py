@@ -13,14 +13,12 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-# ── App must be created BEFORE attaching Limiter state ──────────────
 app = FastAPI(title="ChamaLink API", redirect_slashes=True)
 
 Limiter = Limiter(key_func=get_remote_address)
 app.state.Limiter = Limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ── CORS ─────────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:8080,http://127.0.0.1:8080"
@@ -34,7 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routers ───────────────────────────────────────────────────────────
 app.include_router(auth.router,                    prefix="/auth",          tags=["Auth"])
 app.include_router(members.router,                 prefix="/members",       tags=["Members"])
 app.include_router(events.router,                  prefix="/events",        tags=["Events"])
@@ -56,7 +53,6 @@ if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# ── Startup: create tables once, not on every request ────────────────
 @app.on_event("startup")
 def startup():
     init_pool()
@@ -124,11 +120,11 @@ def startup():
                 submitted_at         TIMESTAMP NOT NULL DEFAULT NOW()
             );
         """)
-        # Add new columns to profile_update_requests idempotently
         for col_sql in [
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20)",
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS children_json TEXT",
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS parents_json  TEXT",
+            "ALTER TABLE member_parents ADD COLUMN IF NOT EXISTS status VARCHAR(20)",
         ]:
             cur.execute(col_sql)
         conn.commit()
