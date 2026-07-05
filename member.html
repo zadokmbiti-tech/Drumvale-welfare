@@ -776,7 +776,9 @@ function openAdminEditModal() {
   (full.parents || []).forEach(p => {
     addParentRow();
     document.getElementById('parent-name-'  + _parentIdx).value = p.full_name || '';
+    document.getElementById('parent-status-' + _parentIdx).value = p.status || '';
     document.getElementById('parent-phone-' + _parentIdx).value = p.contact_phone || '';
+    _toggleParentStatusUI(_parentIdx);
   });
 
   closeModal();
@@ -801,14 +803,37 @@ function addParentRow() {
   const idx = ++_parentIdx;
   const row = document.createElement('div');
   row.id = 'parent-row-' + idx;
-  row.style.cssText = 'display:grid;grid-template-columns:2fr 1.3fr 1.3fr auto;gap:8px;margin-bottom:8px;align-items:center;';
+  row.style.cssText = 'display:grid;grid-template-columns:1.6fr 1.1fr 1.3fr 1.1fr auto;gap:8px;margin-bottom:8px;align-items:center;';
   row.innerHTML = `
     <input type="text" placeholder="Full name"        id="parent-name-${idx}"  style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+    <select id="parent-status-${idx}" onchange="_toggleParentStatusUI(${idx})" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
+      <option value="">Status</option>
+      <option value="alive">Alive</option>
+      <option value="deceased">Deceased</option>
+    </select>
     <input type="tel"  placeholder="07xxxxxxxx"       id="parent-phone-${idx}" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
     <input type="text" placeholder="e.g. Father"     id="parent-rel-${idx}"   style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;background:var(--surface);">
     <button onclick="document.getElementById('parent-row-${idx}').remove()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:4px;">🗑</button>
   `;
   document.getElementById('upd-parents-list').appendChild(row);
+}
+
+function _toggleParentStatusUI(idx) {
+  const statusEl = document.getElementById('parent-status-' + idx);
+  const phoneEl  = document.getElementById('parent-phone-' + idx);
+  if (!statusEl || !phoneEl) return;
+  const deceased = statusEl.value === 'deceased';
+  phoneEl.disabled = deceased;
+  if (deceased) {
+    phoneEl.value = '';
+    phoneEl.placeholder = 'N/A (Deceased)';
+    phoneEl.style.opacity = '0.4';
+    phoneEl.style.cursor = 'not-allowed';
+  } else {
+    phoneEl.placeholder = '07xxxxxxxx';
+    phoneEl.style.opacity = '';
+    phoneEl.style.cursor = '';
+  }
 }
 
 function _collectChildren() {
@@ -833,9 +858,11 @@ function _collectParents() {
   rows.forEach(row => {
     const name = row.querySelector('[id^=parent-name]')?.value.trim();
     if (!name) return;
+    const status = row.querySelector('[id^=parent-status]')?.value || null;
     result.push({
       full_name:         name,
-      contact_phone:     row.querySelector('[id^=parent-phone]')?.value.trim() || null,
+      status:            status,
+      contact_phone:     status === 'deceased' ? null : (row.querySelector('[id^=parent-phone]')?.value.trim() || null),
       current_residence: null,
       id_number:         null,
     });
@@ -1105,6 +1132,7 @@ async function loadProfile() {
       <thead>
         <tr style="color:var(--silver);text-align:left;border-bottom:1px solid var(--border);">
           <th style="padding:6px 8px;">Name</th>
+          <th style="padding:6px 8px;">Status</th>
           <th style="padding:6px 8px;">ID Number</th>
           <th style="padding:6px 8px;">Current Residence</th>
           <th style="padding:6px 8px;">Contact Phone</th>
@@ -1114,9 +1142,16 @@ async function loadProfile() {
         ${merged.parents.map(p => `
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:6px 8px;">${p.full_name||'—'}</td>
-            <td style="padding:6px 8px;">${p.id_number||'—'}</td>
+            <td style="padding:6px 8px;">${
+              p.status === 'deceased'
+                ? '<span style="color:#ef4444;font-weight:600;">● Deceased</span>'
+                : p.status === 'alive'
+                  ? '<span style="color:#22c55e;font-weight:600;">● Alive</span>'
+                  : '—'
+            }</td>
+            <td style="padding:6px 8px;">${p.status === 'deceased' ? 'N/A' : (p.id_number||'—')}</td>
             <td style="padding:6px 8px;">${p.current_residence||'—'}</td>
-            <td style="padding:6px 8px;">${p.contact_phone||'—'}</td>
+            <td style="padding:6px 8px;">${p.status === 'deceased' ? 'N/A' : (p.contact_phone||'—')}</td>
           </tr>`).join('')}
       </tbody>
     </table>
@@ -1191,8 +1226,14 @@ async function showMemberDetail(id) {
 
   const parentRows = (full.parents||[]).length
     ? full.parents.map(p=>`
-        <div class="modal-row"><span class="lbl">${p.full_name||'—'}</span>
-        <span class="val">ID: ${p.id_number||'—'} · ${p.current_residence||'—'} · ${p.contact_phone||'—'}</span></div>
+        <div class="modal-row"><span class="lbl">${p.full_name||'—'} ${
+          p.status === 'deceased'
+            ? '<span style="color:#ef4444;font-weight:600;font-size:0.75rem;">● Deceased</span>'
+            : p.status === 'alive'
+              ? '<span style="color:#22c55e;font-weight:600;font-size:0.75rem;">● Alive</span>'
+              : ''
+        }</span>
+        <span class="val">${p.status === 'deceased' ? 'ID: N/A' : `ID: ${p.id_number||'—'}`} · ${p.current_residence||'—'} · ${p.status === 'deceased' ? 'N/A' : (p.contact_phone||'—')}</span></div>
       `).join('')
     : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
 

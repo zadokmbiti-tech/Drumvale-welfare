@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("/")
 def add_member(
     member: MemberCreate,
-    _=Depends(require_secretary)        # secretary and above can add members
+    _=Depends(require_secretary)
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -55,7 +55,7 @@ async def bulk_import_members(
 
     content = await file.read()
     try:
-        text = content.decode("utf-8-sig")   # strip BOM if present
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise HTTPException(400, "File must be UTF-8 encoded")
 
@@ -68,7 +68,7 @@ async def bulk_import_members(
     conn = get_connection()
     cur = conn.cursor()
     try:
-        for i, row in enumerate(reader, start=2):   # row 1 = header
+        for i, row in enumerate(reader, start=2):
             full_name    = (row.get("full_name") or "").strip()
             phone_number = (row.get("phone_number") or "").strip()
             if not full_name or not phone_number:
@@ -107,7 +107,6 @@ async def bulk_import_members(
     }
 
 
-# ── Static GET routes MUST come before /{member_id} ──────────────────────────
 
 @router.get("")
 @router.get("/")
@@ -135,8 +134,8 @@ def download_csv_template(_=Depends(require_secretary)):
         "date_joined", "next_of_kin_name", "next_of_kin_phone", "notes"
     ]
     example = [
-        "Jane Doe", "0712345678", "12345678", "member", "active",
-        "2024-01-15", "John Doe", "0798765432", "Founding member"
+        "Jane nyambura", "0712345678", "12345678", "member", "active",
+        "2024-01-15", "John muriithi", "0798765432", "Founding member"
     ]
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -152,7 +151,6 @@ def download_csv_template(_=Depends(require_secretary)):
 
 @router.get("/report/csv")
 def download_members_csv(_=Depends(require_secretary)):
-    """Download all members as a CSV report."""
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -183,7 +181,6 @@ def download_members_csv(_=Depends(require_secretary)):
 
 @router.get("/phones/all")
 def get_all_phones(current_user=Depends(require_super_admin)):
-    """Return phone numbers of all active members — used for SMS broadcast."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -195,7 +192,6 @@ def get_all_phones(current_user=Depends(require_super_admin)):
     return [r[0] for r in rows]
 
 
-# ── Dynamic route last ────────────────────────────────────────────────────────
 
 @router.get("/{member_id}")
 def get_member(member_id: int, _=Depends(get_current_user)):
@@ -216,7 +212,6 @@ def get_member(member_id: int, _=Depends(get_current_user)):
         if not row:
             raise HTTPException(status_code=404, detail="Member not found")
 
-        # Get children
         cur.execute("""
             SELECT full_name, date_of_birth, relationship, cert_number
             FROM member_children
@@ -229,16 +224,15 @@ def get_member(member_id: int, _=Depends(get_current_user)):
             for c in cur.fetchall()
         ]
 
-        # Get parents/parents-in-law
         cur.execute("""
-            SELECT full_name, id_number, current_residence, contact_phone
+            SELECT full_name, status, id_number, current_residence, contact_phone
             FROM member_parents
             WHERE user_id = (SELECT id FROM users WHERE phone_number = %s)
             ORDER BY id
         """, (row[2],))
         parents = [
-            {"full_name": p[0], "id_number": p[1],
-             "current_residence": p[2], "contact_phone": p[3]}
+            {"full_name": p[0], "status": p[1], "id_number": p[2],
+             "current_residence": p[3], "contact_phone": p[4]}
             for p in cur.fetchall()
         ]
     finally:
@@ -264,7 +258,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
 def update_member(
     member_id: int,
     member: MemberCreate,
-    _=Depends(require_secretary)        # secretary and above can edit members
+    _=Depends(require_secretary)
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -295,15 +289,7 @@ def admin_edit_full_profile(
     body: ProfileUpdateRequest,
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Admin edits a member's full profile directly — no approval step,
-    since the admin performing this IS the approver.
 
-    Reuses the exact same field set and semantics as the member
-    self-service update flow (see app/routes/profile_updates.py):
-    scalar fields go to users (+ mirrored subset to members),
-    children/parents lists REPLACE all existing rows for that user.
-    """
     SCALAR_FIELDS = [
         "full_name", "phone_number", "email", "id_number", "date_of_birth",
         "marital_status", "residence", "court", "house_number", "spouse_name",
@@ -342,19 +328,16 @@ def admin_edit_full_profile(
             )
         user_id = user_row[0]
 
-        # 1. Apply scalar changes to users table
         if changes:
             set_u = ", ".join(f"{k}=%s" for k in changes)
             cur.execute(f"UPDATE users SET {set_u} WHERE id=%s", (*changes.values(), user_id))
 
-            # 2. Mirror subset to members table
             m_changes = {k: v for k, v in changes.items() if k in MEMBERS_MIRROR_FIELDS}
             if m_changes:
                 set_m = ", ".join(f"{k}=%s" for k in m_changes)
                 cur.execute(f"UPDATE members SET {set_m} WHERE id=%s",
                             (*m_changes.values(), member_id))
 
-        # 3. Replace children if provided
         if children is not None:
             cur.execute("DELETE FROM member_children WHERE user_id=%s", (user_id,))
             for c in children:
@@ -366,16 +349,15 @@ def admin_edit_full_profile(
                     """, (user_id, c.get("full_name"), c.get("date_of_birth"),
                           c.get("relationship"), c.get("cert_number")))
 
-        # 4. Replace parents if provided
         if parents is not None:
             cur.execute("DELETE FROM member_parents WHERE user_id=%s", (user_id,))
             for p in parents:
                 if p.get("full_name"):
                     cur.execute("""
                         INSERT INTO member_parents
-                            (user_id, full_name, id_number, current_residence, contact_phone)
-                        VALUES (%s,%s,%s,%s,%s)
-                    """, (user_id, p.get("full_name"), p.get("id_number"),
+                            (user_id, full_name, status, id_number, current_residence, contact_phone)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                    """, (user_id, p.get("full_name"), p.get("status"), p.get("id_number"),
                           p.get("current_residence"), p.get("contact_phone")))
 
         conn.commit()
@@ -393,7 +375,7 @@ def admin_edit_full_profile(
 @router.patch("/{member_id}/deactivate")
 def deactivate_member(
     member_id: int,
-    _=Depends(require_secretary)        # secretary and above can deactivate
+    _=Depends(require_secretary)
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -407,7 +389,7 @@ def deactivate_member(
 @router.delete("/{member_id}")
 def delete_member(
     member_id: int,
-    _=Depends(require_secretary)        # secretary and above can delete
+    _=Depends(require_secretary)
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -425,7 +407,7 @@ def delete_member(
 def change_member_role(
     member_id: int,
     body: dict,
-    current_user=Depends(require_super_admin)   # only super_admin can change roles
+    current_user=Depends(require_super_admin)
 ):
     """
     Change a member's role (in the members table).
@@ -437,7 +419,6 @@ def change_member_role(
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
 
-    # Prevent self-demotion/promotion (compare against user_id in JWT)
     if str(member_id) == str(current_user.get("user_id")) and False:
         raise HTTPException(status_code=400, detail="You cannot change your own role")
 
@@ -453,7 +434,6 @@ def change_member_role(
             raise HTTPException(status_code=404, detail="Member not found")
         full_name, phone_number = row
 
-        # Sync to users table (same phone_number)
         cur.execute(
             "UPDATE users SET role=%s WHERE phone_number=%s",
             (new_role, phone_number)

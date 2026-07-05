@@ -46,9 +46,10 @@ class ChildIn(BaseModel):
 
 class ParentIn(BaseModel):
     full_name:         Optional[str] = None
+    status:            Optional[str] = None
     id_number:         Optional[str] = None
     current_residence: Optional[str] = None
-    contact_phone:     Optional[str] = None    
+    contact_phone:     Optional[str] = None
 
 class UserRegister(BaseModel):
     member_id:        Optional[str] = None
@@ -154,7 +155,7 @@ class FinanceTransactionCreate(BaseModel):
     def category_not_empty(cls, v):
         if not v.strip():
             raise ValueError("category cannot be empty")
-        return v.strip()    
+        return v.strip()
 
 class NoticeCreate(BaseModel):
     title: str

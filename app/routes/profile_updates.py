@@ -1,11 +1,3 @@
-"""
-Profile Update Request flow
-  POST   /profile-updates/              — member submits a change request
-  GET    /profile-updates/my            — member views their own requests
-  GET    /profile-updates/              — admin lists all pending requests
-  PATCH  /profile-updates/{id}/approve  — admin approves (applies changes)
-  PATCH  /profile-updates/{id}/reject   — admin rejects with optional reason
-"""
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection, release_connection
 from app.routes.auth import get_current_user, require_admin
@@ -15,35 +7,30 @@ import json
 
 router = APIRouter()
 
-# Scalar fields that live directly in profile_update_requests columns
 SCALAR_FIELDS = [
     "full_name", "phone_number", "email", "id_number", "date_of_birth",
     "marital_status", "residence", "court", "house_number", "spouse_name",
     "next_of_kin_name", "next_of_kin_phone", "next_of_kin_2", "nok2_phone",
 ]
 
-# Which scalar fields also exist on the users table
 USERS_SCALAR_FIELDS = {
     "full_name", "phone_number", "email", "id_number", "date_of_birth",
     "marital_status", "residence", "court", "house_number", "spouse_name",
     "next_of_kin_name", "next_of_kin_phone", "next_of_kin_2", "nok2_phone",
 }
 
-# Which scalar fields are mirrored to the members table
 MEMBERS_MIRROR_FIELDS = {
     "full_name", "phone_number", "id_number",
     "next_of_kin_name", "next_of_kin_phone",
 }
 
 
-# ── Member: submit update request ────────────────────────────────────
 @router.post("/", status_code=201)
 def submit_update_request(
     body: ProfileUpdateRequest,
     current_user: dict = Depends(get_current_user)
 ):
     data = body.dict(exclude_none=True)
-    # Separately grab the list fields before they get treated as scalars
     children_raw = data.pop("children", None)
     parents_raw  = data.pop("parents",  None)
     if not data and not children_raw and not parents_raw:
@@ -53,7 +40,6 @@ def submit_update_request(
     conn = get_connection()
     cur  = conn.cursor()
     try:
-        # Block duplicate pending requests
         cur.execute(
             "SELECT id FROM profile_update_requests WHERE user_id=%s AND status='pending'",
             (user_id,)
@@ -65,7 +51,6 @@ def submit_update_request(
                 "Please wait for admin review before submitting another."
             )
 
-        # Separate scalar fields
         scalar_data  = {f: data[f] for f in SCALAR_FIELDS if f in data}
         children_val = None
         parents_val  = None
@@ -81,7 +66,6 @@ def submit_update_request(
                 for p in parents_raw
             ])
 
-        # Build INSERT
         cols   = ["user_id"] + list(scalar_data.keys())
         values = [user_id]   + list(scalar_data.values())
 
@@ -114,7 +98,6 @@ def submit_update_request(
         release_connection(conn)
 
 
-# ── Member: view their own requests ──────────────────────────────────
 @router.get("/my")
 def my_update_requests(current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id")
@@ -140,7 +123,6 @@ def my_update_requests(current_user: dict = Depends(get_current_user)):
     return [_row_to_dict(r) for r in rows]
 
 
-# ── Admin: list all pending requests ─────────────────────────────────
 @router.get("/")
 def list_update_requests(_=Depends(require_admin)):
     conn = get_connection()
@@ -173,7 +155,6 @@ def list_update_requests(_=Depends(require_admin)):
     return result
 
 
-# ── Admin: approve ────────────────────────────────────────────────────
 @router.patch("/{req_id}/approve")
 def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
     reviewer_id = current_user.get("user_id")
@@ -194,18 +175,15 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
             raise HTTPException(404, "Request not found or already reviewed.")
 
         user_id = row[0]
-        # Build scalar changes dict (non-null values only)
         proposed = dict(zip(SCALAR_FIELDS, row[1:15]))
         changes  = {k: v for k, v in proposed.items() if v is not None}
 
-        # 1. Apply scalar changes to users table
         if changes:
             set_u = ", ".join(f"{k}=%s" for k in changes if k in USERS_SCALAR_FIELDS)
             vals_u = [v for k, v in changes.items() if k in USERS_SCALAR_FIELDS]
             if set_u:
                 cur.execute(f"UPDATE users SET {set_u} WHERE id=%s", (*vals_u, user_id))
 
-            # 2. Mirror subset to members table
             m_changes = {k: v for k, v in changes.items() if k in MEMBERS_MIRROR_FIELDS}
             if m_changes:
                 set_m = ", ".join(f"{k}=%s" for k in m_changes)
@@ -215,7 +193,6 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
                     (*m_changes.values(), user_id)
                 )
 
-        # 3. Apply children — replace all existing rows
         children_json = row[15]
         if children_json:
             children = json.loads(children_json)
@@ -234,7 +211,6 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
                         child.get("cert_number"),
                     ))
 
-        # 4. Apply parents — replace all existing rows
         parents_json = row[16]
         if parents_json:
             parents = json.loads(parents_json)
@@ -243,17 +219,17 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
                 if parent.get("full_name"):
                     cur.execute("""
                         INSERT INTO member_parents
-                            (user_id, full_name, id_number, current_residence, contact_phone)
-                        VALUES (%s,%s,%s,%s,%s)
+                            (user_id, full_name, status, id_number, current_residence, contact_phone)
+                        VALUES (%s,%s,%s,%s,%s,%s)
                     """, (
                         user_id,
                         parent.get("full_name"),
+                        parent.get("status"),
                         parent.get("id_number"),
                         parent.get("current_residence"),
                         parent.get("contact_phone"),
                     ))
 
-        # 5. Mark approved
         cur.execute("""
             UPDATE profile_update_requests
             SET status='approved', reviewed_by=%s, reviewed_at=NOW()
@@ -271,7 +247,6 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
         release_connection(conn)
 
 
-# ── Admin: reject with optional reason ───────────────────────────────
 @router.patch("/{req_id}/reject")
 def reject_update(req_id: int, body: dict = None, current_user: dict = Depends(require_admin)):
     reviewer_id = current_user.get("user_id")
@@ -302,7 +277,6 @@ def reject_update(req_id: int, body: dict = None, current_user: dict = Depends(r
         release_connection(conn)
 
 
-# ── Helper ────────────────────────────────────────────────────────────
 def _row_to_dict(r):
     scalar_keys = SCALAR_FIELDS
     proposed = {}
@@ -311,9 +285,8 @@ def _row_to_dict(r):
         if v is not None:
             proposed[k] = str(v)
 
-    # Parse children/parents JSON
-    children_json = r[5 + len(scalar_keys)]      # index 19
-    parents_json  = r[5 + len(scalar_keys) + 1]  # index 20
+    children_json = r[5 + len(scalar_keys)]
+    parents_json  = r[5 + len(scalar_keys) + 1]
 
     if children_json:
         try:

@@ -214,10 +214,14 @@ CREATE TABLE IF NOT EXISTS member_parents (
     id                 SERIAL PRIMARY KEY,
     user_id            INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     full_name          VARCHAR(200),
+    status             VARCHAR(20),
     id_number          VARCHAR(20),
     current_residence  VARCHAR(200),
     contact_phone      VARCHAR(20)
 );
+
+ALTER TABLE member_parents
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20);
 
 -- ============================================================
 -- PROFILE UPDATE REQUESTS — extra columns for children/parents

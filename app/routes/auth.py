@@ -12,10 +12,6 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
-
-# Update /login — add Request param and decorator
-
-
 router = APIRouter()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -60,9 +56,6 @@ def require_admin(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
-# ------------------------------------------------------------------ #
-#  REGISTER
-# ------------------------------------------------------------------ #
 @router.post("/register", status_code=201)
 @limiter.limit("3/minute")
 def register(request: Request, data: UserRegister):
@@ -85,7 +78,6 @@ def register(request: Request, data: UserRegister):
 
         hashed = hash_password(data.password)
 
-        # 1. Insert into users (source of truth for all profile fields)
         cur.execute("""
             INSERT INTO users (
                 full_name, phone_number, email, id_number, hashed_password,
@@ -102,7 +94,6 @@ def register(request: Request, data: UserRegister):
         ))
         new_user_id = cur.fetchone()[0]
 
-        # 2. Insert children if any
         for child in (data.children or []):
             if child.full_name:
                 cur.execute("""
@@ -112,17 +103,15 @@ def register(request: Request, data: UserRegister):
                 """, (new_user_id, child.full_name, child.date_of_birth,
                       child.relationship, child.cert_number))
 
-        # 3. Insert parents/parents-in-law if any
         for parent in (data.parents or []):
             if parent.full_name:
                 cur.execute("""
                     INSERT INTO member_parents
-                        (user_id, full_name, id_number, current_residence, contact_phone)
-                    VALUES (%s,%s,%s,%s,%s)
-                """, (new_user_id, parent.full_name, parent.id_number,
-                      parent.current_residence, parent.contact_phone))
+                        (user_id, full_name, status, id_number, current_residence, contact_phone)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                """, (new_user_id, parent.full_name, parent.status,
+                      parent.id_number, parent.current_residence, parent.contact_phone))
 
-        # 4. Mirror basic fields into members table
         cur.execute("""
             INSERT INTO members (
                 full_name, phone_number, id_number, role, status,
@@ -189,9 +178,6 @@ def login(request: Request, data: UserLogin):
     token = create_token({"sub": str(user[0]), "user_id": user[0], "role": user[2]})
     return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2], phone_number=user[6] or "")
 
-# ------------------------------------------------------------------ #
-#  SWAGGER /docs token endpoint
-# ------------------------------------------------------------------ #
 @router.post("/token")
 def token(form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_connection()
@@ -216,9 +202,6 @@ def token(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token_str, "token_type": "bearer"}
 
 
-# ------------------------------------------------------------------ #
-#  ME
-# ------------------------------------------------------------------ #
 @router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
     conn = get_connection()
@@ -257,16 +240,17 @@ def get_me(current_user: dict = Depends(get_current_user)):
             ]
             # fetch parents
             cur.execute(
-                """SELECT full_name, id_number, current_residence, contact_phone
+                """SELECT full_name, status, id_number, current_residence, contact_phone
                    FROM member_parents WHERE user_id=%s ORDER BY id""",
                 (user[0],)
             )
             parents = [
                 {
                     "full_name": r[0],
-                    "id_number": r[1],
-                    "current_residence": r[2],
-                    "contact_phone": r[3]
+                    "status": r[1],
+                    "id_number": r[2],
+                    "current_residence": r[3],
+                    "contact_phone": r[4]
                 }
                 for r in cur.fetchall()
             ]
@@ -298,9 +282,6 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "children": children,
     "parents": parents
 }
-# ------------------------------------------------------------------ #
-#  ADMIN — list pending, approve, reject, change role
-# ------------------------------------------------------------------ #
 @router.get("/admin/pending")
 def list_pending(current_user=Depends(require_admin)):
     conn = get_connection()
@@ -330,12 +311,12 @@ def list_pending(current_user=Depends(require_admin)):
                 for c in cur.fetchall()
             ]
             cur.execute("""
-                SELECT full_name, id_number, current_residence, contact_phone
+                SELECT full_name, status, id_number, current_residence, contact_phone
                 FROM member_parents WHERE user_id=%s
             """, (r[0],))
             parents = [
-                {"full_name": p[0], "id_number": p[1],
-                 "current_residence": p[2], "contact_phone": p[3]}
+                {"full_name": p[0], "status": p[1], "id_number": p[2],
+                 "current_residence": p[3], "contact_phone": p[4]}
                 for p in cur.fetchall()
             ]
             result.append({
