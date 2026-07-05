@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("/")
 def add_member(
     member: MemberCreate,
-    _=Depends(require_secretary)
+    current_user=Depends(require_secretary)        # secretary and above can add members
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -30,6 +30,11 @@ def add_member(
         ))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Member Created", actor, detail=f"Added member {member.full_name}", target=member.full_name)
+
         return {"message": "Member added", "id": new_id}
     except Exception as e:
         conn.rollback()
@@ -42,7 +47,7 @@ def add_member(
 @router.post("/bulk-import")
 async def bulk_import_members(
     file: UploadFile = File(...),
-    _=Depends(require_secretary)
+    current_user=Depends(require_secretary)
 ):
     """
     Import members from a CSV file.
@@ -55,7 +60,7 @@ async def bulk_import_members(
 
     content = await file.read()
     try:
-        text = content.decode("utf-8-sig")
+        text = content.decode("utf-8-sig")   # strip BOM if present
     except UnicodeDecodeError:
         raise HTTPException(400, "File must be UTF-8 encoded")
 
@@ -68,7 +73,7 @@ async def bulk_import_members(
     conn = get_connection()
     cur = conn.cursor()
     try:
-        for i, row in enumerate(reader, start=2):
+        for i, row in enumerate(reader, start=2):   # row 1 = header
             full_name    = (row.get("full_name") or "").strip()
             phone_number = (row.get("phone_number") or "").strip()
             if not full_name or not phone_number:
@@ -100,6 +105,11 @@ async def bulk_import_members(
         cur.close()
         release_connection(conn)
 
+    from app.routes.audit import log_user_action
+    log_user_action(current_user, "Members Bulk Imported",
+                     detail=f"{inserted} inserted, {len(errors)} error(s) from {file.filename}",
+                     target=file.filename)
+
     return {
         "inserted": inserted,
         "errors": errors,
@@ -107,6 +117,7 @@ async def bulk_import_members(
     }
 
 
+# ── Static GET routes MUST come before /{member_id} ──────────────────────────
 
 @router.get("")
 @router.get("/")
@@ -134,8 +145,8 @@ def download_csv_template(_=Depends(require_secretary)):
         "date_joined", "next_of_kin_name", "next_of_kin_phone", "notes"
     ]
     example = [
-        "Jane nyambura", "0712345678", "12345678", "member", "active",
-        "2024-01-15", "John muriithi", "0798765432", "Founding member"
+        "Jane Doe", "0712345678", "12345678", "member", "active",
+        "2024-01-15", "John Doe", "0798765432", "Founding member"
     ]
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -151,6 +162,7 @@ def download_csv_template(_=Depends(require_secretary)):
 
 @router.get("/report/csv")
 def download_members_csv(_=Depends(require_secretary)):
+    """Download all members as a CSV report."""
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -181,6 +193,7 @@ def download_members_csv(_=Depends(require_secretary)):
 
 @router.get("/phones/all")
 def get_all_phones(current_user=Depends(require_super_admin)):
+    """Return phone numbers of all active members — used for SMS broadcast."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -192,6 +205,7 @@ def get_all_phones(current_user=Depends(require_super_admin)):
     return [r[0] for r in rows]
 
 
+# ── Dynamic route last ────────────────────────────────────────────────────────
 
 @router.get("/{member_id}")
 def get_member(member_id: int, _=Depends(get_current_user)):
@@ -212,6 +226,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
         if not row:
             raise HTTPException(status_code=404, detail="Member not found")
 
+        # Get children
         cur.execute("""
             SELECT full_name, date_of_birth, relationship, cert_number
             FROM member_children
@@ -224,6 +239,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
             for c in cur.fetchall()
         ]
 
+        # Get parents/parents-in-law
         cur.execute("""
             SELECT full_name, status, id_number, current_residence, contact_phone
             FROM member_parents
@@ -258,7 +274,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
 def update_member(
     member_id: int,
     member: MemberCreate,
-    _=Depends(require_secretary)
+    current_user=Depends(require_secretary)        # secretary and above can edit members
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -274,6 +290,11 @@ def update_member(
             member.notes, member_id
         ))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Member Updated", detail="Basic member fields updated",
+                         target=member.full_name or f"member #{member_id}")
+
         return {"message": "Member updated"}
     except Exception as e:
         conn.rollback()
@@ -289,7 +310,15 @@ def admin_edit_full_profile(
     body: ProfileUpdateRequest,
     current_user: dict = Depends(require_admin)
 ):
+    """
+    Admin edits a member's full profile directly — no approval step,
+    since the admin performing this IS the approver.
 
+    Reuses the exact same field set and semantics as the member
+    self-service update flow (see app/routes/profile_updates.py):
+    scalar fields go to users (+ mirrored subset to members),
+    children/parents lists REPLACE all existing rows for that user.
+    """
     SCALAR_FIELDS = [
         "full_name", "phone_number", "email", "id_number", "date_of_birth",
         "marital_status", "residence", "court", "house_number", "spouse_name",
@@ -328,16 +357,19 @@ def admin_edit_full_profile(
             )
         user_id = user_row[0]
 
+        # 1. Apply scalar changes to users table
         if changes:
             set_u = ", ".join(f"{k}=%s" for k in changes)
             cur.execute(f"UPDATE users SET {set_u} WHERE id=%s", (*changes.values(), user_id))
 
+            # 2. Mirror subset to members table
             m_changes = {k: v for k, v in changes.items() if k in MEMBERS_MIRROR_FIELDS}
             if m_changes:
                 set_m = ", ".join(f"{k}=%s" for k in m_changes)
                 cur.execute(f"UPDATE members SET {set_m} WHERE id=%s",
                             (*m_changes.values(), member_id))
 
+        # 3. Replace children if provided
         if children is not None:
             cur.execute("DELETE FROM member_children WHERE user_id=%s", (user_id,))
             for c in children:
@@ -349,6 +381,7 @@ def admin_edit_full_profile(
                     """, (user_id, c.get("full_name"), c.get("date_of_birth"),
                           c.get("relationship"), c.get("cert_number")))
 
+        # 4. Replace parents if provided
         if parents is not None:
             cur.execute("DELETE FROM member_parents WHERE user_id=%s", (user_id,))
             for p in parents:
@@ -361,6 +394,14 @@ def admin_edit_full_profile(
                           p.get("current_residence"), p.get("contact_phone")))
 
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        changed_fields = list(changes.keys()) + (["children"] if children is not None else []) + (["parents"] if parents is not None else [])
+        log_action("Member Profile Updated", actor,
+                    detail=f"Fields updated: {', '.join(changed_fields) or 'none'}",
+                    target=f"member #{member_id}")
+
         return {"message": "Member profile updated by admin."}
     except HTTPException:
         raise
@@ -375,12 +416,20 @@ def admin_edit_full_profile(
 @router.patch("/{member_id}/deactivate")
 def deactivate_member(
     member_id: int,
-    _=Depends(require_secretary)
+    current_user=Depends(require_secretary)        # secretary and above can deactivate
 ):
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute("SELECT full_name FROM members WHERE id=%s", (member_id,))
+    row = cur.fetchone()
     cur.execute("UPDATE members SET status='inactive' WHERE id=%s", (member_id,))
     conn.commit()
+
+    from app.routes.audit import log_action, get_actor_name
+    actor = get_actor_name(cur, current_user)
+    log_action("Member Deactivated", actor, detail="Status set to inactive",
+                target=row[0] if row else f"member #{member_id}")
+
     cur.close()
     release_connection(conn)
     return {"message": "Member deactivated"}
@@ -389,13 +438,22 @@ def deactivate_member(
 @router.delete("/{member_id}")
 def delete_member(
     member_id: int,
-    _=Depends(require_secretary)
+    current_user=Depends(require_secretary)        # secretary and above can delete
 ):
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute("SELECT full_name FROM members WHERE id=%s", (member_id,))
+    existing = cur.fetchone()
     cur.execute("DELETE FROM members WHERE id=%s RETURNING id", (member_id,))
     deleted = cur.fetchone()
     conn.commit()
+
+    if deleted:
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Member Deleted", actor, detail="Member record permanently deleted",
+                    target=existing[0] if existing else f"member #{member_id}")
+
     cur.close()
     release_connection(conn)
     if not deleted:
@@ -407,7 +465,7 @@ def delete_member(
 def change_member_role(
     member_id: int,
     body: dict,
-    current_user=Depends(require_super_admin)
+    current_user=Depends(require_super_admin)   # only super_admin can change roles
 ):
     """
     Change a member's role (in the members table).
@@ -419,6 +477,7 @@ def change_member_role(
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
 
+    # Prevent self-demotion/promotion (compare against user_id in JWT)
     if str(member_id) == str(current_user.get("user_id")) and False:
         raise HTTPException(status_code=400, detail="You cannot change your own role")
 
@@ -434,11 +493,17 @@ def change_member_role(
             raise HTTPException(status_code=404, detail="Member not found")
         full_name, phone_number = row
 
+        # Sync to users table (same phone_number)
         cur.execute(
             "UPDATE users SET role=%s WHERE phone_number=%s",
             (new_role, phone_number)
         )
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Role Changed", actor, detail=f"Role changed to {new_role}", target=full_name)
+
         return {"message": f"{full_name}'s role updated to {new_role}"}
     except HTTPException:
         raise

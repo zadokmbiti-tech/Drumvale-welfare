@@ -12,6 +12,10 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
+
+# Update /login — add Request param and decorator
+
+
 router = APIRouter()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -56,6 +60,9 @@ def require_admin(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
+# ------------------------------------------------------------------ #
+#  REGISTER
+# ------------------------------------------------------------------ #
 @router.post("/register", status_code=201)
 @limiter.limit("3/minute")
 def register(request: Request, data: UserRegister):
@@ -78,6 +85,7 @@ def register(request: Request, data: UserRegister):
 
         hashed = hash_password(data.password)
 
+        # 1. Insert into users (source of truth for all profile fields)
         cur.execute("""
             INSERT INTO users (
                 full_name, phone_number, email, id_number, hashed_password,
@@ -94,6 +102,7 @@ def register(request: Request, data: UserRegister):
         ))
         new_user_id = cur.fetchone()[0]
 
+        # 2. Insert children if any
         for child in (data.children or []):
             if child.full_name:
                 cur.execute("""
@@ -103,6 +112,7 @@ def register(request: Request, data: UserRegister):
                 """, (new_user_id, child.full_name, child.date_of_birth,
                       child.relationship, child.cert_number))
 
+        # 3. Insert parents/parents-in-law if any
         for parent in (data.parents or []):
             if parent.full_name:
                 cur.execute("""
@@ -112,6 +122,7 @@ def register(request: Request, data: UserRegister):
                 """, (new_user_id, parent.full_name, parent.status,
                       parent.id_number, parent.current_residence, parent.contact_phone))
 
+        # 4. Mirror basic fields into members table
         cur.execute("""
             INSERT INTO members (
                 full_name, phone_number, id_number, role, status,
@@ -125,6 +136,12 @@ def register(request: Request, data: UserRegister):
         ))
 
         conn.commit()
+
+        from app.routes.audit import log_action
+        log_action("Registration Submitted", data.full_name,
+                    detail=f"New member registration ({data.phone_number}) awaiting approval",
+                    target=data.full_name)
+
         return {
             "message": "Registration submitted. Await admin approval.",
             "user_id": new_user_id,
@@ -176,8 +193,15 @@ def login(request: Request, data: UserLogin):
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_token({"sub": str(user[0]), "user_id": user[0], "role": user[2]})
+
+    from app.routes.audit import log_action
+    log_action("Login", user[1], detail=f"Successful login ({user[2]})", target=user[1])
+
     return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2], phone_number=user[6] or "")
 
+# ------------------------------------------------------------------ #
+#  SWAGGER /docs token endpoint
+# ------------------------------------------------------------------ #
 @router.post("/token")
 def token(form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_connection()
@@ -202,6 +226,28 @@ def token(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token_str, "token_type": "bearer"}
 
 
+@router.post("/logout")
+def logout(current_user: dict = Depends(get_current_user)):
+    """
+    JWTs are stateless so there's nothing to invalidate server-side —
+    this endpoint exists purely to record the logout in the audit log.
+    The frontend still clears its local token regardless of this call's outcome.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Logout", actor, detail=f"Signed out ({current_user.get('role','')})", target=actor)
+    finally:
+        cur.close()
+        release_connection(conn)
+    return {"message": "Logged out"}
+
+
+# ------------------------------------------------------------------ #
+#  ME
+# ------------------------------------------------------------------ #
 @router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
     conn = get_connection()
@@ -282,6 +328,9 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "children": children,
     "parents": parents
 }
+# ------------------------------------------------------------------ #
+#  ADMIN — list pending, approve, reject, change role
+# ------------------------------------------------------------------ #
 @router.get("/admin/pending")
 def list_pending(current_user=Depends(require_admin)):
     conn = get_connection()
@@ -374,6 +423,11 @@ def approve_user(user_id: int, current_user=Depends(require_admin)):
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Member Approved", actor, detail=f"Approved and activated {row[1]}", target=row[1])
+
         return {"message": f"{row[1]} approved and activated"}
     except HTTPException:
         raise
@@ -402,6 +456,11 @@ def reject_user(user_id: int, body: dict = None, current_user=Depends(require_ad
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Member Rejected", actor, detail=reason or "No reason given", target=row[1])
+
         return {"message": f"{row[1]} rejected"}
     except HTTPException:
         raise
@@ -434,6 +493,11 @@ def change_role(user_id: int, body: dict, current_user=Depends(require_admin)):
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Role Changed", actor, detail=f"Role changed to {new_role}", target=row[0])
+
         return {"message": f"{row[0]}'s role updated to {new_role}"}
     except HTTPException:
         raise
@@ -460,6 +524,11 @@ def reinstate_user(user_id: int, current_user=Depends(require_admin)):
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         conn.commit()
+
+        from app.routes.audit import log_action, get_actor_name
+        actor = get_actor_name(cur, current_user)
+        log_action("Member Reinstated", actor, detail=f"{row[1]} moved back to pending", target=row[1])
+
         return {"message": f"{row[1]} moved back to pending"}
     except HTTPException:
         raise

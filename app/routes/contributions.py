@@ -1,4 +1,3 @@
-# app/routes/contributions.py
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection, release_connection
 from app.models import MonthlyContributionCreate
@@ -10,7 +9,6 @@ from typing import Optional
 router = APIRouter()
 
 
-# ── Schema for member self-submission ────────────────────────────────────────
 class MemberContributionSubmit(BaseModel):
     amount: float
     month: str                          # YYYY-MM  e.g. "2026-06"
@@ -22,7 +20,7 @@ class MemberContributionSubmit(BaseModel):
 @router.post("/")
 def record_contribution(
     data: MonthlyContributionCreate,
-    _=Depends(require_treasurer)        # treasurer, chairperson, super_admin
+    current_user=Depends(require_treasurer)        # treasurer, chairperson, super_admin
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -41,6 +39,12 @@ def record_contribution(
               data.payment_method, data.reference, data.notes))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Contribution Created",
+                         detail=f"KES {data.amount} · {data.month}",
+                         target=member[1])
+
         return {"message": "Contribution recorded", "id": new_id, "member": member[1]}
     except HTTPException:
         raise
@@ -207,6 +211,12 @@ def member_submit_contribution(
               current_user["user_id"]))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Contribution Submitted",
+                         detail=f"KES {data.amount} · {data.month} (awaiting approval)",
+                         target=f"member #{member_id}")
+
         return {
             "message": "Contribution submitted and awaiting admin approval",
             "id": new_id,
@@ -247,6 +257,12 @@ def approve_contribution(
             (contribution_id,)
         )
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Contribution Approved",
+                         detail=f"Contribution #{contribution_id} approved",
+                         target=f"contribution #{contribution_id}")
+
         return {"message": "Contribution approved", "id": contribution_id}
     except HTTPException:
         raise
@@ -275,6 +291,12 @@ def reject_contribution(
         conn.commit()
         if not row:
             raise HTTPException(status_code=404, detail="Contribution not found")
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Contribution Rejected",
+                         detail=f"Contribution #{contribution_id} rejected",
+                         target=f"contribution #{contribution_id}")
+
         return {"message": "Contribution rejected", "id": contribution_id}
     except HTTPException:
         raise
@@ -319,7 +341,7 @@ def list_pending_contributions(_=Depends(require_treasurer)):
 @router.delete("/{contribution_id}")
 def delete_contribution(
     contribution_id: int,
-    _=Depends(require_chairperson)      # chairperson and super_admin only
+    current_user=Depends(require_chairperson)      # chairperson and super_admin only
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -330,4 +352,10 @@ def delete_contribution(
     release_connection(conn)
     if not deleted:
         raise HTTPException(status_code=404, detail="Contribution not found")
+
+    from app.routes.audit import log_user_action
+    log_user_action(current_user, "Contribution Deleted",
+                     detail=f"Contribution #{contribution_id} deleted",
+                     target=f"contribution #{contribution_id}")
+
     return {"message": "Deleted"}

@@ -43,6 +43,9 @@ def request_reset( request:Request, data: dict):
     otp = "".join(random.choices(string.digits, k=6))
     _otp_store[phone] = (otp, datetime.now() + timedelta(minutes=15))
 
+    from app.routes.audit import log_action
+    log_action("Password Reset Requested", full_name, detail=f"OTP generated for {phone}", target=full_name)
+
     # Return OTP in response (admin will relay to member via WhatsApp/phone)
     # In production you'd send SMS via Africa's Talking here
     return {
@@ -77,10 +80,17 @@ def confirm_reset(request: Request, data: dict):
     conn = get_connection()
     cur  = conn.cursor()
     try:
+        cur.execute("SELECT full_name FROM users WHERE phone_number=%s", (phone,))
+        name_row = cur.fetchone()
         hashed = pwd_ctx.hash(new_pass)
         cur.execute("UPDATE users SET hashed_password=%s WHERE phone_number=%s", (hashed, phone))
         conn.commit()
         _otp_store.pop(phone, None)
+
+        from app.routes.audit import log_action
+        actor = name_row[0] if name_row else phone
+        log_action("Password Reset Completed", actor, detail="Password changed via OTP flow", target=actor)
+
         return {"message": "Password updated successfully. Please log in with your new password."}
     finally:
         cur.close()

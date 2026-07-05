@@ -1,4 +1,3 @@
-# app/routes/event_contributions.py
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_connection, release_connection
 from app.models import EventContributionCreate, EventContributionOut, EventContributionSummary
@@ -9,17 +8,15 @@ from decimal import Decimal
 router = APIRouter()
 
 
-# ── POST /events/{event_id}/contributions ──────────────────────
 @router.post("/{event_id}/contributions")
 def add_event_contribution(
     event_id: int,
     data: EventContributionCreate,
-    _=Depends(require_treasurer)
+    current_user=Depends(require_treasurer)
 ):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        # Check event exists and is open
         cur.execute("SELECT id, title, status FROM events WHERE id=%s", (event_id,))
         event = cur.fetchone()
         if not event:
@@ -27,7 +24,6 @@ def add_event_contribution(
         if event[2] != "open":
             raise HTTPException(status_code=400, detail="Event is not open for contributions")
 
-        # Check member exists
         cur.execute("SELECT id, full_name FROM members WHERE id=%s", (data.member_id,))
         member = cur.fetchone()
         if not member:
@@ -50,6 +46,11 @@ def add_event_contribution(
         new_id, recorded_at = cur.fetchone()
         conn.commit()
 
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Event Contribution Created",
+                         detail=f"KES {data.amount} for {event[1]}",
+                         target=member[1])
+
         return {
             "message": "Contribution recorded",
             "id": new_id,
@@ -68,7 +69,6 @@ def add_event_contribution(
         release_connection(conn)
 
 
-# ── GET /events/{event_id}/contributions ───────────────────────
 @router.get("/{event_id}/contributions")
 def get_event_contributions(
     event_id: int,
@@ -86,7 +86,6 @@ def get_event_contributions(
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        # Fetch all contributions with member name
         cur.execute("""
             SELECT ec.id, ec.event_id, ec.member_id, m.full_name,
                    ec.amount, ec.payment_method, ec.reference,
@@ -98,7 +97,6 @@ def get_event_contributions(
         """, (event_id,))
         rows = cur.fetchall()
 
-        # Total raised
         cur.execute("""
             SELECT COALESCE(SUM(amount), 0), COUNT(*)
             FROM event_contributions
@@ -134,22 +132,19 @@ def get_event_contributions(
         release_connection(conn)
 
 
-# ── PUT /events/contributions/{contribution_id} ────────────────
 @router.put("/contributions/{contribution_id}")
 def update_event_contribution(
     contribution_id: int,
     data: EventContributionCreate,
-    _=Depends(require_treasurer)
+    current_user=Depends(require_treasurer)
 ):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        # Check contribution exists
         cur.execute("SELECT id FROM event_contributions WHERE id=%s", (contribution_id,))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Contribution not found")
 
-        # Check member exists
         cur.execute("SELECT id FROM members WHERE id=%s", (data.member_id,))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Member not found")
@@ -160,6 +155,12 @@ def update_event_contribution(
             WHERE id=%s RETURNING id
         """, (data.member_id, data.amount, data.note, contribution_id))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Event Contribution Updated",
+                         detail=f"Amount set to KES {data.amount}",
+                         target=f"contribution #{contribution_id}")
+
         return {"message": "Contribution updated successfully"}
     except HTTPException:
         raise
@@ -171,11 +172,10 @@ def update_event_contribution(
         release_connection(conn)
 
 
-# ── DELETE /events/contributions/{contribution_id} ─────────────
 @router.delete("/contributions/{contribution_id}")
 def delete_event_contribution(
     contribution_id: int,
-    _=Depends(require_chairperson)
+    current_user=Depends(require_chairperson)
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -188,6 +188,12 @@ def delete_event_contribution(
         conn.commit()
         if not deleted:
             raise HTTPException(status_code=404, detail="Contribution not found")
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Event Contribution Deleted",
+                         detail="Contribution removed",
+                         target=f"contribution #{contribution_id}")
+
         return {"message": "Contribution deleted"}
     except HTTPException:
         raise

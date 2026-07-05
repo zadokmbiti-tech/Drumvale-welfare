@@ -178,6 +178,11 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
         )
         sms_result = _send_sms(phones, sms_message)
 
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Meeting Scheduled",
+                         detail=f"{date}{' at ' + time_str if time_str else ''} · {venue or 'TBD'} · SMS to {len(phones)} member(s)",
+                         target=title)
+
         return {
             "id":      meeting_id,
             "message": "Meeting scheduled",
@@ -259,7 +264,7 @@ def my_meetings(current_user: dict = Depends(get_current_user)):
     ]
 
 @router.patch("/{meeting_id}/status")
-def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secretary)):
+def update_meeting_status(meeting_id: int, body: dict, current_user=Depends(require_secretary)):
     valid = ("scheduled", "completed", "cancelled")
     status = body.get("status")
     if status not in valid:
@@ -267,9 +272,16 @@ def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secreta
     conn = get_connection()
     cur  = conn.cursor()
     try:
+        cur.execute("SELECT title FROM meetings WHERE id=%s", (meeting_id,))
+        existing = cur.fetchone()
         cur.execute("UPDATE meetings SET status=%s WHERE id=%s RETURNING id", (status, meeting_id))
         if not cur.fetchone(): raise HTTPException(404, "Meeting not found")
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Meeting Status Updated", detail=f"Marked as {status}",
+                         target=existing[0] if existing else f"meeting #{meeting_id}")
+
         return {"message": f"Meeting marked as {status}"}
     finally:
         cur.close()
@@ -277,7 +289,7 @@ def update_meeting_status(meeting_id: int, body: dict, _=Depends(require_secreta
 
 
 @router.post("/{meeting_id}/sms")
-def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
+def resend_meeting_sms(meeting_id: int, current_user=Depends(require_secretary)):
     """Manually resend the meeting SMS to all active members."""
     conn = get_connection()
     cur  = conn.cursor()
@@ -300,6 +312,11 @@ def resend_meeting_sms(meeting_id: int, _=Depends(require_secretary)):
             "Drumvale Welfare."
         )
         result = _send_sms(phones, sms_message)
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Meeting SMS Resent",
+                         detail=f"Reminder resent to {len(phones)} member(s)", target=title)
+
         return result
     except HTTPException:
         raise  # let 404 pass through cleanly

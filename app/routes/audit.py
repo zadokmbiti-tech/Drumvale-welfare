@@ -1,13 +1,23 @@
-"""
-Audit log — every sensitive action is recorded here.
-  GET  /audit                — admin: paginated audit trail
-  POST /audit/log            — internal: record an action (called server-side)
-"""
 from fastapi import APIRouter, Depends, Query
 from app.database import get_connection, release_connection
 from app.routes.auth import require_admin
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
+
+
+def get_actor_name(cur, current_user: dict) -> str:
+    """Resolve a human-readable name for whoever performed an action, from the JWT payload."""
+    user_id = current_user.get("user_id") if current_user else None
+    if not user_id:
+        return "system"
+    try:
+        cur.execute("SELECT full_name FROM users WHERE id=%s", (user_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return row[0]
+    except Exception:
+        pass
+    return f"user #{user_id}"
 
 
 def log_action(action: str, performed_by: str, detail: str = "", target: str = ""):
@@ -22,6 +32,26 @@ def log_action(action: str, performed_by: str, detail: str = "", target: str = "
         conn.commit()
     except Exception:
         conn.rollback()
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+def log_user_action(current_user: dict, action: str, detail: str = "", target: str = ""):
+    """
+    Convenience wrapper: resolves the actor's name from the JWT payload and
+    records the audit entry, all on its own connection. Use this from routes
+    instead of manually calling get_actor_name()+log_action() with the
+    request's own cursor — avoids reusing a cursor after its connection
+    has already been committed/released.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        actor = get_actor_name(cur, current_user)
+        log_action(action, actor, detail=detail, target=target)
+    except Exception:
+        pass
     finally:
         cur.close()
         release_connection(conn)

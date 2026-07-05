@@ -11,7 +11,7 @@ router = APIRouter()
 @router.post("/")
 def create_event(
     event: EventCreate,
-    _=Depends(require_secretary)        # secretary and above can create events
+    current_user=Depends(require_secretary)        # secretary and above can create events
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -23,6 +23,12 @@ def create_event(
               event.description, event.target_amount))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Event Created",
+                         detail=f"{event.event_type} · target KES {event.target_amount}",
+                         target=event.title)
+
         return {"message": "Event raised", "id": new_id}
     except Exception as e:
         conn.rollback()
@@ -112,7 +118,7 @@ def my_events(current_user: dict = Depends(get_current_user)):
 def add_contribution(
     event_id: int,
     contribution: ContributionCreate,
-    _=Depends(require_treasurer)        # treasurer and above records contributions
+    current_user=Depends(require_treasurer)        # treasurer and above records contributions
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -124,6 +130,12 @@ def add_contribution(
               contribution.payment_method, contribution.reference, contribution.notes))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Event Contribution Recorded",
+                         detail=f"KES {contribution.amount}",
+                         target=f"event #{event_id}")
+
         return {"message": "Contribution recorded", "id": new_id}
     except Exception as e:
         conn.rollback()
@@ -136,13 +148,20 @@ def add_contribution(
 @router.patch("/{event_id}/close")
 def close_event(
     event_id: int,
-    _=Depends(require_chairperson)      # only chairperson/super_admin can close events
+    current_user=Depends(require_chairperson)      # only chairperson/super_admin can close events
 ):
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute("SELECT title FROM events WHERE id=%s", (event_id,))
+    existing = cur.fetchone()
     cur.execute("UPDATE events SET status='closed', date_closed=%s WHERE id=%s",
                 (date.today(), event_id))
     conn.commit()
     cur.close()
     release_connection(conn)
+
+    from app.routes.audit import log_user_action
+    log_user_action(current_user, "Event Closed", detail="Event marked closed",
+                     target=existing[0] if existing else f"event #{event_id}")
+
     return {"message": "Event closed"}

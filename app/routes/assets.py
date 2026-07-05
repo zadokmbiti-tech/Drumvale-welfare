@@ -26,7 +26,7 @@ def list_assets(_=Depends(get_current_user)):
 
 
 @router.post("/")
-def add_asset(data: dict, _=Depends(require_admin)):
+def add_asset(data: dict, current_user=Depends(require_admin)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -36,6 +36,12 @@ def add_asset(data: dict, _=Depends(require_admin)):
         )
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Asset Created",
+                         detail=f"Category: {data.get('category','—')}, Value: {data.get('value',0)}",
+                         target=data.get("name", f"asset #{new_id}"))
+
         return {"id": new_id, "message": "Asset added"}
     finally:
         cur.close()
@@ -43,12 +49,19 @@ def add_asset(data: dict, _=Depends(require_admin)):
 
 
 @router.delete("/{asset_id}")
-def delete_asset(asset_id: int, _=Depends(require_admin)):
+def delete_asset(asset_id: int, current_user=Depends(require_admin)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT name FROM assets WHERE id=%s", (asset_id,))
+        existing = cur.fetchone()
         cur.execute("DELETE FROM assets WHERE id=%s", (asset_id,))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Asset Deleted", detail="Asset removed",
+                         target=existing[0] if existing else f"asset #{asset_id}")
+
         return {"message": "Asset deleted"}
     finally:
         cur.close()

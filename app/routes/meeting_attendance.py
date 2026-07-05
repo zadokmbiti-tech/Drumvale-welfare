@@ -50,7 +50,7 @@ def get_attendance(meeting_id: int, _=Depends(get_current_user)):
 
 
 @router.post("/{meeting_id}/mark")
-def mark_attendance(meeting_id: int, data: dict, _=Depends(require_admin)):
+def mark_attendance(meeting_id: int, data: dict, current_user=Depends(require_admin)):
     """
     data = {"attendance": [{"member_id": 1, "present": true}, ...]}
     """
@@ -66,6 +66,13 @@ def mark_attendance(meeting_id: int, data: dict, _=Depends(require_admin)):
                 DO UPDATE SET present = EXCLUDED.present
             """, (meeting_id, rec["member_id"], rec.get("present", False)))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        present_count = sum(1 for r in records if r.get("present"))
+        log_user_action(current_user, "Meeting Attendance Marked",
+                         detail=f"{present_count}/{len(records)} present",
+                         target=f"meeting #{meeting_id}")
+
         return {"message": f"Attendance saved for {len(records)} members"}
     except Exception as e:
         conn.rollback()
@@ -76,13 +83,18 @@ def mark_attendance(meeting_id: int, data: dict, _=Depends(require_admin)):
 
 
 @router.put("/{meeting_id}/minutes")
-def save_minutes(meeting_id: int, data: dict, _=Depends(require_admin)):
+def save_minutes(meeting_id: int, data: dict, current_user=Depends(require_admin)):
     minutes = data.get("minutes", "").strip()
     conn = get_connection()
     cur  = conn.cursor()
     try:
         cur.execute("UPDATE meetings SET minutes=%s WHERE id=%s", (minutes, meeting_id))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Meeting Minutes Updated",
+                         detail="Minutes saved", target=f"meeting #{meeting_id}")
+
         return {"message": "Minutes saved"}
     except Exception as e:
         conn.rollback()

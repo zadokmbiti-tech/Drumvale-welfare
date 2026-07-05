@@ -57,6 +57,12 @@ def submit_case_report(
         ))
         row = cur.fetchone()
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Case Report Submitted",
+                         detail=f"{body.event_type}: {body.title}",
+                         target=body.affected_member_name or body.title)
+
         return {
             "message":      "Case report submitted — awaiting committee approval.",
             "id":           row[0],
@@ -210,6 +216,12 @@ def approve_report(report_id: int, current_user: dict = Depends(require_admin)):
         """, (reviewer_id, event_id, report_id))
 
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Case Report Approved",
+                         detail=f"Published as event: {title}",
+                         target=title)
+
         return {"message": "Report approved and published as public event.", "event_id": event_id}
     except HTTPException:
         raise
@@ -245,6 +257,12 @@ def reject_report(
             WHERE id=%s
         """, (reviewer_id, reason, report_id))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Case Report Rejected",
+                         detail=reason or "No reason given",
+                         target=f"report #{report_id}")
+
         return {"message": "Report rejected."}
     except HTTPException:
         raise

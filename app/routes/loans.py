@@ -41,6 +41,12 @@ def apply_loan(data: LoanCreate, current_user=Depends(get_current_user)):
                data.purpose, total_repayable, due_date))
         loan_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Loan Applied",
+                         detail=f"KES {data.amount} · {data.purpose or 'no purpose given'}",
+                         target=member[1])
+
         return {
             "message": "Loan application submitted",
             "id": loan_id,
@@ -205,6 +211,9 @@ def update_loan_status(
         if not row:
             raise HTTPException(status_code=404, detail="Loan not found")
 
+        cur.execute("SELECT m.full_name FROM loans l JOIN members m ON l.member_id=m.id WHERE l.id=%s", (loan_id,))
+        member_row = cur.fetchone()
+
         updates = {"status": data.status}
         if data.status == "disbursed":
             updates["disbursed_at"] = datetime.utcnow()
@@ -218,6 +227,14 @@ def update_loan_status(
             (*updates.values(), loan_id)
         )
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        action_map = {"approved": "Loan Approved", "rejected": "Loan Rejected",
+                      "disbursed": "Loan Disbursed", "repaid": "Loan Marked Repaid"}
+        log_user_action(current_user, action_map.get(data.status, f"Loan Status Updated"),
+                         detail=f"Status changed from {row[0]} to {data.status}",
+                         target=member_row[0] if member_row else f"loan #{loan_id}")
+
         return {"message": f"Loan status updated to {data.status}"}
     except HTTPException:
         raise
@@ -230,7 +247,7 @@ def update_loan_status(
 
 
 @router.post("/{loan_id}/repay")
-def repay_loan(loan_id: int, data: LoanRepayment, _=Depends(require_treasurer)):
+def repay_loan(loan_id: int, data: LoanRepayment, current_user=Depends(require_treasurer)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -243,6 +260,9 @@ def repay_loan(loan_id: int, data: LoanRepayment, _=Depends(require_treasurer)):
             raise HTTPException(status_code=404, detail="Loan not found")
         if loan[0] != "disbursed":
             raise HTTPException(status_code=400, detail="Loan is not currently active/disbursed")
+
+        cur.execute("SELECT m.full_name FROM loans l JOIN members m ON l.member_id=m.id WHERE l.id=%s", (loan_id,))
+        member_row = cur.fetchone()
 
         cur.execute("""
             INSERT INTO loan_repayments (loan_id, amount, payment_method, reference, notes)
@@ -260,6 +280,12 @@ def repay_loan(loan_id: int, data: LoanRepayment, _=Depends(require_treasurer)):
 
         conn.commit()
         balance = max(0, float(loan[1]) - new_repaid)
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Loan Repayment Recorded",
+                         detail=f"KES {data.amount} via {data.payment_method or 'unspecified'}",
+                         target=member_row[0] if member_row else f"loan #{loan_id}")
+
         return {
             "message": "Repayment recorded",
             "amount_paid": data.amount,

@@ -27,7 +27,7 @@ def list_projects(_=Depends(get_current_user)):
 
 
 @router.post("/")
-def add_project(data: dict, _=Depends(require_admin)):
+def add_project(data: dict, current_user=Depends(require_admin)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -37,6 +37,12 @@ def add_project(data: dict, _=Depends(require_admin)):
         )
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Project Created",
+                         detail=f"Budget: {data.get('budget',0)}",
+                         target=data.get("name", f"project #{new_id}"))
+
         return {"id": new_id, "message": "Project added"}
     finally:
         cur.close()
@@ -44,12 +50,19 @@ def add_project(data: dict, _=Depends(require_admin)):
 
 
 @router.delete("/{project_id}")
-def delete_project(project_id: int, _=Depends(require_admin)):
+def delete_project(project_id: int, current_user=Depends(require_admin)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT name FROM projects WHERE id=%s", (project_id,))
+        existing = cur.fetchone()
         cur.execute("DELETE FROM projects WHERE id=%s", (project_id,))
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Project Deleted", detail="Project removed",
+                         target=existing[0] if existing else f"project #{project_id}")
+
         return {"message": "Project deleted"}
     finally:
         cur.close()

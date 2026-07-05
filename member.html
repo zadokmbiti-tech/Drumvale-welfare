@@ -687,7 +687,10 @@ async function doLogin() {
   } catch(e) { err.textContent = 'Could not connect to server. Try again.'; err.style.display = 'block'; }
 }
 
-function signOut() { localStorage.removeItem('member_token'); localStorage.removeItem('member_user'); location.reload(); }
+function signOut() {
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
+  localStorage.removeItem('member_token'); localStorage.removeItem('member_user'); location.reload();
+}
 
 
 const INACTIVITY_MS = 15 * 60 * 1000;

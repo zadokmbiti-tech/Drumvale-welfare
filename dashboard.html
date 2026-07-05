@@ -1729,6 +1729,7 @@ async function doLogin() {
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
 function logout() {
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
   localStorage.removeItem('chama_token');
   localStorage.removeItem('chama_user');
   localStorage.removeItem('drwg_session');

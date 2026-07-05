@@ -100,6 +100,12 @@ def record_disbursement(event_id: int, data: dict, current_user: dict = Depends(
         ))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Disbursement Recorded",
+                         detail=f"KES {amount} via {data.get('payment_method','M-Pesa')}",
+                         target=data.get("recipient_name") or f"event #{event_id}")
+
         return {"id": new_id, "message": "Disbursement recorded"}
     except Exception as e:
         conn.rollback()

@@ -25,6 +25,12 @@ def record_transaction(body: FinanceTransactionCreate, current_user=Depends(requ
               body.description, body.date, current_user.get("sub")))
         new_id = cur.fetchone()[0]
         conn.commit()
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Finance Transaction Recorded",
+                         detail=f"{body.type} · {body.category} · KES {body.amount}",
+                         target=body.description or f"transaction #{new_id}")
+
         return {"id": new_id, "message": "Transaction recorded"}
     except HTTPException:
         raise
@@ -112,15 +118,23 @@ def download_finance_csv(
 
 
 @router.delete("/{record_id}")
-def delete_transaction(record_id: int, _=Depends(require_treasurer)):
+def delete_transaction(record_id: int, current_user=Depends(require_treasurer)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT description, amount FROM finance WHERE id=%s", (record_id,))
+        existing = cur.fetchone()
         cur.execute("DELETE FROM finance WHERE id=%s RETURNING id", (record_id,))
         deleted = cur.fetchone()
         conn.commit()
         if not deleted:
             raise HTTPException(404, "Record not found")
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Finance Transaction Deleted",
+                         detail=f"Amount: KES {existing[1]}" if existing else "",
+                         target=(existing[0] if existing and existing[0] else f"transaction #{record_id}"))
+
         return {"message": "Deleted"}
     finally:
         cur.close()
