@@ -393,9 +393,15 @@
       </div>
     </section>
 
-    <footer>
+    <footer style="flex-wrap:wrap;gap:12px;">
       <span>© 2026 Drumvale Riverview Welfare Group. All rights reserved.</span>
-      <span>Kamulu · Machakos County · <a href="#home">Back to top ↑</a></span>
+      <span style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+        <a href="#" onclick="event.preventDefault();openModal('privacy')">Privacy Policy</a> ·
+        <a href="#" onclick="event.preventDefault();openModal('dataprotection')">Data Protection Policy</a> ·
+        <a href="#" onclick="event.preventDefault();openModal('siteterms')">Terms &amp; Conditions</a> ·
+        <a href="#contact">Contact Us</a> ·
+        Kamulu · Machakos County · <a href="#home">Back to top ↑</a>
+      </span>
     </footer>
   </div>
 
@@ -554,6 +560,7 @@
           <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">
             <label class="terms-check"><input type="checkbox" id="chk-terms" onchange="validateTerms()" /><span>I have read and accept the Welfare Bylaws of Drumvale Riverview Welfare Group.</span></label>
             <label class="terms-check"><input type="checkbox" id="chk-constitution" onchange="validateTerms()" /><span>I have read (or will read) the Group Constitution and agree to abide by it.</span></label>
+            <label class="terms-check"><input type="checkbox" id="chk-privacy" onchange="validateTerms()" /><span>I have read and understood the <a href="#" onclick="event.preventDefault();openModal('privacy')" style="color:var(--sky);">Privacy Policy</a> and <a href="#" onclick="event.preventDefault();openModal('siteterms')" style="color:var(--sky);">Terms &amp; Conditions</a>, and I consent to the collection, storage, and processing of my personal information for membership administration in accordance with the Data Protection Act, 2019 (Kenya).</span></label>
           </div>
         </div>
 
@@ -595,6 +602,60 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-privacy">
+    <div class="modal constitution-modal">
+      <button class="modal-close" onclick="closeModal('privacy')">✕</button>
+      <p class="modal-eyebrow">Legal Document</p>
+      <h2 class="modal-title" style="font-size:1.5rem;">Privacy Policy</h2>
+      <p style="font-size:0.78rem;color:var(--silver);margin-bottom:16px;">Drumvale Riverview Welfare Group — Effective Date: 5 July 2026</p>
+      <div class="constitution-content">
+        <h3>1. Introduction</h3><p>Drumvale Riverview Welfare Group ("the Welfare") is committed to protecting the privacy and personal information of all members. This Privacy Policy explains how we collect, use, store, and protect your personal data in accordance with the Data Protection Act, 2019 (Kenya).</p>
+        <h3>2. Information We Collect</h3><p>We may collect: full name, National ID/Passport number, date of birth, gender, postal and physical address, mobile phone number, email address, next of kin details, children/dependants information (where applicable), and membership and welfare contribution records.</p>
+        <h3>3. Purpose of Collecting Information</h3><p>Your information is collected solely for processing membership applications, maintaining accurate membership records, managing welfare activities and communication, processing member benefits and assistance, and meeting legal and governance obligations.</p>
+        <h3>4. Data Security</h3><p>The Welfare protects your information through password encryption using bcrypt, secure HTTPS encryption, secure cloud storage, role-based access controls, and regular security monitoring.</p>
+        <h3>5. Access to Your Information</h3><p>Sensitive information is accessible only to authorized administrators, including the Chairperson and designated Super Administrators. Regular members cannot access other members' confidential information.</p>
+        <h3>6. Sharing Information</h3><p>The Welfare does not sell or share members' personal information except where required by law, with the member's consent, or to protect the Welfare's legal interests.</p>
+        <h3>7. Member Rights</h3><p>Members have the right to access their personal information, request correction of inaccurate information, withdraw consent where legally applicable, and request deletion where permitted by law.</p>
+        <h3>8. Contact</h3><p>Questions regarding privacy should be directed to the Chairperson or System Administrator of Drumvale Riverview Welfare Group.</p>
+        <p>By registering on this website, you acknowledge that you have read and understood this Privacy Policy.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-dataprotection">
+    <div class="modal constitution-modal">
+      <button class="modal-close" onclick="closeModal('dataprotection')">✕</button>
+      <p class="modal-eyebrow">Legal Document</p>
+      <h2 class="modal-title" style="font-size:1.5rem;">Data Protection Policy</h2>
+      <p style="font-size:0.78rem;color:var(--silver);margin-bottom:16px;">Drumvale Riverview Welfare Group</p>
+      <div class="constitution-content">
+        <h3>Policy Statement</h3><p>Drumvale Riverview Welfare Group is committed to protecting the confidentiality, integrity, and availability of members' personal information.</p>
+        <h3>Our Commitments</h3><ul><li>Process personal data lawfully, fairly, and transparently.</li><li>Collect only information necessary for welfare administration.</li><li>Keep personal data accurate and up to date.</li><li>Protect data using appropriate technical and organizational measures.</li><li>Restrict access to authorized officials only.</li><li>Never disclose personal information without lawful authority or member consent.</li><li>Report and manage data breaches promptly.</li><li>Regularly review security measures and system access rights.</li></ul>
+        <h3>Responsibilities</h3><p>The Chairperson and Super Administrators shall protect member information, ensure only authorized access, maintain confidentiality, and investigate any suspected misuse of personal data. All committee members handling member information shall treat it as confidential.</p>
+        <p>Failure to comply with this policy may result in disciplinary action and any other action permitted under the laws of Kenya.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-siteterms">
+    <div class="modal constitution-modal">
+      <button class="modal-close" onclick="closeModal('siteterms')">✕</button>
+      <p class="modal-eyebrow">Legal Document</p>
+      <h2 class="modal-title" style="font-size:1.5rem;">Website Terms &amp; Conditions</h2>
+      <p style="font-size:0.78rem;color:var(--silver);margin-bottom:16px;">Drumvale Riverview Welfare Group</p>
+      <div class="constitution-content">
+        <p>By creating an account or using this website, you agree to the following:</p>
+        <h3>1. Accuracy of Information</h3><p>Information provided must be accurate and truthful.</p>
+        <h3>2. Account Security</h3><p>Members are responsible for keeping their login credentials confidential.</p>
+        <h3>3. Verification</h3><p>The Welfare reserves the right to verify information submitted.</p>
+        <h3>4. Acceptable Use</h3><p>Members shall not misuse the website or attempt unauthorized access.</p>
+        <h3>5. Account Suspension</h3><p>The Welfare may suspend accounts used fraudulently or in violation of these Terms.</p>
+        <h3>6. Data Processing</h3><p>Personal information will be processed in accordance with the Privacy Policy.</p>
+        <h3>7. Changes to Terms</h3><p>The Welfare may update these Terms from time to time, and continued use of the website constitutes acceptance of the revised Terms.</p>
+      </div>
+    </div>
+  </div>
+
   <script>
     function openModal(name) {
       document.getElementById('modal-' + name).classList.add('active');
@@ -614,7 +675,8 @@
     function validateTerms() {
       const t = document.getElementById('chk-terms').checked;
       const c = document.getElementById('chk-constitution').checked;
-      document.getElementById('reg-submit').disabled = !(t && c);
+      const p = document.getElementById('chk-privacy').checked;
+      document.getElementById('reg-submit').disabled = !(t && c && p);
     }
 
     function showToast(msg, duration = 3000) {
