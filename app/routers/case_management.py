@@ -199,13 +199,13 @@ class CaseCreate(BaseModel):
     description: Optional[str] = None
     beneficiary_id: Optional[int] = None
     beneficiary_name: Optional[str] = None
-    amount_per_member: float
+    amount_per_member: Optional[float] = None
     start_date: date
 
     @field_validator("amount_per_member")
     @classmethod
     def positive_amount(cls, v):
-        if v <= 0:
+        if v is not None and v <= 0:
             raise ValueError("Amount per member must be greater than zero")
         return v
 
@@ -409,6 +409,7 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
         default_amount = case_row[0]
 
         saved = 0
+        skipped_no_amount = 0
         for e in entries:
             if e.attendance_status is not None:
                 cur.execute("""
@@ -420,6 +421,14 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
 
             if e.paid:
                 amount = e.amount if e.amount is not None else default_amount
+                if amount is None:
+                    # This case has no per-member amount (e.g. funded from the
+                    # kitty) and no explicit amount was given for this member —
+                    # attendance is still recorded above, we just skip logging
+                    # a contribution with no figure attached to it.
+                    skipped_no_amount += 1
+                    saved += 1
+                    continue
                 cur.execute(
                     "SELECT id FROM contributions WHERE event_id=%s AND member_id=%s LIMIT 1",
                     (case_id, e.member_id)
@@ -455,7 +464,7 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
         log_user_action(current_user, "Case Roster Updated",
                          detail=f"{saved} member row(s) saved", target=f"case #{case_id}")
 
-        return {"saved": saved}
+        return {"saved": saved, "skipped_no_amount": skipped_no_amount}
     except HTTPException:
         raise
     except Exception as e:

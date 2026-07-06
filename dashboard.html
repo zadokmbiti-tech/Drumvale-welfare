@@ -997,7 +997,7 @@
         <input id="c-beneficiary" list="c-beneficiary-datalist" placeholder="Type name — pick from list if registered"/>
         <datalist id="c-beneficiary-datalist"></datalist>
       </div>
-      <div class="form-group"><label>Amount per Member (KES)</label><input id="case-amount" type="number" placeholder="200"/></div>
+      <div class="form-group"><label>Amount per Member (KES) — optional</label><input id="case-amount" type="number" placeholder="Leave blank if funded from the kitty"/></div>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-top:4px">Deadline is set automatically to 7 days after the start date, and the case closes itself once the deadline passes.</p>
     <div class="modal-footer">
@@ -2540,10 +2540,13 @@ async function saveCase() {
   const typedName = document.getElementById('c-beneficiary').value.trim();
   if (!typedName) { toast('Enter a beneficiary name', 'error'); return; }
   const amountVal = document.getElementById('case-amount').value.trim();
-  const amount = parseFloat(amountVal);
-  if (!amountVal || isNaN(amount) || amount <= 0) {
-    toast('Enter the amount per member — that grey "200" is just a placeholder', 'error');
-    return;
+  let amount = null;
+  if (amountVal) {
+    amount = parseFloat(amountVal);
+    if (isNaN(amount) || amount <= 0) {
+      toast('Amount per member must be a positive number, or leave it blank for a kitty-funded case', 'error');
+      return;
+    }
   }
   const caseNo = document.getElementById('c-case-no').value.trim();
   if (!caseNo) { toast('Enter a case number', 'error'); return; }
@@ -2685,8 +2688,12 @@ async function saveCaseRoster() {
     };
   });
   try {
-    await apiFetch(`/cases/${currentCaseId}/roster`, { method: 'POST', body: JSON.stringify(entries) });
-    toast('Roster saved');
+    const res = await apiFetch(`/cases/${currentCaseId}/roster`, { method: 'POST', body: JSON.stringify(entries) });
+    if (res.skipped_no_amount > 0) {
+      toast(`Roster saved — ${res.skipped_no_amount} marked paid but recorded as attendance only (no amount set for a kitty-funded case)`);
+    } else {
+      toast('Roster saved');
+    }
     openCaseProfile(currentCaseId);
     loadCases();
   } catch(e) { toast(e.message, 'error'); }
