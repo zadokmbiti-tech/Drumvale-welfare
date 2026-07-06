@@ -207,14 +207,14 @@ def list_members(_=Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, full_name, phone_number, role, status, date_joined FROM members ORDER BY id DESC"
+        "SELECT id, full_name, phone_number, role, status, date_joined, membership_no FROM members ORDER BY id DESC"
     )
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
     return [
         {"id": r[0], "full_name": r[1], "phone_number": r[2],
-         "role": r[3], "status": r[4], "date_joined": r[5]}
+         "role": r[3], "status": r[4], "date_joined": r[5], "membership_no": r[6]}
         for r in rows
     ]
 

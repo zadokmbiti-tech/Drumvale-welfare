@@ -462,7 +462,7 @@
       <div style="display:flex;gap:12px;margin-bottom:18px">
         <div class="search-bar">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="member-search" placeholder="Search members…" oninput="filterMembers()"/>
+          <input id="member-search" placeholder="Search by name, phone, or Member ID…" oninput="filterMembers()"/>
         </div>
         <select id="member-status-filter" onchange="filterMembers()" style="width:140px">
           <option value="">All Status</option>
@@ -472,8 +472,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="members-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+          <thead><tr><th>#</th><th>Member ID</th><th>Name</th><th>Phone</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="members-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2260,24 +2260,25 @@ function populateMemberSelects() {
 
 async function loadMembers() {
   const tbody = document.getElementById('members-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
   try {
     const members = await apiFetch('/members');
     allMembers = members;
     renderMembersTable(members);
   } catch(e) {
     console.error('loadMembers error:', e);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
     toast('Failed to load members: ' + e.message, 'error');
   }
 }
 
 function renderMembersTable(members) {
   const tbody = document.getElementById('members-tbody');
-  if (!members.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No members found</div></td></tr>'; return; }
+  if (!members.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No members found</div></td></tr>'; return; }
   tbody.innerHTML = members.map((m,i) => `
     <tr>
       <td>${i+1}</td>
+      <td>${m.membership_no ? `<span class="badge badge-blue">#${m.membership_no}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><strong>${m.full_name}</strong></td>
       <td>${m.phone_number}</td>
       <td><span class="badge badge-blue">${m.role}</span></td>
@@ -2293,11 +2294,13 @@ function renderMembersTable(members) {
 }
 
 function filterMembers() {
-  const q = document.getElementById('member-search').value.toLowerCase();
+  const q = document.getElementById('member-search').value.toLowerCase().trim();
   const s = document.getElementById('member-status-filter').value;
   const filtered = allMembers.filter(m =>
-    (m.full_name.toLowerCase().includes(q) || m.phone_number.includes(q)) &&
-    (!s || m.status === s)
+    (m.full_name.toLowerCase().includes(q)
+      || m.phone_number.includes(q)
+      || (m.membership_no && m.membership_no.toLowerCase().includes(q)))
+    && (!s || m.status === s)
   );
   renderMembersTable(filtered);
 }
