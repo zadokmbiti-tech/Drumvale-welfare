@@ -812,7 +812,6 @@ async function handleRegister() {
   if (!dob)       { missing.push('Date of Birth'); highlightField('reg-dob'); }
   if (!residence) { missing.push('Residence / Estate'); highlightField('reg-residence'); }
   if (!court)     { missing.push('Court'); highlightField('reg-court'); }
-  if (!email)     { missing.push('Email Address'); highlightField('reg-email'); }
   if (!pass)      { missing.push('Password'); highlightField('reg-password'); }
 
   if (pass && pass2 && pass !== pass2) {
@@ -841,7 +840,6 @@ async function handleRegister() {
       }
     }
   });
-  if (!hasParent) { missing.push('at least one Parent / Parent-in-Law'); }
   if (parentStatusMissing) { missing.push('Alive/Deceased status for each parent entered'); }
 
   if (missing.length > 0) {
