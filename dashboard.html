@@ -1816,7 +1816,11 @@ async function apiFetch(path, opts={}) {
   if (res.status === 401) { logout(); return; }
   if (!res.ok) {
     const e = await res.json().catch(()=>({detail:'Request failed'}));
-    throw new Error(e.detail || 'Request failed');
+    let msg = e.detail || 'Request failed';
+    if (Array.isArray(msg)) {
+      msg = msg.map(x => (x && x.msg) ? `${(x.loc||[]).slice(-1)[0]}: ${x.msg}` : JSON.stringify(x)).join('; ');
+    }
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -2468,9 +2472,13 @@ function updateCaseDeadlinePreview() {
   const startVal = document.getElementById('c-start-date').value;
   const preview = document.getElementById('c-deadline-preview');
   if (!startVal) { preview.value = ''; return; }
-  const d = new Date(startVal + 'T00:00:00');
-  d.setDate(d.getDate() + 7);
-  preview.value = d.toISOString().slice(0,10);
+  const [y, m, d] = startVal.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);   // local date, no UTC shift
+  dt.setDate(dt.getDate() + 7);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  preview.value = `${yyyy}-${mm}-${dd}`;
 }
 
 async function openCaseProfile(caseId) {
