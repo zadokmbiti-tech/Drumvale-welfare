@@ -257,6 +257,10 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Events
       </div>
+    <div class="nav-item" onclick="showPage('cases', this)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+      Cases
+      </div>
     <div class="nav-item" onclick="showPage('Assets', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
       Assets
@@ -521,6 +525,22 @@
         <table>
           <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Beneficiary</th><th>Target</th><th>Raised</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="events-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CASES PAGE ────────────────────────────────────────────── -->
+  <div id="page-cases" class="page">
+    <div class="page-header">
+      <div><h2>Cases</h2><p>Welfare cases — past, present &amp; future</p></div>
+      <button class="btn btn-primary" onclick="openAddCaseModal()">+ New Case</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Case No.</th><th>Title / Beneficiary</th><th>Amount/Member</th><th>Start</th><th>Deadline</th><th>Status</th><th>Collected</th><th>Actions</th></tr></thead>
+          <tbody id="cases-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -932,6 +952,50 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-repay')">Cancel</button>
       <button class="btn btn-primary" onclick="saveRepayment()">Record Repayment</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-case" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Case</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-case')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Case No.</label><input id="c-case-no" placeholder="e.g. 42"/></div>
+      <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date"/></div>
+      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
+      <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
+      <div class="form-group"><label>Beneficiary</label><select id="c-beneficiary"></select></div>
+      <div class="form-group"><label>Amount per Member (KES)</label><input id="c-amount" type="number" placeholder="200"/></div>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-top:4px">Deadline is set automatically to 7 days after the start date, and the case closes itself once the deadline passes.</p>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-case')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCase()">Create Case</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-case-profile" class="modal-backdrop">
+  <div class="modal" style="max-width:920px">
+    <div class="modal-header">
+      <h3 id="case-profile-title">Case Profile</h3>
+      <button class="modal-close" onclick="closeModal('modal-case-profile')">✕</button>
+    </div>
+    <p id="case-profile-meta" style="color:var(--muted);font-size:13px;margin:-6px 0 10px"></p>
+    <div id="case-profile-note" style="padding:10px 14px;border-radius:8px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);font-size:13px;margin-bottom:14px"></div>
+    <div class="table-wrap" style="max-height:420px;overflow:auto">
+      <table>
+        <thead><tr><th>Member</th><th>Attendance</th><th>New?</th><th>Paid</th><th>Amount</th><th>Date Paid</th></tr></thead>
+        <tbody id="case-roster-tbody"></tbody>
+      </table>
+    </div>
+    <input type="hidden" id="case-profile-id"/>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-case-profile')">Close</button>
+      <button class="btn btn-primary" onclick="saveCaseRoster()">Save Roster</button>
     </div>
   </div>
 </div>
@@ -1806,6 +1870,7 @@ function showPage(name, el) {
   if (name==='contributions') { loadContribSummary(); loadContribStatus(); loadPendingContribs(); }
   if (name==='loans')         { loadLoanSummary(); loadLoans(); }
   if (name==='events')        loadEvents();
+  if (name==='cases')         loadCases();
   if (name==='meetings')      loadMeetings();
   if (name==='notices')       loadNotices();
   if (name==='admin')         loadPendingUsers();
@@ -2324,6 +2389,125 @@ async function closeEvent(id) {
   if (!confirm('Close this event?')) return;
   try { await apiFetch(`/events/${id}/close`,{method:'PATCH'}); toast('Event closed'); loadEvents(); }
   catch(e) { toast(e.message,'error'); }
+}
+
+// ── Cases ─────────────────────────────────────────────────────────
+async function loadCases() {
+  const tbody = document.getElementById('cases-tbody');
+  try {
+    const cases = await apiFetch('/cases');
+    if (!cases.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No cases yet</div></td></tr>'; return; }
+    tbody.innerHTML = cases.map(c => `
+      <tr>
+        <td><strong>#${c.case_no}</strong></td>
+        <td>${c.title}<br><span style="color:var(--muted);font-size:12px">${c.beneficiary_name||'—'}</span></td>
+        <td>KES ${fmt(c.amount_per_member||0)}</td>
+        <td>${c.start_date||'—'}</td>
+        <td>${c.deadline||'—'}${c.is_open ? ` <span style="color:var(--muted);font-size:11px">(${c.days_remaining}d left)</span>` : ''}</td>
+        <td><span class="badge ${c.is_open?'badge-green':'badge-gray'}">${c.is_open?'Open':'Closed'}</span></td>
+        <td>KES ${fmt(c.total_collected||0)}</td>
+        <td><button class="btn btn-sm btn-outline" onclick="openCaseProfile(${c.id})">View</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    console.error('loadCases:', e);
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+async function openAddCaseModal() {
+  const sel = document.getElementById('c-beneficiary');
+  sel.innerHTML = (allMembers.length ? allMembers : await apiFetch('/members').then(m=>{allMembers=m;return m;}))
+    .map(m => `<option value="${m.id}">${m.full_name}</option>`).join('');
+  document.getElementById('c-case-no').value = '';
+  document.getElementById('c-title').value = '';
+  document.getElementById('c-description').value = '';
+  document.getElementById('c-amount').value = '';
+  document.getElementById('c-start-date').value = new Date().toISOString().slice(0,10);
+  try {
+    const { next_case_no } = await apiFetch('/cases/next-case-no');
+    document.getElementById('c-case-no').value = next_case_no;
+  } catch(e) { /* non-fatal */ }
+  openModal('modal-add-case');
+}
+
+async function saveCase() {
+  try {
+    await apiFetch('/cases', {
+      method: 'POST',
+      body: JSON.stringify({
+        case_no: document.getElementById('c-case-no').value,
+        title: document.getElementById('c-title').value,
+        description: document.getElementById('c-description').value || null,
+        beneficiary_id: parseInt(document.getElementById('c-beneficiary').value),
+        amount_per_member: parseFloat(document.getElementById('c-amount').value),
+        start_date: document.getElementById('c-start-date').value,
+      })
+    });
+    closeModal('modal-add-case');
+    toast('Case created');
+    loadCases();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+let currentCaseId = null;
+
+async function openCaseProfile(caseId) {
+  currentCaseId = caseId;
+  document.getElementById('case-profile-id').value = caseId;
+  document.getElementById('case-profile-title').textContent = 'Loading…';
+  openModal('modal-case-profile');
+  try {
+    const c = await apiFetch(`/cases/${caseId}`);
+    document.getElementById('case-profile-title').textContent = `Case No. ${c.case_no}: ${c.title}`;
+    document.getElementById('case-profile-meta').textContent =
+      `Beneficiary: ${c.beneficiary_name||'—'} · KES ${fmt(c.amount_per_member||0)}/member · Start ${c.start_date} · Deadline ${c.deadline} · ${c.is_open?'Open':'Closed'} · Collected KES ${fmt(c.total_collected||0)}`;
+    document.getElementById('case-profile-note').innerHTML =
+      `<strong>NOTE</strong> — N = New Member. Present: ${c.attendance_summary.present} · Absent: ${c.attendance_summary.absent} · Apology: ${c.attendance_summary.apology}<br>${c.note}`;
+    renderCaseRoster(c.roster);
+  } catch(e) { toast(e.message, 'error'); closeModal('modal-case-profile'); }
+}
+
+function renderCaseRoster(roster) {
+  const tbody = document.getElementById('case-roster-tbody');
+  tbody.innerHTML = roster.map(r => `
+    <tr data-member-id="${r.member_id}">
+      <td>${r.member_name}</td>
+      <td>
+        <select class="ros-attendance">
+          <option value="" ${!r.attendance_status?'selected':''}>—</option>
+          <option value="present" ${r.attendance_status==='present'?'selected':''}>✅ Present</option>
+          <option value="absent" ${r.attendance_status==='absent'?'selected':''}>❌ Absent</option>
+          <option value="apology" ${r.attendance_status==='apology'?'selected':''}>🅿️ Apology</option>
+        </select>
+      </td>
+      <td style="text-align:center"><input type="checkbox" class="ros-new" ${r.is_new_member?'checked':''}/></td>
+      <td style="text-align:center"><input type="checkbox" class="ros-paid" ${r.paid?'checked':''}/></td>
+      <td><input type="number" class="ros-amount" value="${r.amount??''}" style="width:90px"/></td>
+      <td><input type="date" class="ros-date" value="${r.date_paid||''}"/></td>
+    </tr>`).join('');
+}
+
+async function saveCaseRoster() {
+  const rows = document.querySelectorAll('#case-roster-tbody tr');
+  const entries = Array.from(rows).map(tr => {
+    const attendance = tr.querySelector('.ros-attendance').value;
+    const amountVal = tr.querySelector('.ros-amount').value;
+    const dateVal = tr.querySelector('.ros-date').value;
+    return {
+      member_id: parseInt(tr.dataset.memberId),
+      attendance_status: attendance || null,
+      is_new_member: tr.querySelector('.ros-new').checked,
+      paid: tr.querySelector('.ros-paid').checked,
+      amount: amountVal ? parseFloat(amountVal) : null,
+      date_paid: dateVal || null,
+    };
+  });
+  try {
+    await apiFetch(`/cases/${currentCaseId}/roster`, { method: 'POST', body: JSON.stringify(entries) });
+    toast('Roster saved');
+    openCaseProfile(currentCaseId);
+    loadCases();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function loadMeetings() {

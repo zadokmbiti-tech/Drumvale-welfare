@@ -8,6 +8,8 @@ from app.routes.auth import get_current_user, require_admin
 from app.database import init_pool, get_connection, release_connection
 from app.schemas import NoticeCreate
 from app.routes import event_reports
+from app.routers import case_management
+
 import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -42,6 +44,7 @@ app.include_router(event_contributions.router,     prefix="/events",        tags
 app.include_router(finance.router,                 prefix="/finance",       tags=["Finance"])
 app.include_router(profile_updates.router,       prefix="/profile-updates", tags=["Profile Updates"])
 app.include_router(event_reports.router,           prefix="/event-reports", tags=["Event Reports"])
+app.include_router(case_management.router)
 app.include_router(assets.router)
 app.include_router(projects.router)
 app.include_router(statements.router)
