@@ -3,17 +3,6 @@ from typing import Optional, List, Literal
 from datetime import date, datetime
 from decimal import Decimal
 
-class MemberCreate(BaseModel):
-    full_name: str
-    phone_number: str
-    id_number: Optional[str] = None
-    role: str = "member"
-    status: str = "active"
-    date_joined: date
-    next_of_kin_name: Optional[str] = None
-    next_of_kin_phone: Optional[str] = None
-    notes: Optional[str] = None
-
 class EventCreate(BaseModel):
     title: str
     event_type: str
@@ -50,6 +39,30 @@ class ParentIn(BaseModel):
     id_number:         Optional[str] = None
     current_residence: Optional[str] = None
     contact_phone:     Optional[str] = None
+
+class MemberCreate(BaseModel):
+    full_name: str
+    phone_number: str
+    id_number: Optional[str] = None
+    role: str = "member"
+    status: str = "active"
+    date_joined: date
+    next_of_kin_name: Optional[str] = None
+    next_of_kin_phone: Optional[str] = None
+    notes: Optional[str] = None
+    # extended profile fields (mirrors UserRegister, used by admin "Add Member")
+    email: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    marital_status: Optional[str] = None
+    residence: Optional[str] = None
+    court: Optional[str] = None
+    house_number: Optional[str] = None
+    spouse_name: Optional[str] = None
+    next_of_kin_2: Optional[str] = None
+    nok2_phone: Optional[str] = None
+    children: Optional[List[ChildIn]] = []
+    parents: Optional[List[ParentIn]] = []
+    privacy_accepted: bool = False
 
 class UserRegister(BaseModel):
     member_id:        Optional[str] = None

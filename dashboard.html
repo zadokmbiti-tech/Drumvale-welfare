@@ -145,6 +145,28 @@
     display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
   }
   .modal-overlay .modal { width: 100%; max-width: 520px; }
+  .modal-lg { max-width: 760px !important; }
+
+  .terms-check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .terms-check input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; accent-color: var(--accent); margin-top: 2px; cursor: pointer; }
+  .constitution-content { max-height: 45vh; overflow-y: auto; padding-right: 8px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .constitution-content::-webkit-scrollbar { width: 4px; }
+  .constitution-content::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+  .constitution-content h3 { font-family: 'Syne', sans-serif; color: var(--text); font-size: 15px; margin: 16px 0 6px; }
+  .constitution-content h3:first-child { margin-top: 0; }
+  .constitution-content p, .constitution-content li { margin-bottom: 8px; }
+  .constitution-content ul { padding-left: 20px; }
+  .constitution-download-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 12px; font-size: 12px; }
+
+  .mini-table-wrap { overflow-x: auto; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .mini-table th { padding: 8px 10px; text-align: left; color: var(--accent); font-weight: 500; border: 1px solid var(--border); background: rgba(44,180,224,0.08); white-space: nowrap; }
+  .mini-table td { padding: 4px 6px; border: 1px solid var(--border); }
+  .mini-table input, .mini-table select { width: 100%; background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 12px; outline: none; padding: 6px 4px; border-radius: 0; }
+  .status-radio-group label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; margin-right: 10px; cursor: pointer; color: var(--muted); white-space: nowrap; }
+  .mini-add-btn { margin-top: 8px; background: transparent; border: 1px solid var(--border); color: var(--accent); font-family: inherit; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .mini-add-btn:hover { border-color: var(--accent); }
+  .section-label { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
 
   #login-screen {
     position: fixed; inset: 0; background: var(--bg); z-index: 500;
@@ -433,7 +455,7 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Import CSV
         </button>
-        <button class="btn btn-primary" onclick="window.open('/?register=1', '_blank')">+ Add Member</button>
+        <button class="btn btn-primary" onclick="openAddMemberModal()">+ Add Member</button>
       </div>
     </div>
     <div class="card">
@@ -925,26 +947,141 @@
   </div>
 
 <div id="modal-add-member" class="modal-backdrop">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-header">
       <h3>Add New Member</h3>
       <button class="modal-close" onclick="closeModal('modal-add-member')">✕</button>
     </div>
+    <p style="font-size:12px;color:var(--muted);margin:-12px 0 16px;">Mirrors the public registration form. Email isn't required, and no password is set here — the member logs in with the default password and is forced to change it on first login.</p>
+
     <div class="form-grid">
-      <div class="form-group full"><label>Full Name</label><input id="m-name" placeholder="Jane Wanjiku"/></div>
-      <div class="form-group"><label>Phone Number</label><input id="m-phone" placeholder="0712345678"/></div>
-      <div class="form-group"><label>ID Number</label><input id="m-id" placeholder="12345678"/></div>
+      <div class="form-group full"><label>Full Name *</label><input id="m-name" placeholder="Full name as in ID"/></div>
+      <div class="form-group"><label>Member ID</label><input id="m-memberid" placeholder="e.g. 001"/></div>
+      <div class="form-group"><label>Phone Number *</label><input id="m-phone" placeholder="0712345678"/></div>
+      <div class="form-group"><label>ID Number</label><input id="m-idno" placeholder="National ID No."/></div>
+      <div class="form-group"><label>Date of Birth</label><input id="m-dob" type="date"/></div>
+      <div class="form-group"><label>Marital Status</label>
+        <select id="m-marital"><option value="">Select</option><option>Married</option><option>Single</option></select>
+      </div>
+      <div class="form-group"><label>Residence / Estate</label><input id="m-residence" placeholder="Drumvale Riverview"/></div>
+      <div class="form-group"><label>Court</label><input id="m-court" placeholder="Court name"/></div>
+      <div class="form-group"><label>House No</label><input id="m-houseno" placeholder="e.g. A4"/></div>
+      <div class="form-group"><label>Spouse Full Name</label><input id="m-spouse" placeholder="Spouse full name"/></div>
+      <div class="form-group"><label>Next of Kin 1</label><input id="m-kin-name" placeholder="John Doe"/></div>
+      <div class="form-group"><label>Mobile 1</label><input id="m-kin-phone" placeholder="0798765432"/></div>
+      <div class="form-group"><label>Next of Kin 2</label><input id="m-nok2" placeholder="Full name"/></div>
+      <div class="form-group"><label>Mobile 2</label><input id="m-nok2tel" placeholder="07XX XXX XXX"/></div>
+      <div class="form-group"><label>Email (optional)</label><input id="m-email" type="email" placeholder="you@example.com"/></div>
       <div class="form-group"><label>Role</label>
         <select id="m-role"><option value="member">Member</option><option value="treasurer">Treasurer</option><option value="secretary">Secretary</option><option value="chairperson">Chairperson</option></select>
       </div>
       <div class="form-group"><label>Date Joined</label><input id="m-date" type="date"/></div>
-      <div class="form-group"><label>Next of Kin Name</label><input id="m-kin-name" placeholder="John Doe"/></div>
-      <div class="form-group"><label>Next of Kin Phone</label><input id="m-kin-phone" placeholder="0798765432"/></div>
-      <div class="form-group full"><label>Notes</label><textarea id="m-notes" placeholder="Any additional info…"></textarea></div>
     </div>
+
+    <label class="section-label">Children Details</label>
+    <div class="mini-table-wrap">
+      <table class="mini-table">
+        <thead><tr><th style="width:28px;">#</th><th>Full Name</th><th>Date of Birth</th><th>Relationship</th><th>ID/Birth Cert No</th></tr></thead>
+        <tbody id="m-children-tbody">
+          <tr>
+            <td style="text-align:center;color:var(--muted);">1</td>
+            <td><input type="text" placeholder="Name"/></td>
+            <td><input type="date"/></td>
+            <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
+            <td><input type="text" placeholder="No."/></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="mini-add-btn" onclick="addChildRowM()">+ Add Child</button>
+
+    <label class="section-label">Parents &amp; Parents-in-Law <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0;">(optional — tick Alive/Deceased if a name is entered)</span></label>
+    <div class="mini-table-wrap">
+      <table class="mini-table">
+        <thead><tr><th style="width:28px;">#</th><th>Full Name</th><th>Status</th><th>ID No</th><th>Current Residence</th><th>Contact Phone</th></tr></thead>
+        <tbody id="m-parents-tbody">
+          <tr class="m-parent-row">
+            <td style="text-align:center;color:var(--muted);">1</td>
+            <td><input type="text" placeholder="Name" class="m-parent-name"/></td>
+            <td class="status-radio-cell">
+              <div class="status-radio-group">
+                <label><input type="radio" name="m_parent_status_1" value="alive"/><span style="color:#10b981;">Alive</span></label>
+                <label><input type="radio" name="m_parent_status_1" value="deceased"/><span style="color:var(--danger);">Deceased</span></label>
+              </div>
+            </td>
+            <td><input type="text" placeholder="ID No" class="m-parent-idno"/></td>
+            <td><input type="text" placeholder="Town / Estate" class="m-parent-residence"/></td>
+            <td><input type="tel" placeholder="07XX XXX XXX" class="m-parent-phone"/></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="mini-add-btn" onclick="addParentRowM()">+ Add Parent</button>
+
+    <label class="section-label">Notes</label>
+    <div class="form-group full"><textarea id="m-notes" placeholder="Any additional info…"></textarea></div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <label class="terms-check"><input type="checkbox" id="m-chk-terms" onchange="validateMemberTerms()"/><span>I confirm the member has read and accepts the Welfare Bylaws of Drumvale Riverview Welfare Group.</span></label>
+      <label class="terms-check"><input type="checkbox" id="m-chk-constitution" onchange="validateMemberTerms()"/><span>I confirm the member has read (or will read) the Group Constitution and agrees to abide by it. <a href="#" onclick="event.preventDefault();openModal('modal-constitution-view')" style="color:var(--accent);">View</a></span></label>
+      <label class="terms-check"><input type="checkbox" id="m-chk-privacy" onchange="validateMemberTerms()"/><span>I confirm the member has read and understood the <a href="#" onclick="event.preventDefault();openModal('modal-privacy-view')" style="color:var(--accent);">Privacy Policy</a> and <a href="#" onclick="event.preventDefault();openModal('modal-siteterms-view')" style="color:var(--accent);">Terms &amp; Conditions</a>, and consents to the collection, storage, and processing of their personal information in accordance with the Data Protection Act, 2019 (Kenya).</span></label>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-add-member')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveMember()">Save Member</button>
+      <button class="btn btn-primary" id="m-save-btn" disabled onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-constitution-view">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3>Group Constitution</h3><button class="modal-close" onclick="closeModal('modal-constitution-view')">✕</button></div>
+    <div class="constitution-content">
+      <h3>ARTICLE 1 — NAME AND LOCATION</h3><p>The name of the group shall be <strong>DRUMVALE RIVERVIEW WELFARE GROUP</strong>. Registered under the Ministry of Labour and Social Protection of Kenya. Non-profit, non-partisan, and non-denominational.</p>
+      <h3>ARTICLE 3 — OBJECTIVES</h3><ul><li>Provide welfare support during bereavement.</li><li>Foster savings and collective investment.</li><li>Promote education and award bursaries.</li><li>Enhance security and social cohesion.</li><li>Undertake community development projects.</li></ul>
+      <h3>ARTICLE 5 — FEES & CONTRIBUTIONS</h3><p>Registration fee: Ksh 100 (once-off). Joining contribution: Ksh 2,000 (once-off). Monthly welfare contribution: Ksh 500.</p>
+      <h3>ARTICLE 7 — GOVERNANCE</h3><p>Elected Executive Committee: Chairperson, Vice-Chairperson, Secretary, Treasurer, and three Ordinary Members. Term: 2 years.</p>
+      <h3>ARTICLE 9 — MEETINGS</h3><p>AGM: February and September annually. Special General Meetings: 3 days' notice for urgent matters.</p>
+      <h3>ARTICLE 21 — WELFARE BYLAWS</h3><p>Contributions: Ksh 300 (nuclear) | Ksh 500 (principal) | Ksh 200 (parents). Payouts: Ksh 60,000 (nuclear) | Ksh 100,000 (principal) | Ksh 30,000 (parents). Deadline: 7 days from announcement. New members: 2-month waiting period.</p>
+      <h3>ARTICLE 23 — LOANS</h3><p>Loans from members' savings at 10% interest, 3-month term. Qualifies after 6 months of saving. Vetted by loan committee.</p>
+      <h3>ARTICLE 25 — RESIGNATION</h3><p>Members may resign immediately. Receive 80% of savings. Members with arrears in more than 3 cases are automatically removed from welfare register.</p>
+    </div>
+    <div class="constitution-download-bar">
+      <span>📄 2025_DRUMVALE_RIVERVIEW_CONSTITUTION.pdf</span>
+      <a class="btn btn-sm btn-outline" href="https://drive.google.com/uc?export=download&id=1XQ8Lc2tT5bHc8ywz0Xk_wTRDEgADHIRD" target="_blank">⬇ Download PDF</a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-privacy-view">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3>Privacy Policy</h3><button class="modal-close" onclick="closeModal('modal-privacy-view')">✕</button></div>
+    <div class="constitution-content">
+      <h3>1. Introduction</h3><p>Drumvale Riverview Welfare Group ("the Welfare") is committed to protecting the privacy and personal information of all members. This Privacy Policy explains how we collect, use, store, and protect your personal data in accordance with the Data Protection Act, 2019 (Kenya).</p>
+      <h3>2. Information We Collect</h3><p>We may collect: full name, National ID/Passport number, date of birth, gender, postal and physical address, mobile phone number, email address, next of kin details, children/dependants information (where applicable), and membership and welfare contribution records.</p>
+      <h3>3. Purpose of Collecting Information</h3><p>Your information is collected solely for processing membership applications, maintaining accurate membership records, managing welfare activities and communication, processing member benefits and assistance, and meeting legal and governance obligations.</p>
+      <h3>4. Data Security</h3><p>The Welfare protects your information through password encryption using bcrypt, secure HTTPS encryption, secure cloud storage, role-based access controls, and regular security monitoring.</p>
+      <h3>5. Access to Your Information</h3><p>Sensitive information is accessible only to authorized administrators, including the Chairperson and designated Super Administrators. Regular members cannot access other members' confidential information.</p>
+      <h3>6. Sharing Information</h3><p>The Welfare does not sell or share members' personal information except where required by law, with the member's consent, or to protect the Welfare's legal interests.</p>
+      <h3>7. Member Rights</h3><p>Members have the right to access their personal information, request correction of inaccurate information, withdraw consent where legally applicable, and request deletion where permitted by law.</p>
+      <h3>8. Contact</h3><p>Questions regarding privacy should be directed to the Chairperson or System Administrator of Drumvale Riverview Welfare Group.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-siteterms-view">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3>Website Terms &amp; Conditions</h3><button class="modal-close" onclick="closeModal('modal-siteterms-view')">✕</button></div>
+    <div class="constitution-content">
+      <p>By creating an account or using this website, you agree to the following:</p>
+      <h3>1. Accuracy of Information</h3><p>Information provided must be accurate and truthful.</p>
+      <h3>2. Account Security</h3><p>Members are responsible for keeping their login credentials confidential.</p>
+      <h3>3. Verification</h3><p>The Welfare reserves the right to verify information submitted.</p>
+      <h3>4. Acceptable Use</h3><p>Members shall not misuse the website or attempt unauthorized access.</p>
+      <h3>5. Account Suspension</h3><p>The Welfare may suspend accounts used fraudulently or in violation of these Terms.</p>
+      <h3>6. Data Processing</h3><p>Personal information will be processed in accordance with the Privacy Policy.</p>
+      <h3>7. Changes to Terms</h3><p>The Welfare may update these Terms from time to time, and continued use of the website constitutes acceptance of the revised Terms.</p>
     </div>
   </div>
 </div>
@@ -2165,6 +2302,127 @@ function filterMembers() {
   renderMembersTable(filtered);
 }
 
+function openAddMemberModal() {
+  // reset all fields to a blank state each time the modal is opened
+  ['m-name','m-memberid','m-phone','m-idno','m-dob','m-marital','m-residence','m-court',
+   'm-houseno','m-spouse','m-kin-name','m-kin-phone','m-nok2','m-nok2tel','m-email',
+   'm-date','m-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('m-role').value = 'member';
+
+  const childTbody = document.getElementById('m-children-tbody');
+  childTbody.innerHTML = `
+    <tr>
+      <td style="text-align:center;color:var(--muted);">1</td>
+      <td><input type="text" placeholder="Name"/></td>
+      <td><input type="date"/></td>
+      <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
+      <td><input type="text" placeholder="No."/></td>
+    </tr>`;
+
+  parentRowCountM = 1;
+  const parentTbody = document.getElementById('m-parents-tbody');
+  parentTbody.innerHTML = `
+    <tr class="m-parent-row">
+      <td style="text-align:center;color:var(--muted);">1</td>
+      <td><input type="text" placeholder="Name" class="m-parent-name"/></td>
+      <td class="status-radio-cell">
+        <div class="status-radio-group">
+          <label><input type="radio" name="m_parent_status_1" value="alive"/><span style="color:#10b981;">Alive</span></label>
+          <label><input type="radio" name="m_parent_status_1" value="deceased"/><span style="color:var(--danger);">Deceased</span></label>
+        </div>
+      </td>
+      <td><input type="text" placeholder="ID No" class="m-parent-idno"/></td>
+      <td><input type="text" placeholder="Town / Estate" class="m-parent-residence"/></td>
+      <td><input type="tel" placeholder="07XX XXX XXX" class="m-parent-phone"/></td>
+    </tr>`;
+
+  ['m-chk-terms','m-chk-constitution','m-chk-privacy'].forEach(id => document.getElementById(id).checked = false);
+  validateMemberTerms();
+
+  openModal('modal-add-member');
+}
+
+function validateMemberTerms() {
+  const t = document.getElementById('m-chk-terms').checked;
+  const c = document.getElementById('m-chk-constitution').checked;
+  const p = document.getElementById('m-chk-privacy').checked;
+  document.getElementById('m-save-btn').disabled = !(t && c && p);
+}
+
+function addChildRowM() {
+  const tbody = document.getElementById('m-children-tbody');
+  const rowNum = tbody.rows.length + 1;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td style="text-align:center;color:var(--muted);">${rowNum}</td>
+    <td><input type="text" placeholder="Name"/></td>
+    <td><input type="date"/></td>
+    <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
+    <td><input type="text" placeholder="No."/></td>`;
+  tbody.appendChild(row);
+}
+
+let parentRowCountM = 1;
+function addParentRowM() {
+  parentRowCountM++;
+  const tbody = document.getElementById('m-parents-tbody');
+  const n = parentRowCountM;
+  const tr = document.createElement('tr');
+  tr.className = 'm-parent-row';
+  tr.innerHTML = `
+    <td style="text-align:center;color:var(--muted);">${n}</td>
+    <td><input type="text" placeholder="Name" class="m-parent-name"/></td>
+    <td class="status-radio-cell">
+      <div class="status-radio-group">
+        <label><input type="radio" name="m_parent_status_${n}" value="alive"/><span style="color:#10b981;">Alive</span></label>
+        <label><input type="radio" name="m_parent_status_${n}" value="deceased"/><span style="color:var(--danger);">Deceased</span></label>
+      </div>
+    </td>
+    <td><input type="text" placeholder="ID No" class="m-parent-idno"/></td>
+    <td><input type="text" placeholder="Town / Estate" class="m-parent-residence"/></td>
+    <td><input type="tel" placeholder="07XX XXX XXX" class="m-parent-phone"/></td>`;
+  tbody.appendChild(tr);
+}
+
+function collectChildrenM() {
+  const rows = document.querySelectorAll('#m-children-tbody tr');
+  const children = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input, select');
+    const [nameEl, dobEl, relEl, certEl] = inputs;
+    if (nameEl && nameEl.value.trim()) {
+      children.push({
+        full_name: nameEl.value.trim(),
+        date_of_birth: dobEl.value || null,
+        relationship: relEl.value || null,
+        cert_number: certEl.value || null,
+      });
+    }
+  });
+  return children;
+}
+
+function collectParentsM() {
+  const rows = document.querySelectorAll('#m-parents-tbody tr.m-parent-row');
+  const parents = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.m-parent-name')?.value.trim();
+    if (!name) return;
+    const status = row.querySelector('input[type="radio"]:checked')?.value || null;
+    const idno = row.querySelector('.m-parent-idno')?.value || null;
+    const residence = row.querySelector('.m-parent-residence')?.value || null;
+    const phone = row.querySelector('.m-parent-phone')?.value || null;
+    parents.push({
+      full_name: name,
+      status: status,
+      id_number: idno,
+      current_residence: residence,
+      contact_phone: phone,
+    });
+  });
+  return parents;
+}
+
 async function saveMember() {
   try {
     await apiFetch('/members', {
@@ -2172,13 +2430,27 @@ async function saveMember() {
       body: JSON.stringify({
         full_name: document.getElementById('m-name').value,
         phone_number: document.getElementById('m-phone').value,
-        id_number: document.getElementById('m-id').value || null,
+        id_number: document.getElementById('m-idno').value || null,
+        email: document.getElementById('m-email').value || null,
         role: document.getElementById('m-role').value,
         status: 'active',
         date_joined: document.getElementById('m-date').value,
+        date_of_birth: document.getElementById('m-dob').value || null,
+        marital_status: document.getElementById('m-marital').value || null,
+        residence: document.getElementById('m-residence').value || null,
+        court: document.getElementById('m-court').value || null,
+        house_number: document.getElementById('m-houseno').value || null,
+        spouse_name: document.getElementById('m-spouse').value || null,
         next_of_kin_name: document.getElementById('m-kin-name').value || null,
         next_of_kin_phone: document.getElementById('m-kin-phone').value || null,
+        next_of_kin_2: document.getElementById('m-nok2').value || null,
+        nok2_phone: document.getElementById('m-nok2tel').value || null,
         notes: document.getElementById('m-notes').value || null,
+        children: collectChildrenM(),
+        parents: collectParentsM(),
+        privacy_accepted: document.getElementById('m-chk-privacy').checked
+          && document.getElementById('m-chk-terms').checked
+          && document.getElementById('m-chk-constitution').checked,
       })
     });
     closeModal('modal-add-member');

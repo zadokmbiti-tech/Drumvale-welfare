@@ -22,6 +22,11 @@ def add_member(
     conn = get_connection()
     cur = conn.cursor()
     try:
+        if member.email:
+            cur.execute("SELECT id FROM users WHERE email=%s", (member.email,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Email already registered")
+
         cur.execute("""
             INSERT INTO members (full_name, phone_number, id_number, role, status,
                 date_joined, next_of_kin_name, next_of_kin_phone, notes)
@@ -40,14 +45,47 @@ def add_member(
         from app.routes.auth import hash_password
         default_hashed = hash_password(DEFAULT_MEMBER_PASSWORD)
         cur.execute("""
-            INSERT INTO users (full_name, phone_number, id_number, role, hashed_password,
-                is_active, registration_status, must_change_password)
-            VALUES (%s, %s, %s, %s, %s, true, 'approved', true)
+            INSERT INTO users (
+                full_name, phone_number, email, id_number, hashed_password,
+                role, is_active, registration_status, must_change_password,
+                date_of_birth, marital_status, residence, court, house_number,
+                spouse_name, next_of_kin_name, next_of_kin_phone,
+                next_of_kin_2, nok2_phone, privacy_accepted
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,true,'approved',true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (phone_number) DO NOTHING
+            RETURNING id
         """, (
-            member.full_name, member.phone_number, member.id_number,
-            member.role, default_hashed
+            member.full_name, member.phone_number, member.email, member.id_number,
+            default_hashed, member.role,
+            member.date_of_birth, member.marital_status, member.residence,
+            member.court, member.house_number, member.spouse_name,
+            member.next_of_kin_name, member.next_of_kin_phone,
+            member.next_of_kin_2, member.nok2_phone, member.privacy_accepted
         ))
+        user_row = cur.fetchone()
+        new_user_id = user_row[0] if user_row else None
+
+        # Insert children/parents against the users record, same as self-registration.
+        # Skipped if the phone number already had a user row (ON CONFLICT above).
+        if new_user_id:
+            for child in (member.children or []):
+                if child.full_name:
+                    cur.execute("""
+                        INSERT INTO member_children
+                            (user_id, full_name, date_of_birth, relationship, cert_number)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (new_user_id, child.full_name, child.date_of_birth,
+                          child.relationship, child.cert_number))
+
+            for parent in (member.parents or []):
+                if parent.full_name:
+                    cur.execute("""
+                        INSERT INTO member_parents
+                            (user_id, full_name, status, id_number, current_residence, contact_phone)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                    """, (new_user_id, parent.full_name, parent.status,
+                          parent.id_number, parent.current_residence, parent.contact_phone))
 
         conn.commit()
 
@@ -56,6 +94,8 @@ def add_member(
         log_action("Member Created", actor, detail=f"Added member {member.full_name}", target=member.full_name)
 
         return {"message": "Member added", "id": new_id, "default_password": DEFAULT_MEMBER_PASSWORD}
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))

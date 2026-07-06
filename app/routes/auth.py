@@ -91,8 +91,8 @@ def register(request: Request, data: UserRegister):
                 full_name, phone_number, email, id_number, hashed_password,
                 date_of_birth, marital_status, residence, court, house_number,
                 spouse_name, next_of_kin_name, next_of_kin_phone,
-                next_of_kin_2, nok2_phone
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                next_of_kin_2, nok2_phone, privacy_accepted
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)
             RETURNING id
         """, (
             data.full_name, data.phone_number, data.email, data.id_number, hashed,
