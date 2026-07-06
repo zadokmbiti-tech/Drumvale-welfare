@@ -966,13 +966,13 @@
       <div class="form-group"><label>Case No.</label><input id="c-case-no" placeholder="e.g. 42"/></div>
       <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date" onchange="updateCaseDeadlinePreview()"/></div>
       <div class="form-group"><label>Deadline (auto)</label><input id="c-deadline-preview" type="date" disabled/></div>
-      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
+      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Burial Contribution"/></div>
       <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
       <div class="form-group"><label>Beneficiary</label>
         <input id="c-beneficiary" list="c-beneficiary-datalist" placeholder="Type name — pick from list if registered"/>
         <datalist id="c-beneficiary-datalist"></datalist>
       </div>
-      <div class="form-group"><label>Amount per Member (KES)</label><input id="c-amount" type="number" placeholder="200"/></div>
+      <div class="form-group"><label>Amount per Member (KES)</label><input id="case-amount" type="number" placeholder="200"/></div>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-top:4px">Deadline is set automatically to 7 days after the start date, and the case closes itself once the deadline passes.</p>
     <div class="modal-footer">
@@ -2429,7 +2429,7 @@ async function openAddCaseModal() {
   document.getElementById('c-case-no').value = '';
   document.getElementById('c-title').value = '';
   document.getElementById('c-description').value = '';
-  document.getElementById('c-amount').value = '';
+  document.getElementById('case-amount').value = '';
   document.getElementById('c-beneficiary').value = '';
   document.getElementById('c-start-date').value = new Date().toISOString().slice(0,10);
   updateCaseDeadlinePreview();
@@ -2443,7 +2443,7 @@ async function openAddCaseModal() {
 async function saveCase() {
   const typedName = document.getElementById('c-beneficiary').value.trim();
   if (!typedName) { toast('Enter a beneficiary name', 'error'); return; }
-  const amountVal = document.getElementById('c-amount').value.trim();
+  const amountVal = document.getElementById('case-amount').value.trim();
   const amount = parseFloat(amountVal);
   if (!amountVal || isNaN(amount) || amount <= 0) {
     toast('Enter the amount per member — that grey "200" is just a placeholder', 'error');
