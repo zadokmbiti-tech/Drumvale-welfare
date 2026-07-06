@@ -11,6 +11,9 @@ from app.auth_deps import require_secretary, require_chairperson, require_super_
 router = APIRouter()
 
 
+DEFAULT_MEMBER_PASSWORD = "Drumvale2026"
+
+
 @router.post("/")
 def add_member(
     member: MemberCreate,
@@ -29,13 +32,30 @@ def add_member(
             member.next_of_kin_name, member.next_of_kin_phone, member.notes
         ))
         new_id = cur.fetchone()[0]
+
+        # Give the member an account they can log in with right away, using
+        # a default password they'll be forced to change on first login.
+        # ON CONFLICT protects anyone who already self-registered (and thus
+        # already set their own password) from being overwritten.
+        from app.routes.auth import hash_password
+        default_hashed = hash_password(DEFAULT_MEMBER_PASSWORD)
+        cur.execute("""
+            INSERT INTO users (full_name, phone_number, id_number, role, hashed_password,
+                is_active, registration_status, must_change_password)
+            VALUES (%s, %s, %s, %s, %s, true, 'approved', true)
+            ON CONFLICT (phone_number) DO NOTHING
+        """, (
+            member.full_name, member.phone_number, member.id_number,
+            member.role, default_hashed
+        ))
+
         conn.commit()
 
         from app.routes.audit import log_action, get_actor_name
         actor = get_actor_name(cur, current_user)
         log_action("Member Created", actor, detail=f"Added member {member.full_name}", target=member.full_name)
 
-        return {"message": "Member added", "id": new_id}
+        return {"message": "Member added", "id": new_id, "default_password": DEFAULT_MEMBER_PASSWORD}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -96,6 +116,15 @@ async def bulk_import_members(
                 """, (full_name, phone_number, id_number, role, status,
                       date_joined, nok_name, nok_phone, notes))
                 inserted += cur.rowcount
+
+                if cur.rowcount:
+                    from app.routes.auth import hash_password
+                    cur.execute("""
+                        INSERT INTO users (full_name, phone_number, id_number, role, hashed_password,
+                            is_active, registration_status, must_change_password)
+                        VALUES (%s,%s,%s,%s,%s, true, 'approved', true)
+                        ON CONFLICT (phone_number) DO NOTHING
+                    """, (full_name, phone_number, id_number, role, hash_password(DEFAULT_MEMBER_PASSWORD)))
             except Exception as e:
                 conn.rollback()
                 errors.append({"row": i, "error": str(e)})
@@ -113,7 +142,9 @@ async def bulk_import_members(
     return {
         "inserted": inserted,
         "errors": errors,
-        "message": f"{inserted} member(s) imported, {len(errors)} error(s)"
+        "default_password": DEFAULT_MEMBER_PASSWORD,
+        "message": f"{inserted} member(s) imported, {len(errors)} error(s). "
+                   f"They can log in with the default password '{DEFAULT_MEMBER_PASSWORD}' and will be asked to change it."
     }
 
 

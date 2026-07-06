@@ -84,6 +84,7 @@ class TokenResponse(BaseModel):
     full_name:    str
     role:         str
     phone_number: str = ""
+    must_change_password: bool = False
 
 class LoanCreate(BaseModel):
     member_id:     int

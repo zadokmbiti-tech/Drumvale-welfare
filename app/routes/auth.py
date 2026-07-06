@@ -166,13 +166,13 @@ def login(request: Request, data: UserLogin):
     try:
         if data.email:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password
                    FROM users WHERE email=%s""",
                 (data.email,)
             )
         elif data.phone_number:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password
                    FROM users WHERE phone_number=%s""",
                 (data.phone_number,)
             )
@@ -197,7 +197,8 @@ def login(request: Request, data: UserLogin):
     from app.routes.audit import log_action
     log_action("Login", user[1], detail=f"Successful login ({user[2]})", target=user[1])
 
-    return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2], phone_number=user[6] or "")
+    return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2],
+                          phone_number=user[6] or "", must_change_password=bool(user[7]))
 
 # ------------------------------------------------------------------ #
 #  SWAGGER /docs token endpoint
@@ -246,6 +247,63 @@ def logout(current_user: dict = Depends(get_current_user)):
 
 
 # ------------------------------------------------------------------ #
+#  CHANGE PASSWORD (self-service, requires current password)
+# ------------------------------------------------------------------ #
+@router.post("/change-password")
+@limiter.limit("5/minute")
+def change_password(request: Request, data: dict, current_user: dict = Depends(get_current_user)):
+    """
+    Lets a logged-in user set a new password themselves.
+    Used for the mandatory first-login password change (when an admin
+    creates a member with the default password) as well as voluntary
+    password changes from an already-logged-in session.
+    """
+    current_password = (data.get("current_password") or "").strip()
+    new_password     = (data.get("new_password") or "").strip()
+
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Current and new password are required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if new_password == current_password:
+        raise HTTPException(status_code=400, detail="New password must be different from the current one")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT hashed_password, full_name FROM users WHERE id=%s",
+            (current_user["user_id"],)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if not verify_password(current_password, row[0]):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        hashed = hash_password(new_password)
+        cur.execute(
+            "UPDATE users SET hashed_password=%s, must_change_password=false WHERE id=%s",
+            (hashed, current_user["user_id"])
+        )
+        conn.commit()
+
+        from app.routes.audit import log_action
+        log_action("Password Changed", row[1], detail="User changed their own password", target=row[1])
+
+        return {"message": "Password updated successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# ------------------------------------------------------------------ #
 #  ME
 # ------------------------------------------------------------------ #
 @router.get("/me")
@@ -260,7 +318,8 @@ def get_me(current_user: dict = Depends(get_current_user)):
               u.court, u.house_number, u.spouse_name,
               u.next_of_kin_name, u.next_of_kin_phone,
               u.next_of_kin_2, u.nok2_phone,
-              m.id_number, m.status, m.date_joined, m.notes
+              m.id_number, m.status, m.date_joined, m.notes,
+              u.must_change_password
        FROM users u
        LEFT JOIN members m ON m.phone_number = u.phone_number
        WHERE u.id=%s""",
@@ -325,6 +384,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "status": user[19],
     "date_joined": str(user[20]) if user[20] else None,
     "notes": user[21],
+    "must_change_password": bool(user[22]),
     "children": children,
     "parents": parents
 }
