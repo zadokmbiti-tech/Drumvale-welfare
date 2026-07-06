@@ -967,7 +967,10 @@
       <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date"/></div>
       <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
       <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
-      <div class="form-group"><label>Beneficiary</label><select id="c-beneficiary"></select></div>
+      <div class="form-group"><label>Beneficiary</label>
+        <input id="c-beneficiary" list="c-beneficiary-datalist" placeholder="Type name — pick from list if registered"/>
+        <datalist id="c-beneficiary-datalist"></datalist>
+      </div>
       <div class="form-group"><label>Amount per Member (KES)</label><input id="c-amount" type="number" placeholder="200"/></div>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-top:4px">Deadline is set automatically to 7 days after the start date, and the case closes itself once the deadline passes.</p>
@@ -2415,13 +2418,14 @@ async function loadCases() {
 }
 
 async function openAddCaseModal() {
-  const sel = document.getElementById('c-beneficiary');
-  sel.innerHTML = (allMembers.length ? allMembers : await apiFetch('/members').then(m=>{allMembers=m;return m;}))
-    .map(m => `<option value="${m.id}">${m.full_name}</option>`).join('');
+  const list = document.getElementById('c-beneficiary-datalist');
+  const members = allMembers.length ? allMembers : await apiFetch('/members').then(m=>{allMembers=m;return m;});
+  list.innerHTML = members.map(m => `<option value="${m.full_name}">`).join('');
   document.getElementById('c-case-no').value = '';
   document.getElementById('c-title').value = '';
   document.getElementById('c-description').value = '';
   document.getElementById('c-amount').value = '';
+  document.getElementById('c-beneficiary').value = '';
   document.getElementById('c-start-date').value = new Date().toISOString().slice(0,10);
   try {
     const { next_case_no } = await apiFetch('/cases/next-case-no');
@@ -2431,6 +2435,12 @@ async function openAddCaseModal() {
 }
 
 async function saveCase() {
+  const typedName = document.getElementById('c-beneficiary').value.trim();
+  if (!typedName) { toast('Enter a beneficiary name', 'error'); return; }
+  // If the typed name matches a registered member exactly (case-insensitive),
+  // link the case to that member; otherwise store it as a freehand name so
+  // members who haven't registered yet can still be set as beneficiaries.
+  const matched = allMembers.find(m => m.full_name.trim().toLowerCase() === typedName.toLowerCase());
   try {
     await apiFetch('/cases', {
       method: 'POST',
@@ -2438,7 +2448,8 @@ async function saveCase() {
         case_no: document.getElementById('c-case-no').value,
         title: document.getElementById('c-title').value,
         description: document.getElementById('c-description').value || null,
-        beneficiary_id: parseInt(document.getElementById('c-beneficiary').value),
+        beneficiary_id: matched ? matched.id : null,
+        beneficiary_name: matched ? null : typedName,
         amount_per_member: parseFloat(document.getElementById('c-amount').value),
         start_date: document.getElementById('c-start-date').value,
       })

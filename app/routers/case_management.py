@@ -77,9 +77,9 @@ def _compute_note(present: int, absent: int, apology: int) -> str:
 
 
 def _case_row_to_dict(row, total_collected=None):
-    (id_, title, event_type, beneficiary_id, description, target_amount,
+    (id_, title, event_type, beneficiary_id, beneficiary_name_raw, description, target_amount,
      status, date_raised, date_closed, case_no, amount_per_member,
-     start_date, deadline, beneficiary_name) = row
+     start_date, deadline, member_full_name) = row
     today = date.today()
     is_open = bool(deadline is None or today <= deadline)
     return {
@@ -88,7 +88,7 @@ def _case_row_to_dict(row, total_collected=None):
         "title": title,
         "description": description,
         "beneficiary_id": beneficiary_id,
-        "beneficiary_name": beneficiary_name,
+        "beneficiary_name": member_full_name or beneficiary_name_raw,
         "amount_per_member": float(amount_per_member) if amount_per_member is not None else None,
         "start_date": str(start_date) if start_date else None,
         "deadline": str(deadline) if deadline else None,
@@ -129,7 +129,8 @@ class CaseCreate(BaseModel):
     case_no: str
     title: str
     description: Optional[str] = None
-    beneficiary_id: int
+    beneficiary_id: Optional[int] = None
+    beneficiary_name: Optional[str] = None
     amount_per_member: float
     start_date: date
 
@@ -140,6 +141,13 @@ class CaseCreate(BaseModel):
             raise ValueError("Amount per member must be greater than zero")
         return v
 
+    @field_validator("beneficiary_name")
+    @classmethod
+    def need_a_beneficiary(cls, v, info):
+        if not info.data.get("beneficiary_id") and not (v and v.strip()):
+            raise ValueError("Provide a beneficiary_id or a beneficiary_name")
+        return v
+
 
 @router.post("")
 @router.post("/")
@@ -147,9 +155,10 @@ def create_case(payload: CaseCreate, current_user=Depends(require_treasurer)):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id FROM members WHERE id=%s", (payload.beneficiary_id,))
-        if not cur.fetchone():
-            raise HTTPException(400, "Beneficiary member not found")
+        if payload.beneficiary_id:
+            cur.execute("SELECT id FROM members WHERE id=%s", (payload.beneficiary_id,))
+            if not cur.fetchone():
+                raise HTTPException(400, "Beneficiary member not found")
 
         cur.execute("SELECT id FROM events WHERE case_no=%s", (payload.case_no,))
         if cur.fetchone():
@@ -158,12 +167,12 @@ def create_case(payload: CaseCreate, current_user=Depends(require_treasurer)):
         deadline = payload.start_date + timedelta(days=DEADLINE_DAYS)
 
         cur.execute("""
-            INSERT INTO events (title, event_type, beneficiary_id, description,
+            INSERT INTO events (title, event_type, beneficiary_id, beneficiary_name, description,
                                  target_amount, status, date_raised,
                                  case_no, amount_per_member, start_date, deadline)
-            VALUES (%s, 'welfare', %s, %s, %s, 'open', %s, %s, %s, %s, %s)
+            VALUES (%s, 'welfare', %s, %s, %s, %s, 'open', %s, %s, %s, %s, %s)
             RETURNING id
-        """, (payload.title, payload.beneficiary_id, payload.description,
+        """, (payload.title, payload.beneficiary_id, payload.beneficiary_name, payload.description,
               payload.amount_per_member, payload.start_date,
               payload.case_no, payload.amount_per_member, payload.start_date, deadline))
         new_id = cur.fetchone()[0]
@@ -199,7 +208,7 @@ def list_cases(current_user=Depends(get_current_user)):
         conn.commit()
 
         cur.execute("""
-            SELECT e.id, e.title, e.event_type, e.beneficiary_id, e.description,
+            SELECT e.id, e.title, e.event_type, e.beneficiary_id, e.beneficiary_name, e.description,
                    e.target_amount, e.status, e.date_raised, e.date_closed,
                    e.case_no, e.amount_per_member, e.start_date, e.deadline,
                    m.full_name,
@@ -231,7 +240,7 @@ def get_case_profile(case_id: int, current_user=Depends(get_current_user)):
         conn.commit()
 
         cur.execute("""
-            SELECT e.id, e.title, e.event_type, e.beneficiary_id, e.description,
+            SELECT e.id, e.title, e.event_type, e.beneficiary_id, e.beneficiary_name, e.description,
                    e.target_amount, e.status, e.date_raised, e.date_closed,
                    e.case_no, e.amount_per_member, e.start_date, e.deadline,
                    m.full_name
@@ -256,7 +265,7 @@ def get_case_profile(case_id: int, current_user=Depends(get_current_user)):
         cur.execute("SELECT member_id, status, is_new_member FROM case_attendance WHERE event_id=%s", (case_id,))
         attendance = {r[0]: {"status": r[1], "is_new_member": r[2]} for r in cur.fetchall()}
 
-        amount_per_member = row[10]
+        amount_per_member = row[11]
         roster = []
         present = absent = apology = 0
         total_collected = 0
