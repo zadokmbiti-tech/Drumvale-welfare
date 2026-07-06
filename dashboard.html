@@ -253,10 +253,6 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       Loans
     </div>
-    <div class="nav-item" onclick="showPage('events', this)">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Events
-      </div>
     <div class="nav-item" onclick="showPage('cases', this)">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
       Cases
@@ -398,7 +394,7 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Import CSV
         </button>
-        <button class="btn btn-primary" onclick="openModal('modal-add-member')">+ Add Member</button>
+        <button class="btn btn-primary" onclick="window.open('/?register=1', '_blank')">+ Add Member</button>
       </div>
     </div>
     <div class="card">
@@ -515,21 +511,6 @@
     </div>
   </div>
 
-  <div id="page-events" class="page">
-    <div class="page-header">
-      <div><h2>Events</h2><p>Welfare & fundraising events</p></div>
-      <button class="btn btn-primary" onclick="openModal('modal-add-event')">+ Raise Event</button>
-    </div>
-    <div class="card">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Beneficiary</th><th>Target</th><th>Raised</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-          <tbody id="events-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <!-- ── CASES PAGE ────────────────────────────────────────────── -->
   <div id="page-cases" class="page">
     <div class="page-header">
@@ -537,6 +518,12 @@
       <button class="btn btn-primary" onclick="openAddCaseModal()">+ New Case</button>
     </div>
     <div class="card">
+      <div style="margin-bottom:16px">
+        <div class="search-bar" style="width:100%;max-width:340px">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="case-search" placeholder="Search cases by no., title or beneficiary…" oninput="filterCases()"/>
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Case No.</th><th>Title / Beneficiary</th><th>Amount/Member</th><th>Start</th><th>Deadline</th><th>Status</th><th>Collected</th><th>Actions</th></tr></thead>
@@ -966,7 +953,7 @@
       <div class="form-group"><label>Case No.</label><input id="c-case-no" placeholder="e.g. 42"/></div>
       <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date" onchange="updateCaseDeadlinePreview()"/></div>
       <div class="form-group"><label>Deadline (auto)</label><input id="c-deadline-preview" type="date" disabled/></div>
-      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Burial Contribution"/></div>
+      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
       <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
       <div class="form-group"><label>Beneficiary</label>
         <input id="c-beneficiary" list="c-beneficiary-datalist" placeholder="Type name — pick from list if registered"/>
@@ -991,6 +978,13 @@
     <p id="case-profile-meta" style="color:var(--muted);font-size:13px;margin:-6px 0 10px"></p>
     <div id="case-profile-note" style="padding:10px 14px;border-radius:8px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);font-size:13px;margin-bottom:14px"></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <div class="search-bar" style="width:220px">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="roster-search" placeholder="Search members…" oninput="filterRoster()"/>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">Payment date <input id="ros-payment-date" type="date" style="padding:6px 10px"/></label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><input type="checkbox" id="ros-select-all" onchange="toggleAllRosterRows(this)"/> Select all</label>
       <span style="color:var(--muted);font-size:12px">Apply to selected:</span>
       <button class="btn btn-sm btn-outline" onclick="bulkSetAttendance('present')">✅ Present</button>
@@ -1001,7 +995,7 @@
     </div>
     <div class="table-wrap" style="max-height:420px;overflow:auto">
       <table>
-        <thead><tr><th></th><th>Member</th><th>Attendance</th><th>New?</th><th>Paid</th><th>Amount</th><th>Date Paid</th></tr></thead>
+        <thead><tr><th></th><th>Member</th><th>Attendance</th><th>New?</th><th>Paid</th><th>Amount</th></tr></thead>
         <tbody id="case-roster-tbody"></tbody>
       </table>
     </div>
@@ -1886,7 +1880,6 @@ function showPage(name, el) {
   if (name==='members')       loadMembers();
   if (name==='contributions') { loadContribSummary(); loadContribStatus(); loadPendingContribs(); }
   if (name==='loans')         { loadLoanSummary(); loadLoans(); }
-  if (name==='events')        loadEvents();
   if (name==='cases')         loadCases();
   if (name==='meetings')      loadMeetings();
   if (name==='notices')       loadNotices();
@@ -2409,26 +2402,47 @@ async function closeEvent(id) {
 }
 
 // ── Cases ─────────────────────────────────────────────────────────
+let allCases = [];
+
 async function loadCases() {
   const tbody = document.getElementById('cases-tbody');
   try {
-    const cases = await apiFetch('/cases');
-    if (!cases.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No cases yet</div></td></tr>'; return; }
-    tbody.innerHTML = cases.map(c => `
-      <tr>
-        <td><strong>#${c.case_no}</strong></td>
-        <td>${c.title}<br><span style="color:var(--muted);font-size:12px">${c.beneficiary_name||'—'}</span></td>
-        <td>KES ${fmt(c.amount_per_member||0)}</td>
-        <td>${c.start_date||'—'}</td>
-        <td>${c.deadline||'—'}${c.is_open ? ` <span style="color:var(--muted);font-size:11px">(${c.days_remaining}d left)</span>` : ''}</td>
-        <td><span class="badge ${c.is_open?'badge-green':'badge-gray'}">${c.is_open?'Open':'Closed'}</span></td>
-        <td>KES ${fmt(c.total_collected||0)}</td>
-        <td><button class="btn btn-sm btn-outline" onclick="openCaseProfile(${c.id})">View</button></td>
-      </tr>`).join('');
+    allCases = await apiFetch('/cases');
+    renderCasesTable(allCases);
   } catch(e) {
     console.error('loadCases:', e);
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
   }
+}
+
+function renderCasesTable(cases) {
+  const tbody = document.getElementById('cases-tbody');
+  if (!cases.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No cases found</div></td></tr>'; return; }
+  tbody.innerHTML = cases.map(c => `
+    <tr>
+      <td><strong>#${c.case_no}</strong></td>
+      <td>${c.title}<br><span style="color:var(--muted);font-size:12px">${c.beneficiary_name||'—'}</span></td>
+      <td>KES ${fmt(c.amount_per_member||0)}</td>
+      <td>${c.start_date||'—'}</td>
+      <td>${c.deadline||'—'}${c.is_open ? ` <span style="color:var(--muted);font-size:11px">(${c.days_remaining}d left)</span>` : ''}</td>
+      <td><span class="badge ${c.is_open?'badge-green':'badge-gray'}">${c.is_open?'Open':'Closed'}</span></td>
+      <td>KES ${fmt(c.total_collected||0)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="openCaseProfile(${c.id})">Roster</button>
+        <button class="btn btn-sm" style="background:rgba(44,180,224,.12);color:var(--accent);border:1px solid rgba(44,180,224,.3)" onclick="openManageEvent(${c.id}, '${(c.title||'').replace(/'/g,"\\'")}')">Manage</button>
+        <button class="btn btn-sm" style="background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.3)" onclick="openDisbursement(${c.id})">💸 Disburse</button>
+      </td>
+    </tr>`).join('');
+}
+
+function filterCases() {
+  const q = document.getElementById('case-search').value.toLowerCase();
+  const filtered = allCases.filter(c =>
+    String(c.case_no||'').toLowerCase().includes(q) ||
+    (c.title||'').toLowerCase().includes(q) ||
+    (c.beneficiary_name||'').toLowerCase().includes(q)
+  );
+  renderCasesTable(filtered);
 }
 
 async function openAddCaseModal() {
@@ -2506,6 +2520,8 @@ async function openCaseProfile(caseId) {
   currentCaseId = caseId;
   document.getElementById('case-profile-id').value = caseId;
   document.getElementById('case-profile-title').textContent = 'Loading…';
+  document.getElementById('roster-search').value = '';
+  document.getElementById('ros-payment-date').value = new Date().toISOString().slice(0,10);
   openModal('modal-case-profile');
   try {
     const c = await apiFetch(`/cases/${caseId}`);
@@ -2518,11 +2534,19 @@ async function openCaseProfile(caseId) {
   } catch(e) { toast(e.message, 'error'); closeModal('modal-case-profile'); }
 }
 
+function filterRoster() {
+  const q = document.getElementById('roster-search').value.toLowerCase();
+  document.querySelectorAll('#case-roster-tbody tr').forEach(tr => {
+    const name = (tr.dataset.memberName || '').toLowerCase();
+    tr.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
 function renderCaseRoster(roster) {
   document.getElementById('ros-select-all').checked = false;
   const tbody = document.getElementById('case-roster-tbody');
   tbody.innerHTML = roster.map(r => `
-    <tr data-member-id="${r.member_id}">
+    <tr data-member-id="${r.member_id}" data-member-name="${r.member_name.replace(/"/g,'&quot;')}">
       <td><input type="checkbox" class="ros-select"/></td>
       <td>${r.member_name}</td>
       <td>
@@ -2536,7 +2560,6 @@ function renderCaseRoster(roster) {
       <td style="text-align:center"><input type="checkbox" class="ros-new" ${r.is_new_member?'checked':''}/></td>
       <td style="text-align:center"><input type="checkbox" class="ros-paid" ${r.paid?'checked':''}/></td>
       <td><input type="number" class="ros-amount" value="${r.amount??''}" style="width:90px"/></td>
-      <td><input type="date" class="ros-date" value="${r.date_paid||''}"/></td>
     </tr>`).join('');
 }
 
@@ -2563,9 +2586,6 @@ function bulkSetPaid(paid) {
   rows.forEach(tr => {
     if (tr.querySelector('.ros-select').checked) {
       tr.querySelector('.ros-paid').checked = paid;
-      if (paid && !tr.querySelector('.ros-date').value) {
-        tr.querySelector('.ros-date').value = new Date().toISOString().slice(0,10);
-      }
       count++;
     }
   });
@@ -2574,18 +2594,19 @@ function bulkSetPaid(paid) {
 }
 
 async function saveCaseRoster() {
+  const paymentDate = document.getElementById('ros-payment-date').value || null;
   const rows = document.querySelectorAll('#case-roster-tbody tr');
   const entries = Array.from(rows).map(tr => {
     const attendance = tr.querySelector('.ros-attendance').value;
     const amountVal = tr.querySelector('.ros-amount').value;
-    const dateVal = tr.querySelector('.ros-date').value;
+    const paid = tr.querySelector('.ros-paid').checked;
     return {
       member_id: parseInt(tr.dataset.memberId),
       attendance_status: attendance || null,
       is_new_member: tr.querySelector('.ros-new').checked,
-      paid: tr.querySelector('.ros-paid').checked,
+      paid: paid,
       amount: amountVal ? parseFloat(amountVal) : null,
-      date_paid: dateVal || null,
+      date_paid: paid ? paymentDate : null,
     };
   });
   try {

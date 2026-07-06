@@ -345,15 +345,27 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
                 )
                 existing = cur.fetchone()
                 if existing:
-                    cur.execute("""
-                        UPDATE contributions SET amount=%s, payment_method=%s
-                        WHERE id=%s
-                    """, (amount, e.payment_method, existing[0]))
+                    if e.date_paid:
+                        cur.execute("""
+                            UPDATE contributions SET amount=%s, payment_method=%s, recorded_at=%s
+                            WHERE id=%s
+                        """, (amount, e.payment_method, e.date_paid, existing[0]))
+                    else:
+                        cur.execute("""
+                            UPDATE contributions SET amount=%s, payment_method=%s
+                            WHERE id=%s
+                        """, (amount, e.payment_method, existing[0]))
                 else:
-                    cur.execute("""
-                        INSERT INTO contributions (event_id, member_id, amount, payment_method)
-                        VALUES (%s, %s, %s, %s)
-                    """, (case_id, e.member_id, amount, e.payment_method))
+                    if e.date_paid:
+                        cur.execute("""
+                            INSERT INTO contributions (event_id, member_id, amount, payment_method, recorded_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (case_id, e.member_id, amount, e.payment_method, e.date_paid))
+                    else:
+                        cur.execute("""
+                            INSERT INTO contributions (event_id, member_id, amount, payment_method)
+                            VALUES (%s, %s, %s, %s)
+                        """, (case_id, e.member_id, amount, e.payment_method))
             saved += 1
 
         conn.commit()
