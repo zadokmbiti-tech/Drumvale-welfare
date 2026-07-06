@@ -964,7 +964,8 @@
     </div>
     <div class="form-grid">
       <div class="form-group"><label>Case No.</label><input id="c-case-no" placeholder="e.g. 42"/></div>
-      <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date"/></div>
+      <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date" onchange="updateCaseDeadlinePreview()"/></div>
+      <div class="form-group"><label>Deadline (auto)</label><input id="c-deadline-preview" type="date" disabled/></div>
       <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
       <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
       <div class="form-group"><label>Beneficiary</label>
@@ -2427,6 +2428,7 @@ async function openAddCaseModal() {
   document.getElementById('c-amount').value = '';
   document.getElementById('c-beneficiary').value = '';
   document.getElementById('c-start-date').value = new Date().toISOString().slice(0,10);
+  updateCaseDeadlinePreview();
   try {
     const { next_case_no } = await apiFetch('/cases/next-case-no');
     document.getElementById('c-case-no').value = next_case_no;
@@ -2461,6 +2463,15 @@ async function saveCase() {
 }
 
 let currentCaseId = null;
+
+function updateCaseDeadlinePreview() {
+  const startVal = document.getElementById('c-start-date').value;
+  const preview = document.getElementById('c-deadline-preview');
+  if (!startVal) { preview.value = ''; return; }
+  const d = new Date(startVal + 'T00:00:00');
+  d.setDate(d.getDate() + 7);
+  preview.value = d.toISOString().slice(0,10);
+}
 
 async function openCaseProfile(caseId) {
   currentCaseId = caseId;
