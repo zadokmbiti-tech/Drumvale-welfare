@@ -251,6 +251,12 @@ def dashboard_stats(_=Depends(get_current_user)):
         cur.execute("SELECT COUNT(*) FROM events WHERE status='open'")
         open_events = cur.fetchone()[0]
 
+        cur.execute("SELECT COUNT(*) FROM events WHERE case_no IS NOT NULL")
+        total_cases = cur.fetchone()[0]
+
+        cur.execute("SELECT COUNT(*) FROM events WHERE case_no IS NOT NULL AND status='open'")
+        open_cases = cur.fetchone()[0]
+
         cur.execute("SELECT COUNT(*) FROM users WHERE registration_status='pending'")
         pending_users = cur.fetchone()[0]
 
@@ -277,6 +283,8 @@ def dashboard_stats(_=Depends(get_current_user)):
             "active_loans": active_loans,
             "outstanding_balance": outstanding,
             "open_events": open_events,
+            "total_cases": total_cases,
+            "open_cases": open_cases,
             "pending_registrations": pending_users,
             "total_assets": total_assets,
             "total_projects": total_projects,

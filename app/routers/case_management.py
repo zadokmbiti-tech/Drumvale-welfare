@@ -234,6 +234,12 @@ def create_case(payload: CaseCreate, current_user=Depends(require_treasurer)):
 
         deadline = payload.start_date + timedelta(days=DEADLINE_DAYS)
 
+        # `events.target_amount` is NOT NULL (legacy column from before cases
+        # existed). amount_per_member is allowed to be blank (e.g. a case
+        # funded straight from the kitty), so fall back to 0 for target_amount
+        # specifically — amount_per_member itself stays NULL as intended.
+        target_amount = payload.amount_per_member if payload.amount_per_member is not None else 0
+
         cur.execute("""
             INSERT INTO events (title, event_type, beneficiary_id, beneficiary_name, description,
                                  target_amount, status, date_raised,
@@ -241,7 +247,7 @@ def create_case(payload: CaseCreate, current_user=Depends(require_treasurer)):
             VALUES (%s, 'welfare', %s, %s, %s, %s, 'open', %s, %s, %s, %s, %s)
             RETURNING id
         """, (payload.title, payload.beneficiary_id, payload.beneficiary_name, payload.description,
-              payload.amount_per_member, payload.start_date,
+              target_amount, payload.start_date,
               payload.case_no, payload.amount_per_member, payload.start_date, deadline))
         new_id = cur.fetchone()[0]
         conn.commit()

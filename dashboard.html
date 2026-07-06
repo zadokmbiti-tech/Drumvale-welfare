@@ -361,9 +361,9 @@
         <div class="stat-sub" id="stat-projects-sub">Our projects</div>
       </div>
       <div class="stat-card" style="--accent-color:#8b5cf6">
-        <div class="stat-label">Open Events</div>
-        <div class="stat-value" id="stat-events">—</div>
-        <div class="stat-sub">Active welfare events</div>
+        <div class="stat-label">Cases</div>
+        <div class="stat-value" id="stat-cases">—</div>
+        <div class="stat-sub" id="stat-cases-sub">Open cases</div>
       </div>
     </div>
     <div class="two-col">
@@ -376,9 +376,15 @@
         <div id="dash-meetings-list"></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">💰 Pending Loans</div>
-      <div id="dash-loans-list" class="table-wrap"></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🗂️ Recent Cases</div>
+        <div id="dash-cases-list" class="table-wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">💰 Pending Loans</div>
+        <div id="dash-loans-list" class="table-wrap"></div>
+      </div>
     </div>
   </div>
 
@@ -991,7 +997,7 @@
       <div class="form-group"><label>Case No.</label><input id="c-case-no" placeholder="e.g. 42"/></div>
       <div class="form-group"><label>Start Date</label><input id="c-start-date" type="date" onchange="updateCaseDeadlinePreview()"/></div>
       <div class="form-group"><label>Deadline (auto)</label><input id="c-deadline-preview" type="date" disabled/></div>
-      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Mzee Charles Nyamosi Mikuro"/></div>
+      <div class="form-group full"><label>Title</label><input id="c-title" placeholder="e.g. Burial Contribution"/></div>
       <div class="form-group full"><label>Description</label><textarea id="c-description" rows="2" placeholder="Brief description of the case…"></textarea></div>
       <div class="form-group"><label>Beneficiary</label>
         <input id="c-beneficiary" list="c-beneficiary-datalist" placeholder="Type name — pick from list if registered"/>
@@ -1918,23 +1924,26 @@ function showPage(name, el) {
 async function loadDashboard() {
   try {
     // Use allSettled so one bad endpoint doesn't kill the whole dashboard
-    const [statsR, membersR, loansR, meetingsR] = await Promise.allSettled([
+    const [statsR, membersR, loansR, meetingsR, casesR] = await Promise.allSettled([
       apiFetch('/stats'),
       apiFetch('/members'),
       apiFetch('/loans'),
       apiFetch('/meetings'),
+      apiFetch('/cases'),
     ]);
 
     const stats    = statsR.status   === 'fulfilled' ? statsR.value   : {};
     const members  = membersR.status === 'fulfilled' ? membersR.value : [];
     const loans    = loansR.status   === 'fulfilled' ? loansR.value   : [];
     const meetings = meetingsR.status=== 'fulfilled' ? meetingsR.value: [];
+    const cases    = casesR.status   === 'fulfilled' ? casesR.value   : [];
 
     // Log any failures to console for debugging
     if (statsR.status    === 'rejected') console.error('/stats failed:',    statsR.reason);
     if (membersR.status  === 'rejected') console.error('/members failed:',  membersR.reason);
     if (loansR.status    === 'rejected') console.error('/loans failed:',    loansR.reason);
     if (meetingsR.status === 'rejected') console.error('/meetings failed:', meetingsR.reason);
+    if (casesR.status    === 'rejected') console.error('/cases failed:',    casesR.reason);
 
     // ── Stat cards ─────────────────────────────────────────────
     document.getElementById('stat-members').textContent = stats.total_members ?? members.length;
@@ -1948,7 +1957,9 @@ async function loadDashboard() {
     document.getElementById('stat-loans-sub').textContent =
       `KES ${fmt(stats.outstanding_balance ?? 0)} outstanding`;
 
-    document.getElementById('stat-events').textContent = stats.open_events ?? '—';
+    document.getElementById('stat-cases').textContent = stats.open_cases ?? cases.filter(c=>c.is_open).length;
+    document.getElementById('stat-cases-sub').textContent =
+      `${stats.total_cases ?? cases.length} total cases`;
 
     // Assets & Projects from stats
     document.getElementById('stat-Assets').textContent   = stats.total_assets ?? 0;
@@ -1970,6 +1981,19 @@ async function loadDashboard() {
           <div style="color:var(--muted);font-size:12px;margin-top:4px">📅 ${m.date} &nbsp; 📍 ${m.venue||'TBD'}</div>
         </div>`).join('')
       : '<div style="color:var(--muted);font-size:13px;padding:12px 0">No upcoming meetings</div>';
+
+    // ── Recent Cases ─────────────────────────────────────────────
+    const recentCases = [...cases].slice(0, 6);
+    document.getElementById('dash-cases-list').innerHTML = recentCases.length
+      ? `<table><thead><tr><th>Case No.</th><th>Title</th><th>Beneficiary</th><th>Status</th></tr></thead><tbody>
+         ${recentCases.map(c=>`<tr>
+           <td>Case ${c.case_no}</td>
+           <td>${c.title}</td>
+           <td>${c.beneficiary_name || '—'}</td>
+           <td><span class="badge ${c.is_open ? 'badge-green' : 'badge-gray'}">${c.status}</span></td>
+         </tr>`).join('')}
+         </tbody></table>`
+      : '<div style="color:var(--muted);font-size:13px;padding:12px 0">No cases recorded yet</div>';
 
     // ── Pending Loans ──────────────────────────────────────────
     const pending = loans.filter(l=>l.status==='pending').slice(0,5);

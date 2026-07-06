@@ -272,7 +272,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     <div class="nav-tab" id="members-nav-tab" style="display:none" onclick="showTab('members')">👥 Members</div>
     <div class="nav-tab" onclick="showTab('contributions')">💰 Contributions</div>
     <div class="nav-tab" onclick="showTab('loans')">🏦 Loans</div>
-    <div class="nav-tab" onclick="showTab('events')">📅 Events</div>
+    <div class="nav-tab" onclick="showTab('events')">🗂️ Cases</div>
     <div class="nav-tab" onclick="showTab('meetings')">🗓 Meetings</div>
     <div class="nav-tab" onclick="showTab('documents')">📄 Documents</div>
   </div>
@@ -286,7 +286,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
       <div class="cards-grid">
         <div class="stat-card blue"><div class="stat-icon">💰</div><div class="stat-val" id="ov-contrib">—</div><div class="stat-label">Total Contributed</div></div>
         <div class="stat-card green"><div class="stat-icon">📊</div><div class="stat-val" id="ov-loans">—</div><div class="stat-label">Active Loans</div></div>
-        <div class="stat-card amber"><div class="stat-icon">📅</div><div class="stat-val" id="ov-events">—</div><div class="stat-label">Open Events</div></div>
+        <div class="stat-card amber"><div class="stat-icon">🗂️</div><div class="stat-val" id="ov-events">—</div><div class="stat-label">Cases Open</div></div>
         <div class="stat-card purple"><div class="stat-icon">🏅</div><div class="stat-val" id="ov-status">—</div><div class="stat-label">Member Status</div></div>
       </div>
       <div class="table-wrap" style="margin-bottom:20px;">
@@ -294,7 +294,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
         <div id="recent-contrib-body"><div class="loading">Loading...</div></div>
       </div>
       <div class="table-wrap">
-        <div class="table-header"><h4>Upcoming Events & Notices</h4></div>
+        <div class="table-header"><h4>Recent Cases</h4></div>
         <div id="upcoming-events-body"><div class="loading">Loading...</div></div>
       </div>
     </div>
@@ -496,7 +496,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 
     <!-- EVENTS -->
 <div class="section" id="sec-events">
-  <div class="section-title">Events & Cases</div>
+  <div class="section-title">Cases</div>
 
   <!-- My submitted reports -->
   <div class="table-wrap" style="margin-bottom:20px;">
@@ -512,7 +512,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
   </div>
 
   <div class="table-wrap">
-    <div class="table-header"><h4>All Public Events</h4></div>
+    <div class="table-header"><h4>All Cases</h4></div>
     <div id="events-body"><div class="loading">Loading...</div></div>
   </div>
 </div>
@@ -1030,18 +1030,18 @@ async function loadOverview() {
     document.getElementById('ov-loans').textContent = lr.ok ? (await lr.json()).filter(l=>l.status==='disbursed').length : '0';
 
 
-    const er = await fetch(`${API}/events`,{headers:authH()});
+    const er = await fetch(`${API}/cases`,{headers:authH()});
     if (er.ok) {
-      const evts = await er.json();
-      const open = evts.filter(e=>e.status==='open');
-      document.getElementById('ov-events').textContent = open.length;
-      document.getElementById('upcoming-events-body').innerHTML = open.length===0 ? emptyState('📅','No upcoming events.')
-        : `<table><thead><tr><th>Event</th><th>Type</th><th>Status</th><th>Date</th></tr></thead><tbody>
-           ${open.slice(0,5).map(e=>`<tr>
-             <td style="font-weight:500;">${e.title||e.name||'—'}</td>
-             <td><span class="badge badge-blue">${e.event_type||e.type||'event'}</span></td>
-             <td><span class="badge badge-green">${e.status}</span></td>
-             <td style="color:var(--silver);">${fmtDate(e.date||e.date_raised||e.created_at)}</td>
+      const allCases = await er.json();
+      const openCases = allCases.filter(c=>c.is_open);
+      document.getElementById('ov-events').textContent = openCases.length;
+      document.getElementById('upcoming-events-body').innerHTML = allCases.length===0 ? emptyState('🗂️','No cases recorded yet.')
+        : `<table><thead><tr><th>Case No.</th><th>Title</th><th>Status</th><th>Deadline</th></tr></thead><tbody>
+           ${allCases.slice(0,5).map(c=>`<tr>
+             <td style="font-weight:500;">Case ${c.case_no}</td>
+             <td>${c.title||'—'}</td>
+             <td><span class="badge ${c.is_open?'badge-green':'badge-amber'}">${c.status}</span></td>
+             <td style="color:var(--silver);">${fmtDate(c.deadline)}</td>
            </tr>`).join('')}</tbody></table>`;
     }
     document.getElementById('ov-status').innerHTML = '<span style="color:var(--green);">Active</span>';
@@ -1465,20 +1465,21 @@ async function loadEvents() {
   const body = document.getElementById('events-body');
   body.innerHTML = '<div class="loading">Loading...</div>';
   try {
-    const res = await fetch(`${API}/events`,{headers:authH()});
+    const res = await fetch(`${API}/cases`,{headers:authH()});
     if (!res.ok) throw new Error();
     const data = await res.json();
-    body.innerHTML = data.length===0 ? emptyState('📅','No events found.')
-      : `<table><thead><tr><th>Title</th><th>Type</th><th>Beneficiary</th><th>Status</th><th>Date</th><th>Description</th></tr></thead><tbody>
-         ${data.map(e=>`<tr>
-           <td style="font-weight:500;">${e.title||'—'}</td>
-           <td><span class="badge badge-blue">${e.event_type||'event'}</span></td>
-           <td style="color:var(--silver);">${e.beneficiary||'—'}</td>
-           <td><span class="badge ${e.status==='open'?'badge-green':'badge-amber'}">${e.status}</span></td>
-           <td style="color:var(--silver);">${fmtDate(e.date||e.date_raised)}</td>
-           <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description||'—'}</td>
+    body.innerHTML = data.length===0 ? emptyState('🗂️','No cases found.')
+      : `<table><thead><tr><th>Case No.</th><th>Title</th><th>Beneficiary</th><th>Amount/Member</th><th>Status</th><th>Deadline</th><th>Description</th></tr></thead><tbody>
+         ${data.map(c=>`<tr>
+           <td style="font-weight:500;">Case ${c.case_no}</td>
+           <td>${c.title||'—'}</td>
+           <td style="color:var(--silver);">${c.beneficiary_name||'—'}</td>
+           <td>${c.amount_per_member!=null ? fmt(c.amount_per_member) : '—'}</td>
+           <td><span class="badge ${c.is_open?'badge-green':'badge-amber'}">${c.status}</span></td>
+           <td style="color:var(--silver);">${fmtDate(c.deadline)}</td>
+           <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.description||'—'}</td>
          </tr>`).join('')}</tbody></table>`;
-  } catch(e) { body.innerHTML = emptyState('⚠️','Could not load events.'); }
+  } catch(e) { body.innerHTML = emptyState('⚠️','Could not load cases.'); }
 }
 
 async function loadMeetings() {
