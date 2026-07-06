@@ -62,6 +62,22 @@ def _auto_close_overdue(cur):
     """)
 
 
+def _own_member_id(cur, current_user) -> Optional[int]:
+    """Resolve the members.id row that belongs to the logged-in user, via
+    users.phone_number -> members.phone_number. Returns None if this user
+    (e.g. an office-only admin account) isn't linked to a member record."""
+    user_id = current_user.get("user_id")
+    if not user_id:
+        return None
+    cur.execute("SELECT phone_number FROM users WHERE id=%s", (user_id,))
+    row = cur.fetchone()
+    if not row or not row[0]:
+        return None
+    cur.execute("SELECT id FROM members WHERE phone_number=%s", (row[0],))
+    m = cur.fetchone()
+    return m[0] if m else None
+
+
 def _compute_note(present: int, absent: int, apology: int) -> str:
     if present == 0 and absent == 0 and apology == 0:
         return "No attendance recorded yet."
@@ -103,6 +119,58 @@ def _case_row_to_dict(row, total_collected=None):
 # ---------------------------------------------------------------------------
 # 1. Suggest next case number
 # ---------------------------------------------------------------------------
+
+@router.get("/reports/attendance")
+def attendance_report(current_user=Depends(require_treasurer)):
+    """Admin view: how each member's attendance looks across every case
+    that has recorded attendance so far."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT m.id, m.full_name,
+                   COUNT(*) FILTER (WHERE ca.status = 'present') AS present,
+                   COUNT(*) FILTER (WHERE ca.status = 'absent')  AS absent,
+                   COUNT(*) FILTER (WHERE ca.status = 'apology') AS apology,
+                   COUNT(ca.id) AS total_recorded
+            FROM members m
+            LEFT JOIN case_attendance ca ON ca.member_id = m.id
+            GROUP BY m.id, m.full_name
+            ORDER BY m.full_name
+        """)
+        members_summary = [
+            {
+                "member_id": r[0], "member_name": r[1],
+                "present": r[2], "absent": r[3], "apology": r[4],
+                "total_recorded": r[5],
+            }
+            for r in cur.fetchall()
+        ]
+
+        cur.execute("""
+            SELECT e.id, e.case_no, e.title, e.start_date,
+                   COUNT(*) FILTER (WHERE ca.status = 'present') AS present,
+                   COUNT(*) FILTER (WHERE ca.status = 'absent')  AS absent,
+                   COUNT(*) FILTER (WHERE ca.status = 'apology') AS apology
+            FROM events e
+            JOIN case_attendance ca ON ca.event_id = e.id
+            WHERE e.case_no IS NOT NULL
+            GROUP BY e.id
+            ORDER BY e.start_date DESC NULLS LAST, e.id DESC
+        """)
+        by_case = [
+            {
+                "case_id": r[0], "case_no": r[1], "title": r[2], "start_date": str(r[3]) if r[3] else None,
+                "present": r[4], "absent": r[5], "apology": r[6],
+            }
+            for r in cur.fetchall()
+        ]
+
+        return {"members": members_summary, "cases": by_case}
+    finally:
+        cur.close()
+        release_connection(conn)
+
 
 @router.get("/next-case-no")
 def next_case_no(current_user=Depends(get_current_user)):
@@ -266,6 +334,12 @@ def get_case_profile(case_id: int, current_user=Depends(get_current_user)):
         attendance = {r[0]: {"status": r[1], "is_new_member": r[2]} for r in cur.fetchall()}
 
         amount_per_member = row[11]
+
+        # Plain members may see who attended and who's paid, but only their
+        # own contribution amount — not what anyone else specifically paid.
+        restrict_amounts = current_user.get("role") == "member"
+        own_id = _own_member_id(cur, current_user) if restrict_amounts else None
+
         roster = []
         present = absent = apology = 0
         total_collected = 0
@@ -282,14 +356,21 @@ def get_case_profile(case_id: int, current_user=Depends(get_current_user)):
             paid = c is not None
             if paid:
                 total_collected += float(c["amount"])
+
+            hide_amount = restrict_amounts and member_id != own_id
+            amount_val = None if hide_amount else (
+                float(c["amount"]) if c else (float(amount_per_member) if amount_per_member else None)
+            )
+            date_paid_val = None if hide_amount else (str(c["date_paid"]) if c else None)
+
             roster.append({
                 "member_id": member_id,
                 "member_name": full_name,
                 "attendance_status": status,
                 "is_new_member": bool(a["is_new_member"]) if a else False,
                 "paid": paid,
-                "amount": float(c["amount"]) if c else (float(amount_per_member) if amount_per_member else None),
-                "date_paid": str(c["date_paid"]) if c else None,
+                "amount": amount_val,
+                "date_paid": date_paid_val,
             })
 
         case = _case_row_to_dict(row, total_collected=total_collected)
