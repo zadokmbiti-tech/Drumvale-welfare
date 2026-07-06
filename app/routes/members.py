@@ -22,19 +22,29 @@ def add_member(
     conn = get_connection()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT id FROM members WHERE phone_number=%s", (member.phone_number,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail="A member with this phone number already exists")
+
         if member.email:
             cur.execute("SELECT id FROM users WHERE email=%s", (member.email,))
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail="Email already registered")
 
+        if member.member_id:
+            cur.execute("SELECT id FROM users WHERE membership_no=%s", (member.member_id,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Member ID is already in use by another member")
+
         cur.execute("""
             INSERT INTO members (full_name, phone_number, id_number, role, status,
-                date_joined, next_of_kin_name, next_of_kin_phone, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                date_joined, next_of_kin_name, next_of_kin_phone, notes, membership_no)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
         """, (
             member.full_name, member.phone_number, member.id_number,
             member.role, member.status, member.date_joined,
-            member.next_of_kin_name, member.next_of_kin_phone, member.notes
+            member.next_of_kin_name, member.next_of_kin_phone, member.notes,
+            member.member_id
         ))
         new_id = cur.fetchone()[0]
 
@@ -50,9 +60,9 @@ def add_member(
                 role, is_active, registration_status, must_change_password,
                 date_of_birth, marital_status, residence, court, house_number,
                 spouse_name, next_of_kin_name, next_of_kin_phone,
-                next_of_kin_2, nok2_phone, privacy_accepted
+                next_of_kin_2, nok2_phone, privacy_accepted, membership_no
             )
-            VALUES (%s,%s,%s,%s,%s,%s,true,'approved',true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,true,'approved',true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (phone_number) DO NOTHING
             RETURNING id
         """, (
@@ -61,7 +71,8 @@ def add_member(
             member.date_of_birth, member.marital_status, member.residence,
             member.court, member.house_number, member.spouse_name,
             member.next_of_kin_name, member.next_of_kin_phone,
-            member.next_of_kin_2, member.nok2_phone, member.privacy_accepted
+            member.next_of_kin_2, member.nok2_phone, member.privacy_accepted,
+            member.member_id
         ))
         user_row = cur.fetchone()
         new_user_id = user_row[0] if user_row else None

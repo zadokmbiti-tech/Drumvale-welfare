@@ -46,12 +46,41 @@ def create_token(data: dict) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+# Endpoints a user must still be able to reach even while their password
+# change is mandatory — otherwise they'd be locked out of the very
+# endpoints needed to set a new password and check their own status.
+PASSWORD_CHANGE_EXEMPT_PATHS = {
+    "/auth/change-password",
+    "/auth/me",
+    "/auth/login",
+    "/auth/token",
+}
+
+
+def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    if request.url.path not in PASSWORD_CHANGE_EXEMPT_PATHS:
+        conn = get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT must_change_password FROM users WHERE id=%s", (payload.get("user_id"),))
+            row = cur.fetchone()
+        finally:
+            cur.close()
+            release_connection(conn)
+
+        if row and row[0]:
+            raise HTTPException(
+                status_code=403,
+                detail="You must set a new password before continuing.",
+                headers={"X-Must-Change-Password": "true"},
+            )
+
+    return payload
 
 
 def require_admin(current_user: dict = Depends(get_current_user)):
@@ -83,6 +112,11 @@ def register(request: Request, data: UserRegister):
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail="Email already registered")
 
+        if data.member_id:
+            cur.execute("SELECT id FROM users WHERE membership_no=%s", (data.member_id,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Member ID is already in use by another member")
+
         hashed = hash_password(data.password)
 
         # 1. Insert into users (source of truth for all profile fields)
@@ -91,14 +125,14 @@ def register(request: Request, data: UserRegister):
                 full_name, phone_number, email, id_number, hashed_password,
                 date_of_birth, marital_status, residence, court, house_number,
                 spouse_name, next_of_kin_name, next_of_kin_phone,
-                next_of_kin_2, nok2_phone, privacy_accepted
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)
+                next_of_kin_2, nok2_phone, privacy_accepted, membership_no
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,%s)
             RETURNING id
         """, (
             data.full_name, data.phone_number, data.email, data.id_number, hashed,
             data.date_of_birth, data.marital_status, data.residence, data.court,
             data.house_number, data.spouse_name, data.next_of_kin_name,
-            data.next_of_kin_phone, data.next_of_kin_2, data.nok2_phone
+            data.next_of_kin_phone, data.next_of_kin_2, data.nok2_phone, data.member_id
         ))
         new_user_id = cur.fetchone()[0]
 
@@ -126,13 +160,13 @@ def register(request: Request, data: UserRegister):
         cur.execute("""
             INSERT INTO members (
                 full_name, phone_number, id_number, role, status,
-                date_joined, next_of_kin_name, next_of_kin_phone
+                date_joined, next_of_kin_name, next_of_kin_phone, membership_no
             )
-            VALUES (%s,%s,%s,'member','active',CURRENT_DATE,%s,%s)
+            VALUES (%s,%s,%s,'member','active',CURRENT_DATE,%s,%s,%s)
             ON CONFLICT (phone_number) DO NOTHING
         """, (
             data.full_name, data.phone_number, data.id_number,
-            data.next_of_kin_name, data.next_of_kin_phone,
+            data.next_of_kin_name, data.next_of_kin_phone, data.member_id,
         ))
 
         conn.commit()

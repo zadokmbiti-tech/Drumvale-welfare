@@ -51,6 +51,7 @@ class MemberCreate(BaseModel):
     next_of_kin_phone: Optional[str] = None
     notes: Optional[str] = None
     # extended profile fields (mirrors UserRegister, used by admin "Add Member")
+    member_id: Optional[str] = None
     email: Optional[str] = None
     date_of_birth: Optional[date] = None
     marital_status: Optional[str] = None
