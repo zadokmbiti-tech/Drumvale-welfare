@@ -2443,6 +2443,18 @@ async function openAddCaseModal() {
 async function saveCase() {
   const typedName = document.getElementById('c-beneficiary').value.trim();
   if (!typedName) { toast('Enter a beneficiary name', 'error'); return; }
+  const amountVal = document.getElementById('c-amount').value.trim();
+  const amount = parseFloat(amountVal);
+  if (!amountVal || isNaN(amount) || amount <= 0) {
+    toast('Enter the amount per member — that grey "200" is just a placeholder', 'error');
+    return;
+  }
+  const caseNo = document.getElementById('c-case-no').value.trim();
+  if (!caseNo) { toast('Enter a case number', 'error'); return; }
+  const title = document.getElementById('c-title').value.trim();
+  if (!title) { toast('Enter a case title', 'error'); return; }
+  const startDate = document.getElementById('c-start-date').value;
+  if (!startDate) { toast('Pick a start date', 'error'); return; }
   // If the typed name matches a registered member exactly (case-insensitive),
   // link the case to that member; otherwise store it as a freehand name so
   // members who haven't registered yet can still be set as beneficiaries.
@@ -2451,13 +2463,13 @@ async function saveCase() {
     await apiFetch('/cases', {
       method: 'POST',
       body: JSON.stringify({
-        case_no: document.getElementById('c-case-no').value,
-        title: document.getElementById('c-title').value,
+        case_no: caseNo,
+        title: title,
         description: document.getElementById('c-description').value || null,
         beneficiary_id: matched ? matched.id : null,
         beneficiary_name: matched ? null : typedName,
-        amount_per_member: parseFloat(document.getElementById('c-amount').value),
-        start_date: document.getElementById('c-start-date').value,
+        amount_per_member: amount,
+        start_date: startDate,
       })
     });
     closeModal('modal-add-case');
