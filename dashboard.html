@@ -990,9 +990,18 @@
     </div>
     <p id="case-profile-meta" style="color:var(--muted);font-size:13px;margin:-6px 0 10px"></p>
     <div id="case-profile-note" style="padding:10px 14px;border-radius:8px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);font-size:13px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><input type="checkbox" id="ros-select-all" onchange="toggleAllRosterRows(this)"/> Select all</label>
+      <span style="color:var(--muted);font-size:12px">Apply to selected:</span>
+      <button class="btn btn-sm btn-outline" onclick="bulkSetAttendance('present')">✅ Present</button>
+      <button class="btn btn-sm btn-outline" onclick="bulkSetAttendance('absent')">❌ Absent</button>
+      <button class="btn btn-sm btn-outline" onclick="bulkSetAttendance('apology')">🅿️ Apology</button>
+      <button class="btn btn-sm btn-outline" onclick="bulkSetPaid(true)">💰 Mark Paid</button>
+      <button class="btn btn-sm btn-outline" onclick="bulkSetPaid(false)">Mark Unpaid</button>
+    </div>
     <div class="table-wrap" style="max-height:420px;overflow:auto">
       <table>
-        <thead><tr><th>Member</th><th>Attendance</th><th>New?</th><th>Paid</th><th>Amount</th><th>Date Paid</th></tr></thead>
+        <thead><tr><th></th><th>Member</th><th>Attendance</th><th>New?</th><th>Paid</th><th>Amount</th><th>Date Paid</th></tr></thead>
         <tbody id="case-roster-tbody"></tbody>
       </table>
     </div>
@@ -2510,9 +2519,11 @@ async function openCaseProfile(caseId) {
 }
 
 function renderCaseRoster(roster) {
+  document.getElementById('ros-select-all').checked = false;
   const tbody = document.getElementById('case-roster-tbody');
   tbody.innerHTML = roster.map(r => `
     <tr data-member-id="${r.member_id}">
+      <td><input type="checkbox" class="ros-select"/></td>
       <td>${r.member_name}</td>
       <td>
         <select class="ros-attendance">
@@ -2527,6 +2538,39 @@ function renderCaseRoster(roster) {
       <td><input type="number" class="ros-amount" value="${r.amount??''}" style="width:90px"/></td>
       <td><input type="date" class="ros-date" value="${r.date_paid||''}"/></td>
     </tr>`).join('');
+}
+
+function toggleAllRosterRows(master) {
+  document.querySelectorAll('#case-roster-tbody .ros-select').forEach(cb => cb.checked = master.checked);
+}
+
+function bulkSetAttendance(status) {
+  const rows = document.querySelectorAll('#case-roster-tbody tr');
+  let count = 0;
+  rows.forEach(tr => {
+    if (tr.querySelector('.ros-select').checked) {
+      tr.querySelector('.ros-attendance').value = status;
+      count++;
+    }
+  });
+  if (!count) { toast('Select at least one member first', 'error'); return; }
+  toast(`Marked ${count} member(s) as ${status}`);
+}
+
+function bulkSetPaid(paid) {
+  const rows = document.querySelectorAll('#case-roster-tbody tr');
+  let count = 0;
+  rows.forEach(tr => {
+    if (tr.querySelector('.ros-select').checked) {
+      tr.querySelector('.ros-paid').checked = paid;
+      if (paid && !tr.querySelector('.ros-date').value) {
+        tr.querySelector('.ros-date').value = new Date().toISOString().slice(0,10);
+      }
+      count++;
+    }
+  });
+  if (!count) { toast('Select at least one member first', 'error'); return; }
+  toast(`Marked ${count} member(s) as ${paid?'paid':'unpaid'} — remember to Save Roster`);
 }
 
 async function saveCaseRoster() {
