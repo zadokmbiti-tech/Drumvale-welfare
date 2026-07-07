@@ -325,7 +325,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
       <div class="table-wrap">
         <div class="table-header">
           <h4>All Members <span id="members-count" style="color:var(--muted);font-weight:400;font-size:0.8rem;"></span></h4>
-          <input class="search-input" id="members-search" placeholder="🔍 Search name or phone…" oninput="filterMembers()"/>
+          <input class="search-input" id="members-search" placeholder="🔍 Search name, phone, or Member ID…" oninput="filterMembers()"/>
         </div>
         <div id="members-body"><div class="loading">Loading members...</div></div>
       </div>
@@ -1158,6 +1158,7 @@ async function loadProfile() {
     document.getElementById('profile-grid').innerHTML = `
   <div class="profile-card">
     <h4>Personal Details</h4>
+    <div class="profile-row"><span class="label">Member ID</span><span class="value">${merged.membership_no ? '#'+merged.membership_no : v(null)}</span></div>
     <div class="profile-row"><span class="label">Full Name</span><span class="value">${v(merged.full_name)}</span></div>
     <div class="profile-row"><span class="label">Phone</span><span class="value">${v(merged.phone_number)}</span></div>
     <div class="profile-row"><span class="label">Email</span><span class="value">${v(merged.email)}</span></div>
@@ -1276,6 +1277,7 @@ function renderMemberCards(members) {
       <div class="member-card-name">${m.full_name}</div>
       <div class="member-card-phone">${m.phone_number||'—'}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${m.membership_no ? `<span class="badge" style="color:var(--sky);background:rgba(44,180,224,0.1);">#${m.membership_no}</span>` : ''}
         <span class="badge" style="color:${roleCol(m.role)};background:rgba(44,180,224,0.1);">${m.role||'member'}</span>
         <span class="badge" style="color:${statusCol(m.status)};background:rgba(63,185,80,0.08);">${m.status||'active'}</span>
       </div>
@@ -1288,7 +1290,8 @@ function filterMembers() {
   renderMemberCards(q ? allMembers.filter(m =>
     m.full_name?.toLowerCase().includes(q) ||
     m.phone_number?.includes(q) ||
-    m.role?.toLowerCase().includes(q)
+    m.role?.toLowerCase().includes(q) ||
+    m.membership_no?.toLowerCase().includes(q)
   ) : allMembers);
 }
 
@@ -1322,6 +1325,7 @@ async function showMemberDetail(id) {
 
   document.getElementById('modal-member-body').innerHTML = `
     <div class="modal-section-label">Personal</div>
+    <div class="modal-row"><span class="lbl">Member ID</span><span class="val">${full.membership_no ? '#'+full.membership_no : v(null)}</span></div>
     <div class="modal-row"><span class="lbl">Full Name</span><span class="val">${v(full.full_name)}</span></div>
     <div class="modal-row"><span class="lbl">Phone</span><span class="val">${v(full.phone_number)}</span></div>
     ${isAdmin ? `<div class="modal-row"><span class="lbl">Email</span><span class="val">${v(full.email)}</span></div>` : ''}

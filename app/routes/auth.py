@@ -353,7 +353,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
               u.next_of_kin_name, u.next_of_kin_phone,
               u.next_of_kin_2, u.nok2_phone,
               m.id_number, m.status, m.date_joined, m.notes,
-              u.must_change_password
+              u.must_change_password, u.membership_no
        FROM users u
        LEFT JOIN members m ON m.phone_number = u.phone_number
        WHERE u.id=%s""",
@@ -419,6 +419,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "date_joined": str(user[20]) if user[20] else None,
     "notes": user[21],
     "must_change_password": bool(user[22]),
+    "membership_no": user[23],
     "children": children,
     "parents": parents
 }

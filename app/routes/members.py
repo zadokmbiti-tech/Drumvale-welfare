@@ -299,7 +299,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
                    m.date_joined, m.next_of_kin_name, m.next_of_kin_phone, m.notes,
                    u.email, u.date_of_birth, u.marital_status, u.residence,
                    u.court, u.house_number, u.spouse_name,
-                   u.next_of_kin_2, u.nok2_phone
+                   u.next_of_kin_2, u.nok2_phone, m.membership_no
             FROM members m
             LEFT JOIN users u ON u.phone_number = m.phone_number
             WHERE m.id = %s
@@ -347,6 +347,7 @@ def get_member(member_id: int, _=Depends(get_current_user)):
         "marital_status": row[12], "residence": row[13],
         "court": row[14], "house_number": row[15], "spouse_name": row[16],
         "next_of_kin_2": row[17], "nok2_phone": row[18],
+        "membership_no": row[19],
         "children": children,
         "parents": parents
     }
