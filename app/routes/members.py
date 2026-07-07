@@ -406,10 +406,11 @@ def admin_edit_full_profile(
         "full_name", "phone_number", "email", "id_number", "date_of_birth",
         "marital_status", "residence", "court", "house_number", "spouse_name",
         "next_of_kin_name", "next_of_kin_phone", "next_of_kin_2", "nok2_phone",
+        "membership_no",
     ]
     MEMBERS_MIRROR_FIELDS = {
         "full_name", "phone_number", "id_number",
-        "next_of_kin_name", "next_of_kin_phone",
+        "next_of_kin_name", "next_of_kin_phone", "membership_no",
     }
 
     data = body.dict(exclude_none=True)
@@ -439,6 +440,14 @@ def admin_edit_full_profile(
                 "Only basic member fields can be edited via the standard member update."
             )
         user_id = user_row[0]
+
+        if changes.get("membership_no"):
+            cur.execute(
+                "SELECT id FROM users WHERE membership_no=%s AND id != %s",
+                (changes["membership_no"], user_id)
+            )
+            if cur.fetchone():
+                raise HTTPException(400, "Member ID is already in use by another member")
 
         # 1. Apply scalar changes to users table
         if changes:

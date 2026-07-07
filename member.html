@@ -749,7 +749,7 @@ function startInactivityWatcher() {
 const UPDATE_FIELDS = [
   'full_name','phone_number','email','id_number','date_of_birth','marital_status',
   'residence','court','house_number','spouse_name',
-  'next_of_kin_name','next_of_kin_phone','next_of_kin_2','nok2_phone'
+  'next_of_kin_name','next_of_kin_phone','next_of_kin_2','nok2_phone','membership_no'
 ];
 
 function openUpdateModal() {
@@ -761,6 +761,7 @@ function openUpdateModal() {
   document.getElementById('upd-submit-btn').textContent = 'Submit for Approval';
 
   document.getElementById('upd-error').style.display = 'none';
+  document.getElementById('upd-membershipno-wrap').style.display = 'none';
   UPDATE_FIELDS.forEach(f => {
     const el = document.getElementById('upd-' + f);
     if (el) el.value = '';
@@ -794,6 +795,7 @@ function openAdminEditModal() {
   document.getElementById('upd-submit-btn').textContent = 'Save Changes';
 
   document.getElementById('upd-error').style.display = 'none';
+  document.getElementById('upd-membershipno-wrap').style.display = '';
   UPDATE_FIELDS.forEach(f => {
     const el = document.getElementById('upd-' + f);
     if (el) el.value = full[f] || '';
@@ -1768,6 +1770,7 @@ async function loadMyReports() {  const body = document.getElementById('my-repor
 
     <div class="um-section">Personal Details</div>
     <div class="um-grid">
+      <div id="upd-membershipno-wrap" style="display:none;"><label>Member ID</label><input id="upd-membership_no" type="text" placeholder="e.g. 007"></div>
       <div><label>Full Name</label><input id="upd-full_name" type="text" placeholder="Current name…"></div>
       <div><label>Phone Number</label><input id="upd-phone_number" type="tel" placeholder="07xxxxxxxx"></div>
       <div><label>Email</label><input id="upd-email" type="email" placeholder="email@example.com"></div>

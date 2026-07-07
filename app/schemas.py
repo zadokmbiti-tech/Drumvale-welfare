@@ -192,5 +192,6 @@ class ProfileUpdateRequest(BaseModel):
     next_of_kin_2:     Optional[str]  = None
     nok2_phone:        Optional[str]  = None
     phone_number:      Optional[str]       = None
+    membership_no:     Optional[str]       = None
     children:          Optional[List[ChildIn]]  = None
     parents:           Optional[List[ParentIn]] = None
