@@ -327,6 +327,28 @@ tr:hover td{background:rgba(44,180,224,0.03);}
           <h4>All Members <span id="members-count" style="color:var(--muted);font-weight:400;font-size:0.8rem;"></span></h4>
           <input class="search-input" id="members-search" placeholder="🔍 Search name, phone, or Member ID…" oninput="filterMembers()"/>
         </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">
+          <select id="members-status-filter" onchange="filterMembers()" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--surface);">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <select id="members-court-filter" onchange="filterMembers()" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--surface);">
+            <option value="">All Residence/Court</option>
+          </select>
+          <select id="members-marital-filter" onchange="filterMembers()" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--surface);">
+            <option value="">All Marital Status</option>
+            <option value="Married">Married</option>
+            <option value="Single">Single</option>
+          </select>
+          <select id="members-sort" onchange="filterMembers()" style="padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:var(--surface);">
+            <option value="">Sort: Newest First</option>
+            <option value="member_id_asc">Member ID ↑</option>
+            <option value="member_id_desc">Member ID ↓</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="name_desc">Name Z–A</option>
+          </select>
+        </div>
         <div id="members-body"><div class="loading">Loading members...</div></div>
       </div>
     </div>
@@ -1255,16 +1277,27 @@ async function loadProfile() {
 }
 
 async function loadMembers() {
-  if (allMembers.length) { renderMemberCards(allMembers); return; }
   const body = document.getElementById('members-body');
+  if (allMembers.length) { populateMembersCourtFilter(); renderMemberCards(allMembers); return; }
   body.innerHTML = '<div class="loading">Loading members...</div>';
   try {
     const res = await fetch(`${API}/members`,{headers:authH()});
     if (!res.ok) throw new Error('Could not load members');
     allMembers = await res.json();
     document.getElementById('members-count').textContent = `· ${allMembers.length} members`;
+    populateMembersCourtFilter();
     renderMemberCards(allMembers);
   } catch(e) { body.innerHTML = emptyState('⚠️',e.message); }
+}
+
+function populateMembersCourtFilter() {
+  const sel = document.getElementById('members-court-filter');
+  if (!sel) return;
+  const current = sel.value;
+  const courts = [...new Set(allMembers.map(m => m.court).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Residence/Court</option>' +
+    courts.map(c => `<option value="${c}">${c}</option>`).join('');
+  sel.value = current;
 }
 
 function renderMemberCards(members) {
@@ -1274,10 +1307,12 @@ function renderMemberCards(members) {
   const roleCol   = r => r==='chairperson'||r==='super_admin'?'var(--purple)':r==='treasurer'||r==='secretary'?'var(--sky)':'var(--silver)';
   body.innerHTML = `<div class="member-cards">` + members.map(m => {
     const ini = m.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    const place = [m.residence, m.court].filter(Boolean).join(' / ');
     return `<div class="member-card" onclick="showMemberDetail(${m.id})">
       <div class="member-card-avatar">${ini}</div>
       <div class="member-card-name">${m.full_name}</div>
       <div class="member-card-phone">${m.phone_number||'—'}</div>
+      ${place ? `<div style="color:var(--muted);font-size:0.78rem;margin:2px 0 4px;">${place}</div>` : ''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${m.membership_no ? `<span class="badge" style="color:var(--sky);background:rgba(44,180,224,0.1);">#${m.membership_no}</span>` : ''}
         <span class="badge" style="color:${roleCol(m.role)};background:rgba(44,180,224,0.1);">${m.role||'member'}</span>
@@ -1289,12 +1324,27 @@ function renderMemberCards(members) {
 
 function filterMembers() {
   const q = document.getElementById('members-search').value.toLowerCase();
-  renderMemberCards(q ? allMembers.filter(m =>
-    m.full_name?.toLowerCase().includes(q) ||
-    m.phone_number?.includes(q) ||
-    m.role?.toLowerCase().includes(q) ||
-    m.membership_no?.toLowerCase().includes(q)
-  ) : allMembers);
+  const s = document.getElementById('members-status-filter').value;
+  const court = document.getElementById('members-court-filter').value;
+  const marital = document.getElementById('members-marital-filter').value;
+  const sort = document.getElementById('members-sort').value;
+
+  let filtered = allMembers.filter(m =>
+    (!q || m.full_name?.toLowerCase().includes(q) ||
+      m.phone_number?.includes(q) ||
+      m.role?.toLowerCase().includes(q) ||
+      m.membership_no?.toLowerCase().includes(q))
+    && (!s || m.status === s)
+    && (!court || m.court === court)
+    && (!marital || m.marital_status === marital)
+  );
+
+  if (sort === 'member_id_asc') filtered.sort((a,b) => (a.membership_no||'').localeCompare(b.membership_no||'', undefined, {numeric:true}));
+  else if (sort === 'member_id_desc') filtered.sort((a,b) => (b.membership_no||'').localeCompare(a.membership_no||'', undefined, {numeric:true}));
+  else if (sort === 'name_asc') filtered.sort((a,b) => a.full_name.localeCompare(b.full_name));
+  else if (sort === 'name_desc') filtered.sort((a,b) => b.full_name.localeCompare(a.full_name));
+
+  renderMemberCards(filtered);
 }
 
 async function showMemberDetail(id) {
