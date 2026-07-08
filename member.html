@@ -563,6 +563,20 @@ tr:hover td{background:rgba(44,180,224,0.03);}
               <div><div style="font-size:0.88rem;font-weight:600;">Membership Registration Form</div><div style="font-size:0.75rem;color:var(--silver);">Official Form · PDF</div></div>
               <span style="margin-left:auto;font-size:0.75rem;color:var(--sky);">⬇ Download</span>
             </a>
+            <a href="#" onclick="event.preventDefault();openPolicyModal('privacy')"
+              style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--white);text-decoration:none;transition:border 0.2s;"
+              onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--border)'">
+              <span style="font-size:1.4rem;">🔒</span>
+              <div><div style="font-size:0.88rem;font-weight:600;">Privacy Policy &amp; Terms of Service</div><div style="font-size:0.75rem;color:var(--silver);">Registration Agreement · View</div></div>
+              <span style="margin-left:auto;font-size:0.75rem;color:var(--sky);">👁 View</span>
+            </a>
+            <a href="https://new.kenyalaw.org/akn/ke/act/2019/24/eng@2022-12-31" target="_blank" rel="noopener"
+              style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--white);text-decoration:none;transition:border 0.2s;"
+              onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--border)'">
+              <span style="font-size:1.4rem;">🏛️</span>
+              <div><div style="font-size:0.88rem;font-weight:600;">Data Protection Act, 2019 (Kenya)</div><div style="font-size:0.75rem;color:var(--silver);">Kenya Law · Official Act</div></div>
+              <span style="margin-left:auto;font-size:0.75rem;color:var(--sky);">↗ Open</span>
+            </a>
           </div>
         </div>
         <div class="profile-card">
@@ -671,6 +685,56 @@ tr:hover td{background:rgba(44,180,224,0.03);}
           style="background:var(--sky);color:#000;font-weight:600;padding:9px 22px;
                  border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Submit Report</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRIVACY POLICY / TERMS MODAL -->
+<div id="policy-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.80);
+  z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    width:min(640px,96vw);max-height:88vh;overflow-y:auto;padding:28px;">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div>
+        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--sky);margin-bottom:4px;">Legal Document</p>
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.3rem;margin:0;">Privacy Policy &amp; Terms of Service</h3>
+      </div>
+      <button onclick="closePolicyModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;padding:4px;">✕</button>
+    </div>
+    <p style="font-size:0.78rem;color:var(--silver);margin-bottom:18px;">Drumvale Riverview Welfare Group — as agreed to during registration</p>
+
+    <div style="font-size:0.85rem;line-height:1.7;color:var(--white);">
+      <h4 style="color:var(--sky);font-size:0.95rem;margin:14px 0 6px;">Privacy Policy</h4>
+      <p style="margin-bottom:8px;">1. Introduction — Drumvale Riverview Welfare Group ("the Welfare") is committed to protecting the privacy and personal information of all members. This Privacy Policy explains how we collect, use, store, and protect your personal data in accordance with the Data Protection Act, 2019 (Kenya).</p>
+      <p style="margin-bottom:8px;">2. Information We Collect — We may collect: full name, National ID/Passport number, date of birth, gender, postal and physical address, mobile phone number, email address, next of kin details, children/dependants information (where applicable), and membership and welfare contribution records.</p>
+      <p style="margin-bottom:8px;">3. Purpose of Collecting Information — Your information is collected solely for processing membership applications, maintaining accurate membership records, managing welfare activities and communication, processing member benefits and assistance, and meeting legal and governance obligations.</p>
+      <p style="margin-bottom:8px;">4. Data Security — The Welfare protects your information through password encryption using bcrypt, secure HTTPS encryption, secure cloud storage, role-based access controls, and regular security monitoring.</p>
+      <p style="margin-bottom:8px;">5. Access to Your Information — Sensitive information is accessible only to authorized administrators, including the Chairperson and designated Super Administrators. Regular members cannot access other members' confidential information.</p>
+      <p style="margin-bottom:8px;">6. Sharing Information — The Welfare does not sell or share members' personal information except where required by law, with the member's consent, or to protect the Welfare's legal interests.</p>
+      <p style="margin-bottom:8px;">7. Member Rights — Members have the right to access their personal information, request correction of inaccurate information, withdraw consent where legally applicable, and request deletion where permitted by law.</p>
+      <p style="margin-bottom:14px;">8. Contact — Questions regarding privacy should be directed to the Chairperson or System Administrator of Drumvale Riverview Welfare Group.</p>
+
+      <h4 style="color:var(--sky);font-size:0.95rem;margin:14px 0 6px;">Website Terms &amp; Conditions</h4>
+      <p style="margin-bottom:8px;">By creating an account or using this website, you agree to the following:</p>
+      <p style="margin-bottom:8px;">1. Accuracy of Information — Information provided must be accurate and truthful.</p>
+      <p style="margin-bottom:8px;">2. Account Security — Members are responsible for keeping their login credentials confidential.</p>
+      <p style="margin-bottom:8px;">3. Verification — The Welfare reserves the right to verify information submitted.</p>
+      <p style="margin-bottom:8px;">4. Acceptable Use — Members shall not misuse the website or attempt unauthorized access.</p>
+      <p style="margin-bottom:8px;">5. Account Suspension — The Welfare may suspend accounts used fraudulently or in violation of these Terms.</p>
+      <p style="margin-bottom:8px;">6. Data Processing — Personal information will be processed in accordance with the Privacy Policy above.</p>
+      <p style="margin-bottom:14px;">7. Changes to Terms — The Welfare may update these Terms from time to time, and continued use of the website constitutes acceptance of the revised Terms.</p>
+
+      <div style="font-size:0.78rem;color:var(--silver);background:rgba(44,180,224,0.07);
+        border:1px solid rgba(44,180,224,0.15);border-radius:8px;padding:10px 14px;">
+        For the full text of the underlying law, see the <a href="https://new.kenyalaw.org/akn/ke/act/2019/24/eng@2022-12-31" target="_blank" rel="noopener" style="color:var(--sky);">Data Protection Act, 2019 (Kenya)</a> under Official Documents.
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+      <button onclick="closePolicyModal()"
+        style="background:var(--sky);color:#000;font-weight:600;padding:9px 22px;
+               border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Close</button>
     </div>
   </div>
 </div>
@@ -1585,6 +1649,13 @@ function openReportModal() {
 }
 function closeReportModal() {
   document.getElementById('report-modal-backdrop').style.display = 'none';
+}
+
+function openPolicyModal() {
+  document.getElementById('policy-modal-backdrop').style.display = 'flex';
+}
+function closePolicyModal() {
+  document.getElementById('policy-modal-backdrop').style.display = 'none';
 }
 
 async function submitEventReport() {
