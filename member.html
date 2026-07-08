@@ -1210,7 +1210,6 @@ async function loadProfile() {
       <thead>
         <tr style="color:var(--silver);text-align:left;border-bottom:1px solid var(--border);">
           <th style="padding:6px 8px;">Name</th>
-          <th style="padding:6px 8px;">Status</th>
           <th style="padding:6px 8px;">ID Number</th>
           <th style="padding:6px 8px;">Current Residence</th>
           <th style="padding:6px 8px;">Contact Phone</th>
@@ -1220,16 +1219,9 @@ async function loadProfile() {
         ${merged.parents.map(p => `
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:6px 8px;">${p.full_name||'—'}</td>
-            <td style="padding:6px 8px;">${
-              p.status === 'deceased'
-                ? '<span style="color:#ef4444;font-weight:600;">● Deceased</span>'
-                : p.status === 'alive'
-                  ? '<span style="color:#22c55e;font-weight:600;">● Alive</span>'
-                  : '—'
-            }</td>
-            <td style="padding:6px 8px;">${p.status === 'deceased' ? 'N/A' : (p.id_number||'—')}</td>
+            <td style="padding:6px 8px;">${p.id_number||'—'}</td>
             <td style="padding:6px 8px;">${p.current_residence||'—'}</td>
-            <td style="padding:6px 8px;">${p.status === 'deceased' ? 'N/A' : (p.contact_phone||'—')}</td>
+            <td style="padding:6px 8px;">${p.contact_phone||'—'}</td>
           </tr>`).join('')}
       </tbody>
     </table>
@@ -1317,14 +1309,8 @@ async function showMemberDetail(id) {
 
   const parentRows = (full.parents||[]).length
     ? full.parents.map(p=>`
-        <div class="modal-row"><span class="lbl">${p.full_name||'—'} ${
-          p.status === 'deceased'
-            ? '<span style="color:#ef4444;font-weight:600;font-size:0.75rem;">● Deceased</span>'
-            : p.status === 'alive'
-              ? '<span style="color:#22c55e;font-weight:600;font-size:0.75rem;">● Alive</span>'
-              : ''
-        }</span>
-        <span class="val">${p.status === 'deceased' ? 'ID: N/A' : `ID: ${p.id_number||'—'}`} · ${p.current_residence||'—'} · ${p.status === 'deceased' ? 'N/A' : (p.contact_phone||'—')}</span></div>
+        <div class="modal-row"><span class="lbl">${p.full_name||'—'}</span>
+        <span class="val">ID: ${p.id_number||'—'} · ${p.current_residence||'—'} · ${p.contact_phone||'—'}</span></div>
       `).join('')
     : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
 

@@ -234,11 +234,6 @@
     @keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
     .role-tag { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.1em; text-transform: uppercase; margin-left: 8px; background: rgba(232,184,75,0.15); color: var(--gold); vertical-align: middle; }
-    .status-radio-group { display: flex; gap: 12px; align-items: center; }
-    .status-radio-group label { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--silver); cursor: pointer; text-transform: none; letter-spacing: 0; margin-bottom: 0; }
-    .status-radio-group input[type="radio"] { accent-color: var(--sky); width: 14px; height: 14px; cursor: pointer; }
-    .status-radio-group input[type="radio"].radio-deceased { accent-color: var(--red); }
-    td.status-radio-cell { padding: 4px 8px !important; min-width: 130px; }
     
     @media (max-width: 900px) {
       .dash-overview { grid-template-columns: repeat(2, 1fr); }
@@ -502,13 +497,11 @@
         </div>
         <div style="margin-bottom:18px;margin-top:18px;">
           <label style="display:block;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--silver);margin-bottom:4px;">Parents &amp; Parents-in-Law * <span style="color:var(--sky);font-size:0.7rem;">(Biological only — at least one required)</span></label>
-<p style="font-size:0.72rem;color:var(--silver);margin-bottom:10px;">For each parent, tick whether they are <strong style="color:var(--green);">Alive</strong> or <strong style="color:var(--red);">Deceased</strong>.</p>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
               <thead><tr style="background:rgba(44,180,224,0.1);">
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);width:32px;">#</th>
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Full Name *</th>
-  <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Status * <span style="color:var(--red);font-size:0.65rem;">(required)</span></th>
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">ID No</th>
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Current Residence</th>
   <th style="padding:8px 10px;text-align:left;color:var(--sky);font-weight:500;border:1px solid rgba(44,180,224,0.2);">Contact Phone</th>
@@ -518,13 +511,6 @@
     <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">1</td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);">
       <input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" />
-      <span class="parent-status-badge" style="display:none;font-size:0.65rem;letter-spacing:0.03em;font-weight:600;"></span>
-    </td>
-    <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
-      <div class="status-radio-group">
-        <label><input type="radio" name="parent_status_1" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
-        <label><input type="radio" name="parent_status_1" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
-      </div>
     </td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" class="parent-idno" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
@@ -825,22 +811,11 @@ async function handleRegister() {
 
   const parentRows = document.querySelectorAll('#parents-tbody tr');
   let hasParent = false;
-  let parentStatusMissing = false;
   parentRows.forEach((row, i) => {
     const nameInput = row.querySelector('.parent-name');
     const name = nameInput ? nameInput.value.trim() : '';
-    if (name) {
-      hasParent = true;
-      const radios = row.querySelectorAll('input[type="radio"]');
-      const checked = Array.from(radios).some(r => r.checked);
-      if (!checked) {
-        parentStatusMissing = true;
-        const cell = row.querySelector('.status-radio-cell');
-        if (cell) cell.style.outline = '2px solid var(--red)';
-      }
-    }
+    if (name) hasParent = true;
   });
-  if (parentStatusMissing) { missing.push('Alive/Deceased status for each parent entered'); }
 
   if (missing.length > 0) {
     errEl.textContent = 'Required fields missing: ' + missing.join(', ') + '.';
@@ -860,12 +835,8 @@ async function handleRegister() {
     const name = nameInput ? nameInput.value.trim() : '';
     if (name) {
       const allInputs = row.querySelectorAll('input[type="text"], input[type="tel"]');
-      const radios = row.querySelectorAll('input[type="radio"]');
-      let status = null;
-      radios.forEach(r => { if (r.checked) status = r.value; });
       parents.push({
         full_name: name,
-        status: status,
         id_number: allInputs[1]?.value?.trim() || null,
         current_residence: allInputs[2]?.value?.trim() || null,
         contact_phone: allInputs[3]?.value?.trim() || null
@@ -972,64 +943,12 @@ function addParentRow() {
     <td style="padding:6px 8px;border:1px solid rgba(44,180,224,0.15);color:var(--silver);text-align:center;">${n}</td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);">
       <input type="text" placeholder="Name" class="parent-name" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" />
-      <span class="parent-status-badge" style="display:none;font-size:0.65rem;letter-spacing:0.03em;font-weight:600;"></span>
-    </td>
-    <td class="status-radio-cell" style="padding:4px 8px;border:1px solid rgba(44,180,224,0.15);min-width:130px;">
-      <div class="status-radio-group">
-        <label><input type="radio" name="parent_status_${n}" value="alive" class="radio-alive" /><span style="color:var(--green);">Alive</span></label>
-        <label><input type="radio" name="parent_status_${n}" value="deceased" class="radio-deceased" /><span style="color:var(--red);">Deceased</span></label>
-      </div>
     </td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="ID No" class="parent-idno" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="text" placeholder="Town / Estate" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>
     <td style="padding:4px 6px;border:1px solid rgba(44,180,224,0.15);"><input type="tel" placeholder="07XX XXX XXX" class="parent-phone" style="width:100%;background:transparent;border:none;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;" /></td>`;
   tbody.appendChild(tr);
 }
-
-function applyParentStatusUI(row, status) {
-  const idInput = row.querySelector('.parent-idno');
-  const phoneInput = row.querySelector('.parent-phone');
-  const badge = row.querySelector('.parent-status-badge');
-  const deceased = status === 'deceased';
-  [idInput, phoneInput].forEach(inp => {
-    if (!inp) return;
-    inp.disabled = deceased;
-    if (deceased) {
-      inp.value = '';
-      inp.placeholder = 'N/A (Deceased)';
-      inp.style.opacity = '0.4';
-      inp.style.cursor = 'not-allowed';
-    } else {
-      inp.style.opacity = '';
-      inp.style.cursor = '';
-    }
-  });
-  if (idInput && !deceased) idInput.placeholder = 'ID No';
-  if (phoneInput && !deceased) phoneInput.placeholder = '07XX XXX XXX';
-  if (badge) {
-    if (status === 'alive') {
-      badge.textContent = '● Alive';
-      badge.style.color = 'var(--green)';
-      badge.style.display = 'inline';
-    } else if (status === 'deceased') {
-      badge.textContent = '● Deceased';
-      badge.style.color = 'var(--red)';
-      badge.style.display = 'inline';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  row.style.background = deceased ? 'rgba(255,90,90,0.06)' : '';
-}
-
-document.getElementById('parents-tbody').addEventListener('change', function(e) {
-  if (e.target.matches('input[type="radio"]')) {
-    const cell = e.target.closest('.status-radio-cell');
-    if (cell) cell.style.outline = '';
-    const row = e.target.closest('.parent-row');
-    if (row) applyParentStatusUI(row, e.target.value);
-  }
-});
 
     function showLogoFallback() {
       const img = document.querySelector('.hero-logo img');
