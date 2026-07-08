@@ -469,14 +469,6 @@
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <select id="member-court-filter" onchange="filterMembers()" style="width:160px">
-          <option value="">All Residence/Court</option>
-        </select>
-        <select id="member-marital-filter" onchange="filterMembers()" style="width:140px">
-          <option value="">All Marital Status</option>
-          <option value="Married">Married</option>
-          <option value="Single">Single</option>
-        </select>
         <select id="member-sort" onchange="filterMembers()" style="width:170px">
           <option value="">Sort: Newest First</option>
           <option value="member_id_asc">Member ID ↑</option>
@@ -489,8 +481,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Member ID</th><th>Name</th><th>Phone</th><th>Residence/Court</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="members-tbody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
+          <thead><tr><th>#</th><th>Member ID</th><th>Name</th><th>Phone</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="members-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1004,7 +996,7 @@
             <td style="text-align:center;color:var(--muted);">1</td>
             <td><input type="text" placeholder="Name"/></td>
             <td><input type="date"/></td>
-            <td><select><option value="">—</option><option>Son</option><option>Daughter</option></select></td>
+            <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
             <td><input type="text" placeholder="No."/></td>
           </tr>
         </tbody>
@@ -2277,29 +2269,27 @@ function populateMemberSelects() {
 
 async function loadMembers() {
   const tbody = document.getElementById('members-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
   try {
     const members = await apiFetch('/members');
     allMembers = members;
-    populateCourtFilterOptions();
     renderMembersTable(members);
   } catch(e) {
     console.error('loadMembers error:', e);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
     toast('Failed to load members: ' + e.message, 'error');
   }
 }
 
 function renderMembersTable(members) {
   const tbody = document.getElementById('members-tbody');
-  if (!members.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">No members found</div></td></tr>'; return; }
+  if (!members.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No members found</div></td></tr>'; return; }
   tbody.innerHTML = members.map((m,i) => `
     <tr>
       <td>${i+1}</td>
       <td>${m.membership_no ? `<span class="badge badge-blue">#${m.membership_no}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><strong>${m.full_name}</strong></td>
       <td>${m.phone_number}</td>
-      <td style="color:var(--muted);font-size:13px">${[m.residence, m.court].filter(Boolean).join(' / ') || '—'}</td>
       <td><span class="badge badge-blue">${m.role}</span></td>
       <td>${m.date_joined||'—'}</td>
       <td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td>
@@ -2312,20 +2302,9 @@ function renderMembersTable(members) {
     </tr>`).join('');
 }
 
-function populateCourtFilterOptions() {
-  const sel = document.getElementById('member-court-filter');
-  const current = sel.value;
-  const courts = [...new Set(allMembers.map(m => m.court).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">All Residence/Court</option>' +
-    courts.map(c => `<option value="${c}">${c}</option>`).join('');
-  sel.value = current;
-}
-
 function filterMembers() {
   const q = document.getElementById('member-search').value.toLowerCase().trim();
   const s = document.getElementById('member-status-filter').value;
-  const court = document.getElementById('member-court-filter').value;
-  const marital = document.getElementById('member-marital-filter').value;
   const sort = document.getElementById('member-sort').value;
 
   let filtered = allMembers.filter(m =>
@@ -2333,8 +2312,6 @@ function filterMembers() {
       || m.phone_number.includes(q)
       || (m.membership_no && m.membership_no.toLowerCase().includes(q)))
     && (!s || m.status === s)
-    && (!court || m.court === court)
-    && (!marital || m.marital_status === marital)
   );
 
   if (sort === 'member_id_asc') filtered.sort((a,b) => (a.membership_no||'').localeCompare(b.membership_no||'', undefined, {numeric:true}));
@@ -2360,7 +2337,7 @@ function openAddMemberModal() {
       <td style="text-align:center;color:var(--muted);">1</td>
       <td><input type="text" placeholder="Name"/></td>
       <td><input type="date"/></td>
-      <td><select><option value="">—</option><option>Son</option><option>Daughter</option></select></td>
+      <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
       <td><input type="text" placeholder="No."/></td>
     </tr>`;
 
@@ -2402,7 +2379,7 @@ function addChildRowM() {
     <td style="text-align:center;color:var(--muted);">${rowNum}</td>
     <td><input type="text" placeholder="Name"/></td>
     <td><input type="date"/></td>
-    <td><select><option value="">—</option><option>Son</option><option>Daughter</option></select></td>
+    <td><select><option value="">—</option><option>Child</option><option>Adopted Child</option></select></td>
     <td><input type="text" placeholder="No."/></td>`;
   tbody.appendChild(row);
 }
