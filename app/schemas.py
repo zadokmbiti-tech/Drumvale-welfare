@@ -99,6 +99,7 @@ class TokenResponse(BaseModel):
     role:         str
     phone_number: str = ""
     must_change_password: bool = False
+    must_accept_privacy:  bool = False
 
 class LoanCreate(BaseModel):
     member_id:     int

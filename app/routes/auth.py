@@ -200,13 +200,13 @@ def login(request: Request, data: UserLogin):
     try:
         if data.email:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy
                    FROM users WHERE email=%s""",
                 (data.email,)
             )
         elif data.phone_number:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy
                    FROM users WHERE phone_number=%s""",
                 (data.phone_number,)
             )
@@ -232,7 +232,8 @@ def login(request: Request, data: UserLogin):
     log_action("Login", user[1], detail=f"Successful login ({user[2]})", target=user[1])
 
     return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2],
-                          phone_number=user[6] or "", must_change_password=bool(user[7]))
+                          phone_number=user[6] or "", must_change_password=bool(user[7]),
+                          must_accept_privacy=bool(user[8]))
 
 # ------------------------------------------------------------------ #
 #  SWAGGER /docs token endpoint
@@ -337,6 +338,50 @@ def change_password(request: Request, data: dict, current_user: dict = Depends(g
         release_connection(conn)
 
 
+@router.post("/accept-privacy-policy")
+def accept_privacy_policy(current_user: dict = Depends(get_current_user)):
+    """
+    Records the LOGGED-IN member's own acceptance of the Privacy Policy &
+    Terms. Used for the mandatory first-login prompt shown to members added
+    directly by an admin (must_accept_privacy=true) — distinct from
+    privacy_accepted, which for admin-added members only reflects the
+    admin's attestation on the member's behalf, not the member's own
+    consent. Self-registered members already have must_accept_privacy=false
+    since they ticked the checkbox themselves at registration.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE users
+               SET privacy_accepted = true,
+                   privacy_accepted_at = NOW(),
+                   must_accept_privacy = false
+               WHERE id=%s
+               RETURNING full_name""",
+            (current_user["user_id"],)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        conn.commit()
+
+        from app.routes.audit import log_action
+        log_action("Privacy Policy Accepted", row[0],
+                    detail="Member accepted the Privacy Policy & Terms on first login",
+                    target=row[0])
+
+        return {"message": "Privacy Policy accepted. Thank you."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
 # ------------------------------------------------------------------ #
 #  ME
 # ------------------------------------------------------------------ #
@@ -353,7 +398,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
               u.next_of_kin_name, u.next_of_kin_phone,
               u.next_of_kin_2, u.nok2_phone,
               m.id_number, m.status, m.date_joined, m.notes,
-              u.must_change_password, u.membership_no
+              u.must_change_password, u.membership_no, u.must_accept_privacy
        FROM users u
        LEFT JOIN members m ON m.phone_number = u.phone_number
        WHERE u.id=%s""",
@@ -420,6 +465,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "notes": user[21],
     "must_change_password": bool(user[22]),
     "membership_no": user[23],
+    "must_accept_privacy": bool(user[24]),
     "children": children,
     "parents": parents
 }

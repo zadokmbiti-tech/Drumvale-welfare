@@ -773,6 +773,36 @@ tr:hover td{background:rgba(44,180,224,0.03);}
   </div>
 </div>
 
+<!-- FORCED PRIVACY POLICY ACCEPTANCE MODAL -->
+<div class="modal-backdrop" id="modal-force-privacy">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3>Privacy Policy &amp; Terms of Service</h3>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--silver);font-size:13.5px;margin-bottom:14px;">
+        Your account was set up by an administrator. Before you continue, please read and accept the Privacy Policy &amp; Terms below — this is your own consent, separate from the admin's confirmation when your record was created.
+      </p>
+      <div style="max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);
+        border-radius:8px;padding:14px 16px;font-size:0.82rem;line-height:1.65;color:var(--white);margin-bottom:16px;">
+        <h4 style="color:var(--sky);font-size:0.88rem;margin:0 0 6px;">Privacy Policy</h4>
+        <p style="margin-bottom:8px;">Drumvale Riverview Welfare Group collects and processes your personal data (name, ID number, phone, next of kin, dependants, and contribution records) solely to administer your membership and welfare benefits, in accordance with the Data Protection Act, 2019 (Kenya). Your information is protected with encryption and role-based access, is never sold, and is shared only where required by law or with your consent. You may request access to, correction of, or deletion of your data at any time.</p>
+        <h4 style="color:var(--sky);font-size:0.88rem;margin:10px 0 6px;">Terms of Service</h4>
+        <p style="margin-bottom:0;">By using this portal you agree to provide accurate information, keep your login credentials confidential, and use the site only for its intended welfare-administration purpose. The Welfare may suspend accounts used fraudulently or in violation of these Terms.</p>
+      </div>
+      <div id="fpr-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="declinePrivacyPolicy()"
+          style="flex:1;background:transparent;border:1px solid var(--border);color:var(--silver);
+                 font-weight:600;padding:11px;border-radius:8px;cursor:pointer;font-family:inherit;">Decline &amp; Log Out</button>
+        <button onclick="acceptPrivacyPolicy()"
+          style="flex:1;background:var(--sky);color:#000;font-weight:600;padding:11px;
+                 border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Accept &amp; Continue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = window.CHAMALINK_API ||
   (location.hostname === '127.0.0.1' || location.hostname === 'localhost'
@@ -793,7 +823,7 @@ async function doLogin() {
     const data = await res.json();
     if (!res.ok) { err.textContent = data.detail || 'Login failed.'; err.style.display = 'block'; return; }
     token = data.access_token;
-    currentUser = {id:data.user_id, name:data.full_name, role:data.role, must_change_password: !!data.must_change_password};
+    currentUser = {id:data.user_id, name:data.full_name, role:data.role, must_change_password: !!data.must_change_password, must_accept_privacy: !!data.must_accept_privacy};
     localStorage.setItem('member_token', token);
     localStorage.setItem('member_user', JSON.stringify(currentUser));
     initApp();
@@ -1057,12 +1087,15 @@ async function checkForcedPasswordChange() {
     if (res.ok) {
       const me = await res.json();
       currentUser.must_change_password = !!me.must_change_password;
+      currentUser.must_accept_privacy  = !!me.must_accept_privacy;
       localStorage.setItem('member_user', JSON.stringify(currentUser));
     }
-  } catch(e) { /* fall back to cached flag below */ }
+  } catch(e) { /* fall back to cached flags below */ }
 
   if (currentUser.must_change_password) {
     document.getElementById('modal-force-pwd').classList.add('open');
+  } else {
+    checkForcedPrivacyAcceptance();
   }
 }
 
@@ -1089,9 +1122,41 @@ async function submitForcedPasswordChange() {
     localStorage.setItem('member_user', JSON.stringify(currentUser));
     document.getElementById('modal-force-pwd').classList.remove('open');
     toast('Password updated. Welcome to Drumvale!');
+    checkForcedPrivacyAcceptance();
   } catch(e) {
     err.textContent = 'Could not connect to server. Try again.'; err.style.display='block';
   }
+}
+
+function checkForcedPrivacyAcceptance() {
+  if (currentUser.must_accept_privacy) {
+    document.getElementById('modal-force-privacy').classList.add('open');
+  }
+}
+
+async function acceptPrivacyPolicy() {
+  const err = document.getElementById('fpr-error');
+  err.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/auth/accept-privacy-policy`, {method:'POST', headers:authH()});
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || 'Could not record your acceptance. Try again.'; err.style.display='block'; return; }
+
+    currentUser.must_accept_privacy = false;
+    localStorage.setItem('member_user', JSON.stringify(currentUser));
+    document.getElementById('modal-force-privacy').classList.remove('open');
+    toast('Thanks — you\'re all set!');
+  } catch(e) {
+    err.textContent = 'Could not connect to server. Try again.'; err.style.display='block';
+  }
+}
+
+function declinePrivacyPolicy() {
+  // Nothing is written to the server on decline — must_accept_privacy
+  // stays true, so this same prompt reappears on the next login.
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
+  localStorage.removeItem('member_token'); localStorage.removeItem('member_user');
+  location.reload();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -1129,6 +1194,12 @@ document.getElementById('modal-member').addEventListener('click', e => { if (e.t
 
 async function loadOverview() {
   try {
+
+    let memberStatus = 'active';
+    try {
+      const sr = await fetch(`${API}/auth/me`,{headers:authH()});
+      if (sr.ok) memberStatus = ((await sr.json()).status || 'active').toLowerCase();
+    } catch(_){}
 
     const mr = await fetch(`${API}/meetings`,{headers:authH()});
     if (mr.ok) {
@@ -1182,7 +1253,9 @@ async function loadOverview() {
              <td style="color:var(--silver);">${fmtDate(c.deadline)}</td>
            </tr>`).join('')}</tbody></table>`;
     }
-    document.getElementById('ov-status').innerHTML = '<span style="color:var(--green);">Active</span>';
+    document.getElementById('ov-status').innerHTML = memberStatus === 'active'
+      ? '<span style="color:var(--green);">Active</span>'
+      : '<span style="color:#ef4444;">Inactive</span>';
   } catch(e) {
     console.error('Overview:', e.message);
     ['ov-contrib','ov-loans','ov-events'].forEach(id=>document.getElementById(id).textContent='—');
@@ -1224,7 +1297,7 @@ async function loadProfile() {
     <div class="profile-row"><span class="label">Date of Birth</span><span class="value">${fmtDate(merged.date_of_birth)}</span></div>
     <div class="profile-row"><span class="label">Marital Status</span><span class="value">${v(merged.marital_status)}</span></div>
     <div class="profile-row"><span class="label">Role</span><span class="value"><span class="badge badge-blue">${merged.role||'member'}</span></span></div>
-    <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge badge-green">${merged.status||'active'}</span></span></div>
+    <div class="profile-row"><span class="label">Status</span><span class="value"><span class="badge" style="background:${(merged.status||'active').toLowerCase()==='active'?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};color:${(merged.status||'active').toLowerCase()==='active'?'#4ade80':'#f87171'};">${merged.status||'active'}</span></span></div>
     <div class="profile-row"><span class="label">Date Joined</span><span class="value">${fmtDate(merged.date_joined||merged.created_at)}</span></div>
   </div>
   <div class="profile-card">
@@ -1389,7 +1462,7 @@ async function showMemberDetail(id) {
     ${isAdmin ? `<div class="modal-row"><span class="lbl">Marital Status</span><span class="val">${v(full.marital_status)}</span></div>` : ''}
     ${isAdmin ? `<div class="modal-row"><span class="lbl">Spouse</span><span class="val">${v(full.spouse_name)}</span></div>` : ''}
     <div class="modal-row"><span class="lbl">Role</span><span class="val"><span class="badge badge-blue">${full.role||'member'}</span></span></div>
-    <div class="modal-row"><span class="lbl">Status</span><span class="val"><span class="badge badge-green">${full.status||'active'}</span></span></div>
+    <div class="modal-row"><span class="lbl">Status</span><span class="val"><span class="badge ${(full.status||'active').toLowerCase()==='active'?'badge-green':'badge-gray'}">${full.status||'active'}</span></span></div>
     <div class="modal-row"><span class="lbl">Date Joined</span><span class="val">${fmtDate(full.date_joined)}</span></div>
 
     ${isAdmin ? `

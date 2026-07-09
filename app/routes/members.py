@@ -58,11 +58,12 @@ def add_member(
             INSERT INTO users (
                 full_name, phone_number, email, id_number, hashed_password,
                 role, is_active, registration_status, must_change_password,
+                must_accept_privacy,
                 date_of_birth, marital_status, residence, court, house_number,
                 spouse_name, next_of_kin_name, next_of_kin_phone,
                 next_of_kin_2, nok2_phone, privacy_accepted, membership_no
             )
-            VALUES (%s,%s,%s,%s,%s,%s,true,'approved',true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,true,'approved',true,true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (phone_number) DO NOTHING
             RETURNING id
         """, (
@@ -172,8 +173,8 @@ async def bulk_import_members(
                     from app.routes.auth import hash_password
                     cur.execute("""
                         INSERT INTO users (full_name, phone_number, id_number, role, hashed_password,
-                            is_active, registration_status, must_change_password)
-                        VALUES (%s,%s,%s,%s,%s, true, 'approved', true)
+                            is_active, registration_status, must_change_password, must_accept_privacy)
+                        VALUES (%s,%s,%s,%s,%s, true, 'approved', true, true)
                         ON CONFLICT (phone_number) DO NOTHING
                     """, (full_name, phone_number, id_number, role, hash_password(DEFAULT_MEMBER_PASSWORD)))
             except Exception as e:
@@ -512,19 +513,52 @@ def deactivate_member(
 ):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT full_name FROM members WHERE id=%s", (member_id,))
+    cur.execute("SELECT full_name, phone_number FROM members WHERE id=%s", (member_id,))
     row = cur.fetchone()
     cur.execute("UPDATE members SET status='inactive' WHERE id=%s", (member_id,))
+    # Also lock the member's login — status='inactive' alone did NOT stop
+    # them from signing in; is_active is the field /auth/login actually
+    # checks. Matched via phone_number, the same link /auth/me uses.
+    if row and row[1]:
+        cur.execute("UPDATE users SET is_active=false WHERE phone_number=%s", (row[1],))
     conn.commit()
 
     from app.routes.audit import log_action, get_actor_name
     actor = get_actor_name(cur, current_user)
-    log_action("Member Deactivated", actor, detail="Status set to inactive",
+    log_action("Member Deactivated", actor, detail="Status set to inactive; login access revoked",
                 target=row[0] if row else f"member #{member_id}")
 
     cur.close()
     release_connection(conn)
     return {"message": "Member deactivated"}
+
+
+@router.patch("/{member_id}/reactivate")
+def reactivate_member(
+    member_id: int,
+    current_user=Depends(require_secretary)
+):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT full_name, phone_number FROM members WHERE id=%s", (member_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        release_connection(conn)
+        raise HTTPException(status_code=404, detail="Member not found")
+    cur.execute("UPDATE members SET status='active' WHERE id=%s", (member_id,))
+    if row[1]:
+        cur.execute("UPDATE users SET is_active=true WHERE phone_number=%s", (row[1],))
+    conn.commit()
+
+    from app.routes.audit import log_action, get_actor_name
+    actor = get_actor_name(cur, current_user)
+    log_action("Member Reactivated", actor, detail="Status set to active; login access restored",
+                target=row[0])
+
+    cur.close()
+    release_connection(conn)
+    return {"message": "Member reactivated"}
 
 
 @router.delete("/{member_id}")

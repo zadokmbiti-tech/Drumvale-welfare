@@ -262,6 +262,31 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-force-privacy">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header"><h3>Privacy Policy &amp; Terms of Service</h3></div>
+    <p style="color:var(--muted);font-size:13.5px;margin-bottom:14px;">
+      Your account was set up by another admin. Before you continue, please read and accept the Privacy Policy &amp; Terms below — this is your own consent, separate from the confirmation given when your record was created.
+    </p>
+    <div style="max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);
+      border-radius:8px;padding:14px 16px;font-size:0.82rem;line-height:1.65;color:var(--text);margin-bottom:16px;">
+      <h4 style="color:var(--accent,#8b5cf6);font-size:0.88rem;margin:0 0 6px;">Privacy Policy</h4>
+      <p style="margin-bottom:8px;">Drumvale Riverview Welfare Group collects and processes your personal data (name, ID number, phone, next of kin, dependants, and contribution records) solely to administer membership and welfare benefits, in accordance with the Data Protection Act, 2019 (Kenya). Information is protected with encryption and role-based access, is never sold, and is shared only where required by law or with consent. You may request access to, correction of, or deletion of your data at any time.</p>
+      <h4 style="color:var(--accent,#8b5cf6);font-size:0.88rem;margin:10px 0 6px;">Terms of Service</h4>
+      <p style="margin-bottom:0;">By using this dashboard you agree to provide accurate information, keep your login credentials confidential, and use the system only for its intended welfare-administration purpose. Accounts used fraudulently or in violation of these Terms may be suspended.</p>
+    </div>
+    <div id="fpr-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="declinePrivacyPolicy()"
+        style="flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);
+               font-weight:600;padding:11px;border-radius:8px;cursor:pointer;font-family:inherit;">Decline &amp; Log Out</button>
+      <button onclick="acceptPrivacyPolicy()"
+        style="flex:1;background:var(--accent,#8b5cf6);color:#fff;font-weight:600;padding:11px;
+               border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Accept &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">Drumvale</div>
@@ -971,7 +996,7 @@
       <div class="form-group"><label>ID Number</label><input id="m-idno" placeholder="National ID No."/></div>
       <div class="form-group"><label>Date of Birth</label><input id="m-dob" type="date"/></div>
       <div class="form-group"><label>Marital Status</label>
-        <select id="m-marital"><option value="">Select</option><option>Married</option><option>Widowed</option><option>Single</option></select>
+        <select id="m-marital"><option value="">Select</option><option>Married</option><option>Single</option></select>
       </div>
       <div class="form-group"><label>Residence / Estate</label><input id="m-residence" placeholder="Drumvale Riverview"/></div>
       <div class="form-group"><label>Court</label><input id="m-court" placeholder="Court name"/></div>
@@ -1960,7 +1985,7 @@ async function doLogin() {
       err.style.display = 'block'; return;
     }
     token = data.access_token;
-    currentUser = {id: data.user_id, name: data.full_name, role: data.role, phone: data.phone_number || '', must_change_password: !!data.must_change_password};
+    currentUser = {id: data.user_id, name: data.full_name, role: data.role, phone: data.phone_number || '', must_change_password: !!data.must_change_password, must_accept_privacy: !!data.must_accept_privacy};
     localStorage.setItem('chama_token', token);
     localStorage.setItem('chama_user', JSON.stringify(currentUser));
     document.getElementById('login-screen').style.display = 'none';
@@ -2072,12 +2097,15 @@ async function checkForcedPasswordChange() {
     if (res.ok) {
       const me = await res.json();
       currentUser.must_change_password = !!me.must_change_password;
+      currentUser.must_accept_privacy  = !!me.must_accept_privacy;
       localStorage.setItem('chama_user', JSON.stringify(currentUser));
     }
-  } catch(e) { /* fall back to cached flag below */ }
+  } catch(e) { /* fall back to cached flags below */ }
 
   if (currentUser?.must_change_password) {
     document.getElementById('modal-force-pwd').classList.add('open');
+  } else {
+    checkForcedPrivacyAcceptance();
   }
 }
 
@@ -2104,9 +2132,39 @@ async function submitForcedPasswordChange() {
     localStorage.setItem('chama_user', JSON.stringify(currentUser));
     document.getElementById('modal-force-pwd').classList.remove('open');
     toast('Password updated. Welcome back!');
+    checkForcedPrivacyAcceptance();
   } catch(e) {
     err.textContent = 'Could not connect to server. Try again.'; err.style.display='block';
   }
+}
+
+function checkForcedPrivacyAcceptance() {
+  if (currentUser?.must_accept_privacy) {
+    document.getElementById('modal-force-privacy').classList.add('open');
+  }
+}
+
+async function acceptPrivacyPolicy() {
+  const err = document.getElementById('fpr-error');
+  err.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/auth/accept-privacy-policy`, {method:'POST', headers:authH()});
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || 'Could not record your acceptance. Try again.'; err.style.display='block'; return; }
+
+    currentUser.must_accept_privacy = false;
+    localStorage.setItem('chama_user', JSON.stringify(currentUser));
+    document.getElementById('modal-force-privacy').classList.remove('open');
+    toast('Thanks — you\'re all set!');
+  } catch(e) {
+    err.textContent = 'Could not connect to server. Try again.'; err.style.display='block';
+  }
+}
+
+function declinePrivacyPolicy() {
+  // Nothing is written to the server on decline — must_accept_privacy
+  // stays true, so this same prompt reappears on the next login.
+  logout();
 }
 
 function showPage(name, el) {
@@ -2291,7 +2349,7 @@ function renderMembersTable(members) {
       <td style="display:flex;gap:6px;align-items:center">
         ${m.status==='active'
           ? `<button class="btn btn-sm btn-danger" onclick="deactivateMember(${m.id})">Deactivate</button>`
-          : '<span style="color:var(--muted);font-size:12px">Inactive</span>'}
+          : `<button class="btn btn-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.35)" onclick="reactivateMember(${m.id})">Reactivate</button>`}
         ${isAdmin() ? `<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.4)" onclick="deleteMember(${m.id},'${m.full_name}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
@@ -2464,8 +2522,14 @@ async function saveMember() {
 }
 
 async function deactivateMember(id) {
-  if (!confirm('Deactivate this member?')) return;
+  if (!confirm('Deactivate this member? They will be logged out of the member portal and unable to log back in until reactivated.')) return;
   try { await apiFetch(`/members/${id}/deactivate`,{method:'PATCH'}); toast('Member deactivated'); loadMembers(); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+async function reactivateMember(id) {
+  if (!confirm('Reactivate this member? They will be able to log in again.')) return;
+  try { await apiFetch(`/members/${id}/reactivate`,{method:'PATCH'}); toast('Member reactivated'); loadMembers(); }
   catch(e) { toast(e.message,'error'); }
 }
 
