@@ -568,10 +568,18 @@ def delete_member(
 ):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT full_name FROM members WHERE id=%s", (member_id,))
+    cur.execute("SELECT full_name, phone_number FROM members WHERE id=%s", (member_id,))
     existing = cur.fetchone()
     cur.execute("DELETE FROM members WHERE id=%s RETURNING id", (member_id,))
     deleted = cur.fetchone()
+    # members and users are only linked by phone_number, not a FK — deleting
+    # the members row alone leaves the users row (and its is_active=true)
+    # untouched, so the account can still log in. Lock it out here too.
+    if deleted and existing and existing[1]:
+        cur.execute(
+            "UPDATE users SET is_active=false, registration_status='deleted' WHERE phone_number=%s",
+            (existing[1],)
+        )
     conn.commit()
 
     if deleted:

@@ -63,22 +63,32 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    if request.url.path not in PASSWORD_CHANGE_EXEMPT_PATHS:
-        conn = get_connection()
-        cur = conn.cursor()
-        try:
-            cur.execute("SELECT must_change_password FROM users WHERE id=%s", (payload.get("user_id"),))
-            row = cur.fetchone()
-        finally:
-            cur.close()
-            release_connection(conn)
+    # Always re-check is_active, even on exempt paths like /auth/me — a
+    # deleted or deactivated member's existing token is otherwise still
+    # valid until it expires, since a JWT isn't re-validated against the
+    # DB by default. This is what makes deletion/deactivation take effect
+    # on their very next request instead of only after the token expires.
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT must_change_password, is_active FROM users WHERE id=%s",
+            (payload.get("user_id"),)
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        release_connection(conn)
 
-        if row and row[0]:
-            raise HTTPException(
-                status_code=403,
-                detail="You must set a new password before continuing.",
-                headers={"X-Must-Change-Password": "true"},
-            )
+    if not row or not row[1]:
+        raise HTTPException(status_code=401, detail="Account is no longer active")
+
+    if row[0] and request.url.path not in PASSWORD_CHANGE_EXEMPT_PATHS:
+        raise HTTPException(
+            status_code=403,
+            detail="You must set a new password before continuing.",
+            headers={"X-Must-Change-Password": "true"},
+        )
 
     return payload
 
@@ -223,6 +233,8 @@ def login(request: Request, data: UserLogin):
         raise HTTPException(status_code=403, detail="Your registration is pending admin approval.")
     if user[5] == "rejected":
         raise HTTPException(status_code=403, detail="Your registration was not approved. Contact the admin.")
+    if user[5] == "deleted":
+        raise HTTPException(status_code=403, detail="This account no longer exists.")
     if not user[4]:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 

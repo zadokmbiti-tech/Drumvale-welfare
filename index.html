@@ -440,7 +440,7 @@
       <p style="font-size:0.72rem;color:var(--red);margin-bottom:20px;">* All fields marked with an asterisk are required.</p>
       <div id="register-form-body">
         <div class="form-group"><label>Principal Member's Full Name *</label><input type="text" id="reg-fname" placeholder="Full name as in ID" /></div>
-        <div class="form-group"><label>Member ID *</label><input type="text" id="reg-memberid" placeholder="e.g. 001" /></div>
+        <div class="form-group"><label>Member ID</label><input type="text" id="reg-memberid" placeholder="e.g. 001 (leave blank if you don't have one yet)" /></div>
         <div class="form-row">
           <div class="form-group"><label>Phone Number *</label><input type="tel" id="reg-phone" placeholder="07XX XXX XXX" /></div>
           <div class="form-group"><label>ID Number *</label><input type="text" id="reg-idno" placeholder="National ID No." /></div>
@@ -792,7 +792,6 @@ async function handleRegister() {
 
   const missing = [];
   if (!fname)     { missing.push('Full Name'); highlightField('reg-fname'); }
-  if (!memberid)  { missing.push('Member ID'); highlightField('reg-memberid'); }
   if (!phone)     { missing.push('Phone Number'); highlightField('reg-phone'); }
   if (!idno)      { missing.push('ID Number'); highlightField('reg-idno'); }
   if (!dob)       { missing.push('Date of Birth'); highlightField('reg-dob'); }
