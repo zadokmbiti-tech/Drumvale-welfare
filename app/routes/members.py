@@ -250,7 +250,7 @@ def download_members_csv(_=Depends(require_secretary)):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT id, full_name, phone_number, id_number, role, status,
+            SELECT id, membership_no, full_name, phone_number, id_number, role, status,
                    date_joined::text, next_of_kin_name, next_of_kin_phone, notes
             FROM members ORDER BY full_name
         """)
@@ -262,7 +262,7 @@ def download_members_csv(_=Depends(require_secretary)):
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "id", "full_name", "phone_number", "id_number", "role", "status",
+        "id", "member_id", "full_name", "phone_number", "id_number", "role", "status",
         "date_joined", "next_of_kin_name", "next_of_kin_phone", "notes"
     ])
     writer.writerows(rows)
