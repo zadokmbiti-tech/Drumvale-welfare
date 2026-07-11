@@ -176,6 +176,16 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 
 </style>
 </head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-42PRZVT9QX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-42PRZVT9QX');
+</script>
+
 <body>
 
 <!-- LOGIN -->
@@ -811,6 +821,7 @@ const API = window.CHAMALINK_API ||
 let token = null;
 let currentUser = null;
 let allMembers  = [];
+let _myProfileData = null;
 
 async function doLogin() {
   const phone = document.getElementById('login-phone').value.trim();
@@ -864,8 +875,9 @@ const UPDATE_FIELDS = [
 
 function openUpdateModal() {
   _adminEditTargetId = null;
+  const full = _myProfileData || {};
   document.getElementById('um-title').textContent = 'Update My Profile';
-  document.getElementById('um-subtitle').textContent = 'Only fill in the fields you want to change. Leave others blank.';
+  document.getElementById('um-subtitle').textContent = 'Your current details are shown below. Edit whatever needs changing and submit.';
   document.getElementById('upd-note').innerHTML =
     '📋 Your changes will be reviewed by the admin before taking effect. You will see a <strong>pending</strong> badge on your profile until approved.';
   document.getElementById('upd-submit-btn').textContent = 'Submit for Approval';
@@ -874,12 +886,27 @@ function openUpdateModal() {
   document.getElementById('upd-membershipno-wrap').style.display = 'none';
   UPDATE_FIELDS.forEach(f => {
     const el = document.getElementById('upd-' + f);
-    if (el) el.value = '';
+    if (el) el.value = full[f] || '';
   });
+
   document.getElementById('upd-children-list').innerHTML = '';
   document.getElementById('upd-parents-list').innerHTML  = '';
   _childIdx  = 0;
   _parentIdx = 0;
+  (full.children || []).forEach(c => {
+    addChildRow();
+    document.getElementById('child-name-' + _childIdx).value = c.full_name || '';
+    document.getElementById('child-dob-'  + _childIdx).value = c.date_of_birth || '';
+    document.getElementById('child-rel-'  + _childIdx).value = c.relationship || '';
+  });
+  (full.parents || []).forEach(p => {
+    addParentRow();
+    document.getElementById('parent-name-'  + _parentIdx).value = p.full_name || '';
+    document.getElementById('parent-idno-'  + _parentIdx).value = p.id_number || '';
+    document.getElementById('parent-res-'   + _parentIdx).value = p.current_residence || '';
+    document.getElementById('parent-phone-' + _parentIdx).value = p.contact_phone || '';
+  });
+
   document.getElementById('update-modal-backdrop').classList.add('open');
 }
 function closeUpdateModal() {
@@ -997,23 +1024,42 @@ function _collectParents() {
 async function submitProfileUpdate() {
   const errEl = document.getElementById('upd-error');
   errEl.style.display = 'none';
+  const isAdminEdit = !!_adminEditTargetId;
+  const original = isAdminEdit ? (_lastViewedMember || {}) : (_myProfileData || {});
   const body = {};
   UPDATE_FIELDS.forEach(f => {
     const el = document.getElementById('upd-' + f);
-    if (el && el.value.trim()) body[f] = el.value.trim();
+    if (!el) return;
+    const val = el.value.trim();
+    if (!val) return;
+    // For the member's own profile, the form is prefilled with current values —
+    // only send fields the member actually changed, so admin review reflects
+    // real edits rather than every field being re-submitted unchanged.
+    if (!isAdminEdit && val === String(original[f] ?? '').trim()) return;
+    body[f] = val;
   });
   const children = _collectChildren();
   const parents  = _collectParents();
-  if (children) body.children = children;
-  if (parents)  body.parents  = parents;
+  if (!isAdminEdit) {
+    if (children && JSON.stringify(children) !== JSON.stringify(
+      (original.children || []).map(c => ({full_name:c.full_name||'',date_of_birth:c.date_of_birth||null,relationship:c.relationship||null,cert_number:c.cert_number||null}))
+    )) body.children = children;
+    if (parents && JSON.stringify(parents) !== JSON.stringify(
+      (original.parents || []).map(p => ({full_name:p.full_name||'',id_number:p.id_number||null,current_residence:p.current_residence||null,contact_phone:p.contact_phone||null}))
+    )) body.parents = parents;
+  } else {
+    if (children) body.children = children;
+    if (parents)  body.parents  = parents;
+  }
 
   if (Object.keys(body).length === 0) {
-    errEl.textContent = 'Please fill in at least one field to update.';
+    errEl.textContent = isAdminEdit
+      ? 'Please fill in at least one field to update.'
+      : 'No changes detected. Edit a field before submitting.';
     errEl.style.display = 'block';
     return;
   }
 
-  const isAdminEdit = !!_adminEditTargetId;
   const url    = isAdminEdit ? `${API}/members/${_adminEditTargetId}/admin-edit` : `${API}/profile-updates/`;
   const method = isAdminEdit ? 'PUT' : 'POST';
 
@@ -1283,6 +1329,7 @@ async function loadProfile() {
       next_of_kin_phone: u.next_of_kin_phone || m.next_of_kin_phone || null,
       notes:             u.notes             || m.notes             || null,
     };
+    _myProfileData = merged;
     document.getElementById('prof-name').textContent = merged.full_name||'—';
     document.getElementById('prof-role').textContent = merged.role||'member';
     document.getElementById('prof-meta').textContent = `Member since ${fmtDate(merged.created_at||merged.date_joined)} · ${merged.phone_number}`;
