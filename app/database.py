@@ -19,7 +19,6 @@ engine = create_engine(DATABASE_URL)
 
 
 def get_connection():
-    """Open a fresh connection per request — safe for serverless."""
     from urllib.parse import urlparse
     u = urlparse(DATABASE_URL)
     return psycopg2.connect(
@@ -29,11 +28,11 @@ def get_connection():
         user=u.username,
         password=u.password,
         sslmode="require",
+        options="-c TimeZone=Africa/Nairobi"
     )
 
 
 def release_connection(conn):
-    """Close connection after request — no pool needed on serverless."""
     try:
         if conn and not conn.closed:
             conn.close()
@@ -41,6 +40,5 @@ def release_connection(conn):
         pass
 
 
-# Keep init_pool as a no-op so main.py startup doesn't break
 def init_pool():
     pass
