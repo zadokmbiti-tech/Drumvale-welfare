@@ -176,16 +176,6 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 
 </style>
 </head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-42PRZVT9QX"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-42PRZVT9QX');
-</script>
-
 <body>
 
 <!-- LOGIN -->
@@ -762,23 +752,24 @@ tr:hover td{background:rgba(44,180,224,0.03);}
       </p>
       <div style="margin-bottom:12px;">
         <label style="display:block;font-size:12px;color:var(--silver);margin-bottom:6px;">Current (default) password</label>
-        <input type="password" id="fp-current" placeholder="Drumvale2026"
+        <input type="password" id="fp-current" placeholder="Drumvale2026" oninput="validateForcedPwdForm()"
           style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-family:inherit;">
       </div>
       <div style="margin-bottom:12px;">
         <label style="display:block;font-size:12px;color:var(--silver);margin-bottom:6px;">New password</label>
-        <input type="password" id="fp-new" placeholder="At least 6 characters"
+        <input type="password" id="fp-new" placeholder="At least 6 characters" oninput="validateForcedPwdForm()"
           style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-family:inherit;">
       </div>
       <div style="margin-bottom:16px;">
         <label style="display:block;font-size:12px;color:var(--silver);margin-bottom:6px;">Confirm new password</label>
-        <input type="password" id="fp-confirm" placeholder="Re-enter new password"
+        <input type="password" id="fp-confirm" placeholder="Re-enter new password" oninput="validateForcedPwdForm()"
           style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-family:inherit;">
       </div>
       <div id="fp-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></div>
-      <button onclick="submitForcedPasswordChange()"
+      <button id="fp-submit-btn" onclick="submitForcedPasswordChange()" disabled
         style="width:100%;background:var(--sky);color:#000;font-weight:600;padding:11px;
-               border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Set Password &amp; Continue</button>
+               border-radius:8px;border:none;cursor:pointer;font-family:inherit;
+               opacity:0.5;cursor:not-allowed;">Set Password &amp; Continue</button>
     </div>
   </div>
 </div>
@@ -1140,9 +1131,49 @@ async function checkForcedPasswordChange() {
 
   if (currentUser.must_change_password) {
     document.getElementById('modal-force-pwd').classList.add('open');
+    resetForcedPwdForm();
   } else {
     checkForcedPrivacyAcceptance();
   }
+}
+
+function resetForcedPwdForm() {
+  ['fp-current','fp-new','fp-confirm'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('fp-error').style.display = 'none';
+  validateForcedPwdForm();
+}
+
+function validateForcedPwdForm() {
+  const cur = document.getElementById('fp-current').value;
+  const nw  = document.getElementById('fp-new').value;
+  const cf  = document.getElementById('fp-confirm').value;
+  const err = document.getElementById('fp-error');
+  const btn = document.getElementById('fp-submit-btn');
+
+  let message = '';
+  // Only surface reuse/mismatch warnings once the relevant fields are
+  // actually filled in, so the user isn't scolded before they've typed
+  // anything.
+  if (cur && nw && nw === cur) {
+    message = 'You cannot reuse this password. Please choose a different one.';
+  } else if (nw && cf && nw !== cf) {
+    message = 'New password and confirmation do not match.';
+  } else if (nw && nw.length < 6) {
+    message = 'New password must be at least 6 characters.';
+  }
+
+  if (message) {
+    err.textContent = message;
+    err.style.display = 'block';
+  } else {
+    err.style.display = 'none';
+  }
+
+  const allFilled = !!(cur && nw && cf);
+  const valid = allFilled && !message;
+  btn.disabled = !valid;
+  btn.style.opacity = valid ? '1' : '0.5';
+  btn.style.cursor  = valid ? 'pointer' : 'not-allowed';
 }
 
 async function submitForcedPasswordChange() {
@@ -1150,11 +1181,17 @@ async function submitForcedPasswordChange() {
   const nw  = document.getElementById('fp-new').value;
   const cf  = document.getElementById('fp-confirm').value;
   const err = document.getElementById('fp-error');
+  const btn = document.getElementById('fp-submit-btn');
   err.style.display = 'none';
 
   if (!cur || !nw || !cf) { err.textContent = 'Please fill in all fields.'; err.style.display='block'; return; }
   if (nw.length < 6) { err.textContent = 'New password must be at least 6 characters.'; err.style.display='block'; return; }
+  if (nw === cur) { err.textContent = 'You cannot reuse this password. Please choose a different one.'; err.style.display='block'; return; }
   if (nw !== cf) { err.textContent = 'New password and confirmation do not match.'; err.style.display='block'; return; }
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
 
   try {
     const res = await fetch(`${API}/auth/change-password`, {
@@ -1162,7 +1199,7 @@ async function submitForcedPasswordChange() {
       body: JSON.stringify({current_password: cur, new_password: nw})
     });
     const data = await res.json();
-    if (!res.ok) { err.textContent = data.detail || 'Could not update password.'; err.style.display='block'; return; }
+    if (!res.ok) { err.textContent = data.detail || 'Could not update password.'; err.style.display='block'; validateForcedPwdForm(); return; }
 
     currentUser.must_change_password = false;
     localStorage.setItem('member_user', JSON.stringify(currentUser));
@@ -1171,6 +1208,7 @@ async function submitForcedPasswordChange() {
     checkForcedPrivacyAcceptance();
   } catch(e) {
     err.textContent = 'Could not connect to server. Try again.'; err.style.display='block';
+    validateForcedPwdForm();
   }
 }
 
