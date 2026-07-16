@@ -40,7 +40,9 @@ def create_event(
 
 @router.get("")
 @router.get("/")
-def list_events(status: str = "", _=Depends(get_current_user)):
+def list_events(status: str = "", limit: int = 200, offset: int = 0, _=Depends(get_current_user)):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()
     if status:
@@ -48,15 +50,15 @@ def list_events(status: str = "", _=Depends(get_current_user)):
             SELECT e.id, e.title, e.event_type, m.full_name,
                    e.target_amount, e.status, e.date_raised, e.description
             FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
-            WHERE e.status = %s ORDER BY e.date_raised DESC
-        """, (status,))
+            WHERE e.status = %s ORDER BY e.date_raised DESC LIMIT %s OFFSET %s
+        """, (status, limit, offset))
     else:
         cur.execute("""
             SELECT e.id, e.title, e.event_type, m.full_name,
                    e.target_amount, e.status, e.date_raised, e.description
             FROM events e LEFT JOIN members m ON e.beneficiary_id = m.id
-            ORDER BY e.date_raised DESC
-        """)
+            ORDER BY e.date_raised DESC LIMIT %s OFFSET %s
+        """, (limit, offset))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)

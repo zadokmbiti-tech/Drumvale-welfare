@@ -61,8 +61,12 @@ def record_contribution(
 def list_contributions(
     month: str = "",
     member_id: int = 0,
+    limit: int = 200,
+    offset: int = 0,
     _=Depends(get_current_user)         # any logged-in user
 ):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()
     query = """
@@ -79,7 +83,8 @@ def list_contributions(
     if member_id:
         query += " AND mc.member_id = %s"
         params.append(member_id)
-    query += " ORDER BY mc.recorded_at DESC"
+    query += " ORDER BY mc.recorded_at DESC LIMIT %s OFFSET %s"
+    params.extend([limit, offset])
 
     cur.execute(query, params)
     rows = cur.fetchall()

@@ -118,17 +118,26 @@ def _member_statement(member_id: int):
 @router.get("/my")
 def my_statement(current_user: dict = Depends(get_current_user)):
     """Member views their own statement."""
-    # Find member record linked to this user by phone
+    # The JWT payload only carries sub/user_id/role/exp — phone_number and
+    # full_name aren't in it, so they must be looked up from the DB via
+    # user_id rather than read off current_user directly.
     conn = get_connection()
     cur  = conn.cursor()
     try:
+        cur.execute("SELECT phone_number, full_name FROM users WHERE id=%s",
+                    (current_user.get("user_id"),))
+        user_row = cur.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="No account found for this token")
+        phone_number, full_name = user_row
+
         cur.execute("SELECT id FROM members WHERE phone_number=%s AND status='active'",
-                    (current_user["phone_number"],))
+                    (phone_number,))
         row = cur.fetchone()
         if not row:
             # Try by name
             cur.execute("SELECT id FROM members WHERE full_name=%s LIMIT 1",
-                        (current_user["full_name"],))
+                        (full_name,))
             row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="No member record found for your account")

@@ -1,8 +1,8 @@
 import os
 import requests
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.database import get_connection, release_connection
-from app.routes.auth import get_current_user
+from app.routes.auth import get_current_user, limiter
 from app.auth_deps import require_secretary
 
 router = APIRouter()
@@ -119,7 +119,8 @@ def _ensure_table(cur):
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/")
-def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
+@limiter.limit("10/minute")
+def schedule_meeting(request: Request, body: dict, current_user=Depends(require_secretary)):
     title  = (body.get("title") or "").strip()
     date   = body.get("date")
     time   = body.get("time", "")
@@ -200,15 +201,17 @@ def schedule_meeting(body: dict, current_user=Depends(require_secretary)):
 
 @router.get("")
 @router.get("/")
-def list_meetings(_=Depends(get_current_user)):
+def list_meetings(limit: int = 200, offset: int = 0, _=Depends(get_current_user)):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     conn = get_connection()
     cur  = conn.cursor()
     try:
         _ensure_table(cur)
         cur.execute("""
             SELECT id, title, date::text, time, venue, status, created_at::text
-            FROM meetings ORDER BY date DESC, created_at DESC
-        """)
+            FROM meetings ORDER BY date DESC, created_at DESC LIMIT %s OFFSET %s
+        """, (limit, offset))
         rows = cur.fetchall()
         return [
             {"id": r[0], "title": r[1], "date": r[2], "time": r[3],
@@ -289,7 +292,8 @@ def update_meeting_status(meeting_id: int, body: dict, current_user=Depends(requ
 
 
 @router.post("/{meeting_id}/sms")
-def resend_meeting_sms(meeting_id: int, current_user=Depends(require_secretary)):
+@limiter.limit("10/minute")
+def resend_meeting_sms(meeting_id: int, request: Request, current_user=Depends(require_secretary)):
     """Manually resend the meeting SMS to all active members."""
     conn = get_connection()
     cur  = conn.cursor()

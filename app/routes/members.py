@@ -6,7 +6,7 @@ from app.database import get_connection, release_connection
 from app.models import MemberCreate
 from app.schemas import ProfileUpdateRequest
 from app.routes.auth import get_current_user, require_admin
-from app.auth_deps import require_secretary, require_chairperson, require_super_admin
+from app.auth_deps import require_secretary, require_chairperson, require_super_admin, ROLE_LEVELS
 
 router = APIRouter()
 
@@ -204,11 +204,19 @@ async def bulk_import_members(
 
 @router.get("")
 @router.get("/")
-def list_members(_=Depends(get_current_user)):
+def list_members(
+    limit: int = 200,
+    offset: int = 0,
+    _=Depends(get_current_user)
+):
+    limit = max(1, min(limit, 500))   # hard cap so a bad/huge value can't force a full table scan
+    offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, full_name, phone_number, role, status, date_joined, membership_no FROM members ORDER BY id DESC"
+        "SELECT id, full_name, phone_number, role, status, date_joined, membership_no "
+        "FROM members ORDER BY id DESC LIMIT %s OFFSET %s",
+        (limit, offset)
     )
     rows = cur.fetchall()
     cur.close()
@@ -291,10 +299,23 @@ def get_all_phones(current_user=Depends(require_super_admin)):
 # ── Dynamic route last ────────────────────────────────────────────────────────
 
 @router.get("/{member_id}")
-def get_member(member_id: int, _=Depends(get_current_user)):
+def get_member(member_id: int, current_user=Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Authorization: secretary and above can view any member's full
+        # profile. A plain member may only view their own record — without
+        # this check, any authenticated member could enumerate member_id
+        # and read everyone's ID number, DOB, residence, children's names/
+        # DOB/cert numbers, and parents' details (IDOR).
+        if ROLE_LEVELS.get(current_user.get("role"), 0) < ROLE_LEVELS["secretary"]:
+            cur.execute("SELECT phone_number FROM users WHERE id=%s", (current_user.get("user_id"),))
+            urow = cur.fetchone()
+            cur.execute("SELECT id FROM members WHERE phone_number=%s", (urow[0] if urow else None,))
+            mrow = cur.fetchone()
+            if not urow or not mrow or mrow[0] != member_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to view this member")
+
         cur.execute("""
             SELECT m.id, m.full_name, m.phone_number, m.id_number, m.role, m.status,
                    m.date_joined, m.next_of_kin_name, m.next_of_kin_phone, m.notes,

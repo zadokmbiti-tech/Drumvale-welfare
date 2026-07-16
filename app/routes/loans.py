@@ -123,7 +123,9 @@ def my_loans(current_user: dict = Depends(get_current_user)):
 
 @router.get("")
 @router.get("/")
-def list_loans(status: str = "", _=Depends(get_current_user)):
+def list_loans(status: str = "", limit: int = 200, offset: int = 0, _=Depends(get_current_user)):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -137,7 +139,8 @@ def list_loans(status: str = "", _=Depends(get_current_user)):
         if status:
             query += " AND l.status=%s"
             params.append(status)
-        query += " ORDER BY l.created_at DESC"
+        query += " ORDER BY l.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
         cur.execute(query, params)
         rows = cur.fetchall()
     finally:

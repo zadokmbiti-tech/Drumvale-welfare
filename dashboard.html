@@ -2334,23 +2334,39 @@ async function loadMembers() {
   }
 }
 
+// Escapes text before it's interpolated into innerHTML or an HTML attribute.
+// Member-editable fields (full_name, notes, etc.) are not sanitized on the
+// backend, so every place one of those fields is rendered into the DOM
+// must go through this first — otherwise a member could store something
+// like <img src=x onerror="..."> as their name and have it execute in an
+// admin's browser the next time the members table is viewed (stored XSS).
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderMembersTable(members) {
   const tbody = document.getElementById('members-tbody');
   if (!members.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No members found</div></td></tr>'; return; }
   tbody.innerHTML = members.map((m,i) => `
     <tr>
       <td>${i+1}</td>
-      <td>${m.membership_no ? `<span class="badge badge-blue">#${m.membership_no}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
-      <td><strong>${m.full_name}</strong></td>
-      <td>${m.phone_number}</td>
-      <td><span class="badge badge-blue">${m.role}</span></td>
+      <td>${m.membership_no ? `<span class="badge badge-blue">#${escapeHtml(m.membership_no)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td><strong>${escapeHtml(m.full_name)}</strong></td>
+      <td>${escapeHtml(m.phone_number)}</td>
+      <td><span class="badge badge-blue">${escapeHtml(m.role)}</span></td>
       <td>${m.date_joined||'—'}</td>
-      <td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td>
+      <td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${escapeHtml(m.status)}</span></td>
       <td style="display:flex;gap:6px;align-items:center">
         ${m.status==='active'
           ? `<button class="btn btn-sm btn-danger" onclick="deactivateMember(${m.id})">Deactivate</button>`
           : `<button class="btn btn-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.35)" onclick="reactivateMember(${m.id})">Reactivate</button>`}
-        ${isAdmin() ? `<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.4)" onclick="deleteMember(${m.id},'${m.full_name}')">Delete</button>` : ''}
+        ${isAdmin() ? `<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.4)" onclick="deleteMember(${m.id},'${escapeHtml(m.full_name).replace(/'/g, "\\'")}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
 }

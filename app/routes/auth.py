@@ -251,7 +251,8 @@ def login(request: Request, data: UserLogin):
 #  SWAGGER /docs token endpoint
 # ------------------------------------------------------------------ #
 @router.post("/token")
-def token(form_data: OAuth2PasswordRequestForm = Depends()):
+@limiter.limit("5/minute")
+def token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -269,6 +270,12 @@ def token(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if user[5] == "pending":
         raise HTTPException(status_code=403, detail="Registration pending approval")
+    if user[5] == "rejected":
+        raise HTTPException(status_code=403, detail="Your registration was not approved. Contact the admin.")
+    if user[5] == "deleted":
+        raise HTTPException(status_code=403, detail="This account no longer exists.")
+    if not user[4]:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token_str = create_token({"sub": form_data.username, "user_id": user[0], "role": user[2]})
     return {"access_token": token_str, "token_type": "bearer"}

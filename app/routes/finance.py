@@ -43,14 +43,16 @@ def record_transaction(body: FinanceTransactionCreate, current_user=Depends(requ
 
 
 @router.get("/")
-def list_transactions(_=Depends(get_current_user)):
+def list_transactions(limit: int = 200, offset: int = 0, _=Depends(get_current_user)):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()
     try:
         cur.execute("""
             SELECT id, type, category, amount, description, date::text, recorded_by
-            FROM finance ORDER BY date DESC, created_at DESC
-        """)
+            FROM finance ORDER BY date DESC, created_at DESC LIMIT %s OFFSET %s
+        """, (limit, offset))
         rows = cur.fetchall()
         return [
             {"id": r[0], "type": r[1], "category": r[2], "amount": float(r[3]),
