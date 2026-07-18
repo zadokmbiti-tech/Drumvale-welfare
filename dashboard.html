@@ -785,6 +785,17 @@
         <button class="btn btn-outline" onclick="loadPendingUsers()">↺ Refresh</button>
       </div>
     </div>
+    <!-- Pending password reset requests -->
+    <div id="admin-password-resets-card" class="card" style="display:none;margin-bottom:20px;">
+      <div class="card-title">🔑 Pending Password Reset Requests</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Requested</th><th>Actions</th></tr></thead>
+          <tbody id="password-resets-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Tab switcher -->
     <div style="display:flex;gap:8px;margin-bottom:20px;">
       <button id="tab-pending-btn" class="btn btn-primary" onclick="switchAdminTab('pending')">⏳ Pending</button>
@@ -2281,14 +2292,16 @@ async function loadDashboard() {
          </tbody></table>`
       : '<div style="color:var(--muted);font-size:13px;padding:8px 0">No pending loan applications</div>';
 
-    // Show pending registrations badge in nav if any
-    if (stats.pending_registrations > 0) {
+    // Show pending registrations / password reset requests badge in nav
+    const pendingTotal = (stats.pending_registrations || 0) + (stats.pending_password_resets || 0);
+    if (pendingTotal > 0) {
       const navAdmin = document.getElementById('nav-admin');
       if (navAdmin && !navAdmin.querySelector('.pending-badge')) {
         const badge = document.createElement('span');
         badge.className = 'pending-badge';
+        badge.title = `${stats.pending_registrations || 0} pending registration(s), ${stats.pending_password_resets || 0} password reset request(s)`;
         badge.style.cssText = 'margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;font-size:10px;padding:1px 7px;font-weight:700;';
-        badge.textContent = stats.pending_registrations;
+        badge.textContent = pendingTotal;
         navAdmin.appendChild(badge);
       }
     }
@@ -3235,6 +3248,7 @@ async function viewMeeting(id) {
 let pendingUsers = [];
 
 async function loadPendingUsers() {
+  loadPendingResets();
   try {
     const rows = await apiFetch('/auth/admin/pending');
     pendingUsers = rows;
@@ -3262,6 +3276,40 @@ async function loadPendingUsers() {
 function viewPending(id) {
   const u = pendingUsers.find(x => x.id === id);
   if (u) viewRegistration(u);
+}
+
+async function loadPendingResets() {
+  const card  = document.getElementById('admin-password-resets-card');
+  const tbody = document.getElementById('password-resets-tbody');
+  try {
+    const rows = await apiFetch('/reset/pending');
+    if (!rows.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.full_name || '—'}</strong></td>
+        <td>${r.phone_number}</td>
+        <td style="color:var(--muted);font-size:12px">${new Date(r.requested_at).toLocaleString('en-KE')}</td>
+        <td style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-primary" onclick="generateOtpFor('${r.phone_number}')">🔑 Generate OTP</button>
+          <button class="btn btn-sm" style="background:var(--border);color:var(--text)" onclick="dismissPendingReset(${r.id})">Dismiss</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    card.style.display = 'none';
+  }
+}
+
+function generateOtpFor(phone) {
+  openPasswordReset(phone);
+}
+
+async function dismissPendingReset(id) {
+  try {
+    await apiFetch(`/reset/pending/${id}/dismiss`, {method: 'PATCH'});
+    loadPendingResets();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 function viewRegistration(u) {
@@ -3767,10 +3815,10 @@ async function loadAuditLog(page=1) {
 // ══════════════════════════════════════════════════════════════
 // PASSWORD RESET
 // ══════════════════════════════════════════════════════════════
-function openPasswordReset() {
+function openPasswordReset(prefillPhone) {
   document.getElementById('reset-step-1').style.display = 'block';
   document.getElementById('reset-step-2').style.display = 'none';
-  document.getElementById('reset-phone').value = '';
+  document.getElementById('reset-phone').value = prefillPhone || '';
   document.getElementById('modal-reset-password').style.display = 'flex';
 }
 
@@ -3784,6 +3832,7 @@ async function requestPasswordReset() {
     document.getElementById('reset-step-1').style.display = 'none';
     document.getElementById('reset-step-2').style.display = 'block';
     toast('OTP generated — share with member');
+    loadPendingResets();
   } catch(e) { toast(e.message,'error'); }
 }
 

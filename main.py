@@ -122,6 +122,16 @@ def startup():
                 reviewed_at          TIMESTAMP,
                 submitted_at         TIMESTAMP NOT NULL DEFAULT NOW()
             );
+
+            CREATE TABLE IF NOT EXISTS password_reset_requests (
+                id            SERIAL PRIMARY KEY,
+                phone_number  VARCHAR(20) NOT NULL,
+                full_name     VARCHAR(200),
+                requested_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                resolved      BOOLEAN NOT NULL DEFAULT false,
+                resolved_by   INT REFERENCES users(id),
+                resolved_at   TIMESTAMP
+            );
         """)
         for col_sql in [
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20)",
@@ -275,6 +285,13 @@ def dashboard_stats(_=Depends(get_current_user)):
             conn.rollback()
             total_projects = 0
 
+        try:
+            cur.execute("SELECT COUNT(*) FROM password_reset_requests WHERE resolved=false")
+            pending_password_resets = cur.fetchone()[0]
+        except Exception:
+            conn.rollback()
+            pending_password_resets = 0
+
         return {
             "active_members": active_members,
             "total_members": total_members,
@@ -288,6 +305,7 @@ def dashboard_stats(_=Depends(get_current_user)):
             "pending_registrations": pending_users,
             "total_assets": total_assets,
             "total_projects": total_projects,
+            "pending_password_resets": pending_password_resets,
         }
     finally:
         cur.close()

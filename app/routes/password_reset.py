@@ -68,6 +68,22 @@ def request_reset(request: Request, data: dict):
         # Don't reveal whether the phone is registered — just say OK either way
         return {"message": "If that number is registered, an admin has been notified."}
 
+    # Record this so admins see it on their dashboard — this is the actual
+    # notification the admin needs, separate from generating the OTP itself.
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO password_reset_requests (phone_number, full_name) VALUES (%s, %s)",
+            (phone, full_name)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        cur.close()
+        release_connection(conn)
+
     from app.routes.audit import log_action
     log_action("Password Reset Requested", full_name, detail=f"Reset requested for {phone}", target=full_name)
 
@@ -91,6 +107,24 @@ def admin_request_reset(request: Request, data: dict, current_user: dict = Depen
     if not full_name:
         raise HTTPException(status_code=404, detail="No account found with that phone number.")
 
+    # Generating the OTP here is the admin's response to any outstanding
+    # self-service request for this phone, so mark it handled.
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE password_reset_requests
+               SET resolved=true, resolved_by=%s, resolved_at=NOW()
+               WHERE phone_number=%s AND resolved=false""",
+            (current_user.get("user_id"), phone)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        cur.close()
+        release_connection(conn)
+
     from app.routes.audit import log_action
     log_action("Password Reset Requested (Admin)", full_name, detail=f"OTP generated for {phone}", target=full_name)
 
@@ -99,6 +133,56 @@ def admin_request_reset(request: Request, data: dict, current_user: dict = Depen
         "otp": otp,  # Admin sees this and calls/WhatsApps the member
         "expires_in": "15 minutes"
     }
+
+
+# Admin-only — powers the "Pending Password Reset Requests" panel on the
+# dashboard, so an admin can see at a glance that a member is waiting for
+# an OTP, without digging through the audit log.
+@router.get("/pending")
+def list_pending_resets(current_user: dict = Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT id, phone_number, full_name, requested_at
+               FROM password_reset_requests
+               WHERE resolved=false
+               ORDER BY requested_at ASC"""
+        )
+        rows = cur.fetchall()
+        return [
+            {"id": r[0], "phone_number": r[1], "full_name": r[2], "requested_at": str(r[3])}
+            for r in rows
+        ]
+    except Exception:
+        conn.rollback()
+        return []
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+# Admin-only — lets an admin dismiss a pending request without generating
+# an OTP (e.g. a duplicate request, or they handled it another way).
+@router.patch("/pending/{request_id}/dismiss")
+def dismiss_pending_reset(request_id: int, current_user: dict = Depends(require_admin)):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE password_reset_requests
+               SET resolved=true, resolved_by=%s, resolved_at=NOW()
+               WHERE id=%s RETURNING id""",
+            (current_user.get("user_id"), request_id)
+        )
+        row = cur.fetchone()
+        conn.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="Request not found")
+        return {"message": "Dismissed"}
+    finally:
+        cur.close()
+        release_connection(conn)
 
 
 @router.post("/confirm/")
