@@ -5,6 +5,7 @@ from app.routes.auth import get_current_user
 from app.auth_deps import require_treasurer, require_chairperson, require_member
 from pydantic import BaseModel
 from typing import Optional
+from app.utils import safe_db_error
 
 router = APIRouter()
 
@@ -50,7 +51,7 @@ def record_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -231,7 +232,7 @@ def member_submit_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -273,7 +274,7 @@ def approve_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -307,7 +308,7 @@ def reject_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)

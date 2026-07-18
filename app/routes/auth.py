@@ -351,7 +351,7 @@ def change_password(request: Request, data: dict, current_user: dict = Depends(g
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -395,7 +395,7 @@ def accept_privacy_policy(current_user: dict = Depends(get_current_user)):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)

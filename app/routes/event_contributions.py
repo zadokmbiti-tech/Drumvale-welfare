@@ -4,6 +4,7 @@ from app.models import EventContributionCreate, EventContributionOut, EventContr
 from app.auth_deps import require_treasurer, require_chairperson
 from app.routes.auth import get_current_user
 from decimal import Decimal
+from app.utils import safe_db_error
 
 router = APIRouter()
 
@@ -63,7 +64,7 @@ def add_event_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -166,7 +167,7 @@ def update_event_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -199,7 +200,7 @@ def delete_event_contribution(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)

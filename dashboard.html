@@ -3778,7 +3778,7 @@ async function requestPasswordReset() {
   const phone = document.getElementById('reset-phone').value.trim();
   if (!phone) { toast('Enter phone number', 'error'); return; }
   try {
-    const res = await apiFetch('/reset/request', {method:'POST', body:JSON.stringify({phone_number:phone})});
+    const res = await apiFetch('/reset/admin-request', {method:'POST', body:JSON.stringify({phone_number:phone})});
     document.getElementById('reset-otp-value').textContent = res.otp || '------';
     document.getElementById('reset-otp-input').value = res.otp || '';
     document.getElementById('reset-step-1').style.display = 'none';

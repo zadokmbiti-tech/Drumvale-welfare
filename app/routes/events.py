@@ -4,6 +4,7 @@ from app.models import EventCreate, ContributionCreate
 from app.routes.auth import get_current_user
 from app.auth_deps import require_secretary, require_chairperson, require_treasurer
 from datetime import date
+from app.utils import safe_db_error
 
 router = APIRouter()
 
@@ -32,7 +33,7 @@ def create_event(
         return {"message": "Event raised", "id": new_id}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -141,7 +142,7 @@ def add_contribution(
         return {"message": "Contribution recorded", "id": new_id}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)

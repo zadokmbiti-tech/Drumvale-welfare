@@ -7,6 +7,7 @@ Meeting attendance and minutes
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_connection, release_connection
 from app.routes.auth import get_current_user, require_admin
+from app.utils import safe_db_error
 
 router = APIRouter(prefix="/meeting-attendance", tags=["Attendance"])
 
@@ -76,7 +77,7 @@ def mark_attendance(meeting_id: int, data: dict, current_user=Depends(require_ad
         return {"message": f"Attendance saved for {len(records)} members"}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        safe_db_error(e, status=500)
     finally:
         cur.close()
         release_connection(conn)
@@ -98,7 +99,7 @@ def save_minutes(meeting_id: int, data: dict, current_user=Depends(require_admin
         return {"message": "Minutes saved"}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        safe_db_error(e, status=500)
     finally:
         cur.close()
         release_connection(conn)

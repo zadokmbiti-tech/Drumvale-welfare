@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_connection, release_connection
 from app.routes.auth import get_current_user, require_admin
 from datetime import date
+from app.utils import safe_db_error
 
 router = APIRouter(prefix="/disbursements", tags=["Disbursements"])
 
@@ -109,7 +110,7 @@ def record_disbursement(event_id: int, data: dict, current_user: dict = Depends(
         return {"id": new_id, "message": "Disbursement recorded"}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        safe_db_error(e, status=500)
     finally:
         cur.close()
         release_connection(conn)

@@ -7,6 +7,7 @@ from app.models import MemberCreate
 from app.schemas import ProfileUpdateRequest
 from app.routes.auth import get_current_user, require_admin
 from app.auth_deps import require_secretary, require_chairperson, require_super_admin, ROLE_LEVELS
+from app.utils import safe_db_error
 
 router = APIRouter()
 
@@ -110,7 +111,7 @@ def add_member(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -403,7 +404,7 @@ def update_member(
         return {"message": "Member updated"}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -521,7 +522,7 @@ def admin_edit_full_profile(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)
@@ -632,13 +633,24 @@ def change_member_role(
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Role must be one of {valid_roles}")
 
-    # Prevent self-demotion/promotion (compare against user_id in JWT)
-    if str(member_id) == str(current_user.get("user_id")) and False:
-        raise HTTPException(status_code=400, detail="You cannot change your own role")
-
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Prevent self-demotion/promotion. member_id is a members.id, not the
+        # users.id in the JWT — those are different tables/ID spaces, so this
+        # has to compare by phone_number instead of comparing the IDs
+        # directly (the previous check compared them directly and was also
+        # switched off with a stray 'and False', so it never actually ran).
+        cur.execute("SELECT phone_number FROM members WHERE id=%s", (member_id,))
+        target_row = cur.fetchone()
+        if not target_row:
+            raise HTTPException(status_code=404, detail="Member not found")
+
+        cur.execute("SELECT phone_number FROM users WHERE id=%s", (current_user.get("user_id"),))
+        actor_row = cur.fetchone()
+        if actor_row and target_row[0] and actor_row[0] == target_row[0]:
+            raise HTTPException(status_code=400, detail="You cannot change your own role")
+
         cur.execute(
             "UPDATE members SET role=%s WHERE id=%s RETURNING full_name, phone_number",
             (new_role, member_id)
@@ -664,7 +676,7 @@ def change_member_role(
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        safe_db_error(e, status=400)
     finally:
         cur.close()
         release_connection(conn)

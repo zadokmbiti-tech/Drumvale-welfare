@@ -17,8 +17,8 @@ from slowapi.errors import RateLimitExceeded
 
 app = FastAPI(title="ChamaLink API", redirect_slashes=True)
 
-Limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 ALLOWED_ORIGINS = os.getenv(
