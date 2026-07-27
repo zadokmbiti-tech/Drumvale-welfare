@@ -810,6 +810,7 @@ const API = window.CHAMALINK_API ||
     ? ''
 : 'https://drumvale-welfare.com');
 let token = null;
+let refreshToken = null;
 let currentUser = null;
 let allMembers  = [];
 let _myProfileData = null;
@@ -825,16 +826,59 @@ async function doLogin() {
     const data = await res.json();
     if (!res.ok) { err.textContent = data.detail || 'Login failed.'; err.style.display = 'block'; return; }
     token = data.access_token;
+    refreshToken = data.refresh_token;
     currentUser = {id:data.user_id, name:data.full_name, role:data.role, must_change_password: !!data.must_change_password, must_accept_privacy: !!data.must_accept_privacy};
     localStorage.setItem('member_token', token);
+    localStorage.setItem('member_refresh', refreshToken);
     localStorage.setItem('member_user', JSON.stringify(currentUser));
     initApp();
   } catch(e) { err.textContent = 'Could not connect to server. Try again.'; err.style.display = 'block'; }
 }
 
 function signOut() {
-  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
-  localStorage.removeItem('member_token'); localStorage.removeItem('member_user'); location.reload();
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`,'Content-Type':'application/json'}, body: JSON.stringify({refresh_token: refreshToken})}).catch(()=>{});
+  stopTokenRefreshTimer();
+  localStorage.removeItem('member_token'); localStorage.removeItem('member_refresh'); localStorage.removeItem('member_user'); location.reload();
+}
+
+// ------------------------------------------------------------------ #
+//  Silent session renewal — keeps an ACTIVE user logged in without
+//  ever needing the 24-hour token this app used to issue. Runs every
+//  10 minutes (comfortably inside the 15-minute access token life) and
+//  swaps in a fresh access + refresh token pair. If the refresh token
+//  itself has expired or been revoked (e.g. signed out elsewhere), the
+//  session is genuinely over and the user is signed out here.
+// ------------------------------------------------------------------ #
+let _refreshTimer = null;
+
+async function silentRefresh() {
+  if (!refreshToken) return;
+  try {
+    const res = await fetch(`${API}/auth/refresh/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({refresh_token: refreshToken})
+    });
+    if (!res.ok) throw new Error('refresh failed');
+    const data = await res.json();
+    token = data.access_token;
+    refreshToken = data.refresh_token;
+    localStorage.setItem('member_token', token);
+    localStorage.setItem('member_refresh', refreshToken);
+  } catch (e) {
+    stopTokenRefreshTimer();
+    localStorage.removeItem('member_token'); localStorage.removeItem('member_refresh'); localStorage.removeItem('member_user');
+    location.reload();
+  }
+}
+
+function startTokenRefreshTimer() {
+  stopTokenRefreshTimer();
+  _refreshTimer = setInterval(silentRefresh, 10 * 60 * 1000);
+}
+
+function stopTokenRefreshTimer() {
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
 }
 
 
@@ -916,7 +960,7 @@ function openAdminEditModal() {
   if (!full || !full.id) return;
   _adminEditTargetId = full.id;
 
-  document.getElementById('um-title').textContent = `Edit ${full.full_name || 'Member'}'s Profile`;
+  document.getElementById('um-title').textContent = `Edit ${escapeHtml(full.full_name || 'Member')}'s Profile`;
   document.getElementById('um-subtitle').textContent = 'Admin edit — applies immediately, no approval needed.';
   document.getElementById('upd-note').innerHTML =
     '⚡ You are editing this member\'s profile directly. Changes take effect immediately — there is no approval step.';
@@ -1112,6 +1156,7 @@ function initApp() {
   loadProfile();
   checkPendingUpdate();
   startInactivityWatcher();
+  startTokenRefreshTimer();
   checkForcedPasswordChange();
 }
 
@@ -1238,15 +1283,17 @@ async function acceptPrivacyPolicy() {
 function declinePrivacyPolicy() {
   // Nothing is written to the server on decline — must_accept_privacy
   // stays true, so this same prompt reappears on the next login.
-  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
-  localStorage.removeItem('member_token'); localStorage.removeItem('member_user');
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`,'Content-Type':'application/json'}, body: JSON.stringify({refresh_token: refreshToken})}).catch(()=>{});
+  stopTokenRefreshTimer();
+  localStorage.removeItem('member_token'); localStorage.removeItem('member_refresh'); localStorage.removeItem('member_user');
   location.reload();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const t = localStorage.getItem('member_token');
-  const u = localStorage.getItem('member_user');
-  if (t && u) { token = t; currentUser = JSON.parse(u); initApp(); }
+  const t  = localStorage.getItem('member_token');
+  const rt = localStorage.getItem('member_refresh');
+  const u  = localStorage.getItem('member_user');
+  if (t && u) { token = t; refreshToken = rt; currentUser = JSON.parse(u); initApp(); }
 });
 
 const TABS = ['overview','profile','members','contributions','loans','events','meetings','documents'];
@@ -1264,6 +1311,22 @@ function showTab(name) {
 const fmt     = n => 'KES ' + Number(n||0).toLocaleString();
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}) : '—';
 const authH   = () => ({'Authorization':`Bearer ${token}`,'Content-Type':'application/json'});
+
+// Member-editable fields (full_name, notes, etc.) are not sanitized on the
+// backend, so every place one of those fields is rendered into the DOM
+// must go through this first — otherwise a member could store something
+// like <img src=x onerror="..."> as their name and have it execute in
+// another member's or admin's browser the next time it's displayed
+// (stored XSS).
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 const v       = x => x || '<span style="color:var(--silver);font-style:italic;font-size:0.85em;">Not provided</span>';
 
 function toast(msg) {
@@ -1295,8 +1358,8 @@ async function loadOverview() {
           border-radius:10px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;">
           <span style="font-size:1.3rem;flex-shrink:0;">📅</span>
           <div>
-            <div style="font-weight:600;font-size:0.9rem;margin-bottom:3px;">Meeting: ${m.title}</div>
-            <div style="font-size:0.78rem;color:var(--silver);">📅 ${m.date} · 📍 ${m.venue||'TBD'}</div>
+            <div style="font-weight:600;font-size:0.9rem;margin-bottom:3px;">Meeting: ${escapeHtml(m.title)}</div>
+            <div style="font-size:0.78rem;color:var(--silver);">📅 ${m.date} · 📍 ${escapeHtml(m.venue||'TBD')}</div>
           </div>
           <span style="margin-left:auto;font-size:0.68rem;background:rgba(44,180,224,0.15);color:var(--sky);
             padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;">UPCOMING</span>
@@ -1314,7 +1377,7 @@ async function loadOverview() {
              <td>${fmtDate(c.date||c.created_at)}</td>
              <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
              <td><span class="badge badge-blue">${c.contribution_type||c.type||'monthly'}</span></td>
-             <td style="color:var(--silver);">${c.notes||'—'}</td>
+             <td style="color:var(--silver);">${escapeHtml(c.notes||'—')}</td>
            </tr>`).join('')}</tbody></table>`;
     }
 
@@ -1332,7 +1395,7 @@ async function loadOverview() {
         : `<table><thead><tr><th>Case No.</th><th>Title</th><th>Status</th><th>Deadline</th></tr></thead><tbody>
            ${allCases.slice(0,5).map(c=>`<tr>
              <td style="font-weight:500;">Case ${c.case_no}</td>
-             <td>${c.title||'—'}</td>
+             <td>${escapeHtml(c.title||'—')}</td>
              <td><span class="badge ${c.is_open?'badge-green':'badge-amber'}">${c.status}</span></td>
              <td style="color:var(--silver);">${fmtDate(c.deadline)}</td>
            </tr>`).join('')}</tbody></table>`;
@@ -1417,7 +1480,7 @@ async function loadProfile() {
       <tbody>
         ${merged.children.map(c => `
           <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:6px 8px;">${c.full_name||'—'}</td>
+            <td style="padding:6px 8px;">${escapeHtml(c.full_name||'—')}</td>
             <td style="padding:6px 8px;">${fmtDate(c.date_of_birth)}</td>
             <td style="padding:6px 8px;">${c.relationship||'—'}</td>
             <td style="padding:6px 8px;">${c.cert_number||'—'}</td>
@@ -1440,7 +1503,7 @@ async function loadProfile() {
       <tbody>
         ${merged.parents.map(p => `
           <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:6px 8px;">${p.full_name||'—'}</td>
+            <td style="padding:6px 8px;">${escapeHtml(p.full_name||'—')}</td>
             <td style="padding:6px 8px;">${p.id_number||'—'}</td>
             <td style="padding:6px 8px;">${p.current_residence||'—'}</td>
             <td style="padding:6px 8px;">${p.contact_phone||'—'}</td>
@@ -1456,7 +1519,7 @@ async function loadProfile() {
   </div>`;
   } catch(e) {
     console.error('loadProfile error:', e.message);
-    document.getElementById('profile-grid').innerHTML = emptyState('⚠️', `Could not load profile. (${e.message})`);
+    document.getElementById('profile-grid').innerHTML = emptyState('⚠️', `Could not load profile. (${escapeHtml(e.message)})`);
   }
 }
 
@@ -1482,7 +1545,7 @@ function renderMemberCards(members) {
     const ini = m.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
     return `<div class="member-card" onclick="showMemberDetail(${m.id})">
       <div class="member-card-avatar">${ini}</div>
-      <div class="member-card-name">${m.full_name}</div>
+      <div class="member-card-name">${escapeHtml(m.full_name)}</div>
       <div class="member-card-phone">${m.phone_number||'—'}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${m.membership_no ? `<span class="badge" style="color:var(--sky);background:rgba(44,180,224,0.1);">#${m.membership_no}</span>` : ''}
@@ -1524,14 +1587,14 @@ async function showMemberDetail(id) {
   const isAdmin = ['super_admin','chairperson','secretary','treasurer'].includes(currentUser?.role);
   const childRows = (full.children||[]).length
     ? full.children.map(c=>`
-        <div class="modal-row"><span class="lbl">${c.full_name||'—'}</span>
+        <div class="modal-row"><span class="lbl">${escapeHtml(c.full_name||'—')}</span>
         <span class="val">${fmtDate(c.date_of_birth)} · ${c.relationship||'—'} · Cert: ${c.cert_number||'—'}</span></div>
       `).join('')
     : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
 
   const parentRows = (full.parents||[]).length
     ? full.parents.map(p=>`
-        <div class="modal-row"><span class="lbl">${p.full_name||'—'}</span>
+        <div class="modal-row"><span class="lbl">${escapeHtml(p.full_name||'—')}</span>
         <span class="val">ID: ${p.id_number||'—'} · ${p.current_residence||'—'} · ${p.contact_phone||'—'}</span></div>
       `).join('')
     : `<div class="modal-row"><span class="lbl" style="color:var(--muted)">None registered</span></div>`;
@@ -1574,7 +1637,7 @@ async function showMemberDetail(id) {
     ` : ''}
 
     ${full.notes ? `<div class="modal-section-label">Notes</div>
-    <div style="font-size:0.83rem;color:var(--silver);padding:8px 0;">${full.notes}</div>` : ''}
+    <div style="font-size:0.83rem;color:var(--silver);padding:8px 0;">${escapeHtml(full.notes)}</div>` : ''}
   `;
   _lastViewedMember = full;
   const editBtn = document.getElementById('modal-edit-btn');
@@ -1733,7 +1796,7 @@ async function loadContributions() {
            <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
            <td><span class="badge badge-blue">${c.contribution_type||c.type||'monthly'}</span></td>
            <td style="color:var(--silver);">${c.month||'—'}</td>
-           <td style="color:var(--silver);">${c.notes||'—'}</td>
+           <td style="color:var(--silver);">${escapeHtml(c.notes||'—')}</td>
          </tr>`).join('')}</tbody></table>`;
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load contributions.'); }
 }
@@ -1769,12 +1832,12 @@ async function loadEvents() {
       : `<table><thead><tr><th>Case No.</th><th>Title</th><th>Beneficiary</th><th>Amount/Member</th><th>Status</th><th>Deadline</th><th>Description</th></tr></thead><tbody>
          ${data.map(c=>`<tr>
            <td style="font-weight:500;">Case ${c.case_no}</td>
-           <td>${c.title||'—'}</td>
-           <td style="color:var(--silver);">${c.beneficiary_name||'—'}</td>
+           <td>${escapeHtml(c.title||'—')}</td>
+           <td style="color:var(--silver);">${escapeHtml(c.beneficiary_name||'—')}</td>
            <td>${c.amount_per_member!=null ? fmt(c.amount_per_member) : '—'}</td>
            <td><span class="badge ${c.is_open?'badge-green':'badge-amber'}">${c.status}</span></td>
            <td style="color:var(--silver);">${fmtDate(c.deadline)}</td>
-           <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.description||'—'}</td>
+           <td style="color:var(--silver);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.description||'—')}</td>
          </tr>`).join('')}</tbody></table>`;
   } catch(e) { body.innerHTML = emptyState('⚠️','Could not load cases.'); }
 }
@@ -1789,7 +1852,7 @@ async function loadMeetings() {
     body.innerHTML = data.length===0 ? emptyState('🗓','No meetings scheduled.')
       : `<table><thead><tr><th>Title</th><th>Date</th><th>Time</th><th>Location</th><th>Status</th></tr></thead><tbody>
          ${data.map(m=>`<tr>
-           <td style="font-weight:500;">${m.title||'Meeting'}</td>
+           <td style="font-weight:500;">${escapeHtml(m.title||'Meeting')}</td>
            <td>${fmtDate(m.meeting_date||m.date)}</td>
            <td style="color:var(--silver);">${m.meeting_time||m.time||'—'}</td>
            <td style="color:var(--silver);">${m.location||m.venue||'TBD'}</td>
@@ -1956,7 +2019,7 @@ async function loadMyReports() {  const body = document.getElementById('my-repor
       <th>Title</th><th>Type</th><th>Date</th><th>Status</th><th>Note</th>
     </tr></thead><tbody>
       ${data.map(r=>`<tr>
-        <td style="font-weight:500;">${r.title}</td>
+        <td style="font-weight:500;">${escapeHtml(r.title)}</td>
         <td><span class="badge badge-blue">${r.event_type}</span></td>
         <td style="color:var(--silver);">${r.date ? fmtDate(r.date) : '—'}</td>
         <td>${statusBadge(r.status)}</td>

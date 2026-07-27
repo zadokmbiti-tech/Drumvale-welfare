@@ -8,8 +8,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.database import get_connection, release_connection
 from app.routes.auth import require_admin
+from app.rate_limit import enforce_rate_limit
 from passlib.context import CryptContext
-import random, string
+import random, string, hashlib
 from datetime import datetime, timedelta
 
 limiter = Limiter(key_func=get_remote_address)  # Create a Limiter instance
@@ -17,13 +18,18 @@ limiter = Limiter(key_func=get_remote_address)  # Create a Limiter instance
 router = APIRouter(prefix="/reset", tags=["Password Reset"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# In-memory OTP store {phone: (otp, expires_at)}  — fine for this scale
-_otp_store: dict = {}
+
+def _hash_otp(otp: str) -> str:
+    return hashlib.sha256(otp.encode()).hexdigest()
 
 
 def _generate_and_store_otp(phone: str):
-    """Shared logic: create a fresh OTP for a phone number and store it.
-    Returns (full_name, otp) or (None, None) if no account has that number."""
+    """Shared logic: create a fresh OTP for a phone number and store it in
+    the database (not in-process memory — this app can run as short-lived
+    serverless invocations with no shared memory between them, and an
+    in-memory store would also just vanish on every restart/redeploy).
+    Returns (full_name, otp) or (None, None) if no account has that number.
+    Only the OTP's hash is persisted, matching how refresh tokens are stored."""
     conn = get_connection()
     cur  = conn.cursor()
     try:
@@ -32,12 +38,21 @@ def _generate_and_store_otp(phone: str):
         if not row:
             return None, None
         full_name = row[1]
+
+        # Opportunistic cleanup of this phone's stale codes, then invalidate
+        # any still-outstanding OTP for this number before issuing a new one.
+        cur.execute("DELETE FROM otp_codes WHERE phone_number=%s AND (used OR expires_at < NOW())", (phone,))
+
+        otp = "".join(random.choices(string.digits, k=6))
+        expires_at = datetime.utcnow() + timedelta(minutes=15)
+        cur.execute(
+            "INSERT INTO otp_codes (phone_number, otp_hash, expires_at) VALUES (%s, %s, %s)",
+            (phone, _hash_otp(otp), expires_at)
+        )
+        conn.commit()
     finally:
         cur.close()
         release_connection(conn)
-
-    otp = "".join(random.choices(string.digits, k=6))
-    _otp_store[phone] = (otp, datetime.now() + timedelta(minutes=15))
     return full_name, otp
 
 
@@ -62,6 +77,8 @@ def request_reset(request: Request, data: dict):
     phone = data.get("phone_number", "").strip()
     if not phone:
         raise HTTPException(status_code=400, detail="Phone number required")
+
+    enforce_rate_limit(f"otp-request:{get_remote_address(request)}", limit=5, window_seconds=60)
 
     full_name, otp = _generate_and_store_otp(phone)
     if not full_name:
@@ -197,25 +214,35 @@ def confirm_reset(request: Request, data: dict):
     if len(new_pass) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    stored = _otp_store.get(phone)
-    if not stored:
-        raise HTTPException(status_code=400, detail="No OTP found for this number. Request a new one.")
-    stored_otp, expires_at = stored
-    if datetime.now() > expires_at:
-        _otp_store.pop(phone, None)
-        raise HTTPException(status_code=400, detail="OTP has expired. Request a new one.")
-    if otp != stored_otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
+    # DB-backed limit, scoped per phone number rather than per IP — this is
+    # what actually stops someone brute-forcing a 6-digit OTP by spreading
+    # guesses across many IPs; the IP-based limiter above can't see that.
+    enforce_rate_limit(f"otp-confirm:{phone}", limit=10, window_seconds=60)
 
     conn = get_connection()
     cur  = conn.cursor()
     try:
+        cur.execute(
+            """SELECT id, otp_hash, expires_at FROM otp_codes
+               WHERE phone_number=%s AND used=false
+               ORDER BY created_at DESC LIMIT 1""",
+            (phone,)
+        )
+        stored = cur.fetchone()
+        if not stored:
+            raise HTTPException(status_code=400, detail="No OTP found for this number. Request a new one.")
+        otp_id, otp_hash, expires_at = stored
+        if datetime.utcnow() > expires_at:
+            raise HTTPException(status_code=400, detail="OTP has expired. Request a new one.")
+        if _hash_otp(otp) != otp_hash:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
         cur.execute("SELECT full_name FROM users WHERE phone_number=%s", (phone,))
         name_row = cur.fetchone()
         hashed = pwd_ctx.hash(new_pass)
         cur.execute("UPDATE users SET hashed_password=%s WHERE phone_number=%s", (hashed, phone))
+        cur.execute("UPDATE otp_codes SET used=true WHERE id=%s", (otp_id,))
         conn.commit()
-        _otp_store.pop(phone, None)
 
         from app.routes.audit import log_action
         actor = name_row[0] if name_row else phone

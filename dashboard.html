@@ -1950,8 +1950,49 @@
 const API = window.CHAMALINK_API || 'https://drumvale-welfare.com';
 
 let token = localStorage.getItem('chama_token');
+let refreshToken = localStorage.getItem('chama_refresh');
 let currentUser = JSON.parse(localStorage.getItem('chama_user') || 'null');
 let allMembers = [];
+
+// ------------------------------------------------------------------ #
+//  Silent session renewal — access tokens now expire after 15 minutes.
+//  This keeps an ACTIVE admin/official logged in by quietly swapping in
+//  a fresh access + refresh token pair every 10 minutes, well inside
+//  that window. If the refresh token itself is invalid, expired, or was
+//  revoked (e.g. this session was signed out from elsewhere), the user
+//  is genuinely logged out here instead of silently failing later.
+// ------------------------------------------------------------------ #
+let _refreshTimer = null;
+
+async function silentRefresh() {
+  if (!refreshToken) return;
+  try {
+    const res = await fetch(`${API}/auth/refresh/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({refresh_token: refreshToken})
+    });
+    if (!res.ok) throw new Error('refresh failed');
+    const data = await res.json();
+    token = data.access_token;
+    refreshToken = data.refresh_token;
+    localStorage.setItem('chama_token', token);
+    localStorage.setItem('chama_refresh', refreshToken);
+  } catch (e) {
+    stopTokenRefreshTimer();
+    logout();
+  }
+}
+
+function startTokenRefreshTimer() {
+  stopTokenRefreshTimer();
+  if (token === 'offline-token') return;
+  _refreshTimer = setInterval(silentRefresh, 10 * 60 * 1000);
+}
+
+function stopTokenRefreshTimer() {
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+}
 
 // Auth header helper (used by fetch calls throughout)
 const authH = () => ({'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'});
@@ -1996,8 +2037,10 @@ async function doLogin() {
       err.style.display = 'block'; return;
     }
     token = data.access_token;
+    refreshToken = data.refresh_token;
     currentUser = {id: data.user_id, name: data.full_name, role: data.role, phone: data.phone_number || '', must_change_password: !!data.must_change_password, must_accept_privacy: !!data.must_accept_privacy};
     localStorage.setItem('chama_token', token);
+    localStorage.setItem('chama_refresh', refreshToken);
     localStorage.setItem('chama_user', JSON.stringify(currentUser));
     document.getElementById('login-screen').style.display = 'none';
     initApp();
@@ -2029,8 +2072,10 @@ async function doLogin() {
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
 function logout() {
-  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`}}).catch(()=>{});
+  fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`,'Content-Type':'application/json'}, body: JSON.stringify({refresh_token: refreshToken})}).catch(()=>{});
+  stopTokenRefreshTimer();
   localStorage.removeItem('chama_token');
+  localStorage.removeItem('chama_refresh');
   localStorage.removeItem('chama_user');
   localStorage.removeItem('drwg_session');
   localStorage.removeItem('drwg_token');
@@ -2041,10 +2086,21 @@ async function apiFetch(path, opts={}) {
   // Ensure trailing slash to prevent FastAPI 307 redirects that strip Authorization headers
   const [_base, _qs] = path.split('?');
   const safePath = (_base.endsWith('/') ? _base : _base + '/') + (_qs ? '?' + _qs : '');
-  const res = await fetch(`${API}${safePath}`, {
+  let res = await fetch(`${API}${safePath}`, {
     ...opts,
     headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
   });
+  if (res.status === 401 && refreshToken) {
+    // The background timer refreshes every 10 minutes, well inside the 15-minute
+    // access token life — but if the device was asleep or the tab was backgrounded
+    // long enough for that timer to be throttled, this is the safety net: try one
+    // on-demand refresh before treating the session as genuinely dead.
+    await silentRefresh();
+    res = await fetch(`${API}${safePath}`, {
+      ...opts,
+      headers: {'Authorization': `Bearer ${token}`, 'Content-Type':'application/json', ...(opts.headers||{})}
+    });
+  }
   if (res.status === 401) { logout(); return; }
   if (!res.ok) {
     const e = await res.json().catch(()=>({detail:'Request failed'}));
@@ -2060,6 +2116,7 @@ async function apiFetch(path, opts={}) {
 function initApp() {
   if (!token) { document.getElementById('login-screen').style.display = 'flex'; return; }
   document.getElementById('login-screen').style.display = 'none';
+  startTokenRefreshTimer();
   document.getElementById('user-name').textContent  = currentUser?.name || '—';
   document.getElementById('user-role').textContent  = currentUser?.role || '—';
   document.getElementById('user-avatar').textContent = (currentUser?.name||'?')[0].toUpperCase();
@@ -2256,7 +2313,7 @@ async function loadDashboard() {
     const recent = [...members].slice(0, 5);
     document.getElementById('dash-members-list').innerHTML = `
       <table><thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead><tbody>
-      ${recent.map(m=>`<tr><td>${m.full_name}</td><td>${m.role}</td><td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td></tr>`).join('')}
+      ${recent.map(m=>`<tr><td>${escapeHtml(m.full_name)}</td><td>${m.role}</td><td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${m.status}</span></td></tr>`).join('')}
       </tbody></table>`;
 
     // ── Upcoming Meetings ──────────────────────────────────────
@@ -2264,8 +2321,8 @@ async function loadDashboard() {
     document.getElementById('dash-meetings-list').innerHTML = upcoming.length
       ? upcoming.map(m=>`
         <div style="padding:12px 0;border-bottom:1px solid var(--border)">
-          <div style="font-weight:600;font-size:14px">${m.title}</div>
-          <div style="color:var(--muted);font-size:12px;margin-top:4px">📅 ${m.date} &nbsp; 📍 ${m.venue||'TBD'}</div>
+          <div style="font-weight:600;font-size:14px">${escapeHtml(m.title)}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px">📅 ${m.date} &nbsp; 📍 ${escapeHtml(m.venue||'TBD')}</div>
         </div>`).join('')
       : '<div style="color:var(--muted);font-size:13px;padding:12px 0">No upcoming meetings</div>';
 
@@ -2275,8 +2332,8 @@ async function loadDashboard() {
       ? `<table><thead><tr><th>Case No.</th><th>Title</th><th>Beneficiary</th><th>Status</th></tr></thead><tbody>
          ${recentCases.map(c=>`<tr>
            <td>Case ${c.case_no}</td>
-           <td>${c.title}</td>
-           <td>${c.beneficiary_name || '—'}</td>
+           <td>${escapeHtml(c.title)}</td>
+           <td>${escapeHtml(c.beneficiary_name || '—')}</td>
            <td><span class="badge ${c.is_open ? 'badge-green' : 'badge-gray'}">${c.status}</span></td>
          </tr>`).join('')}
          </tbody></table>`
@@ -2286,7 +2343,7 @@ async function loadDashboard() {
     const pending = loans.filter(l=>l.status==='pending').slice(0,5);
     document.getElementById('dash-loans-list').innerHTML = pending.length
       ? `<table><thead><tr><th>Member</th><th>Amount</th><th>Purpose</th><th>Actions</th></tr></thead><tbody>
-         ${pending.map(l=>`<tr><td>${l.member}</td><td>KES ${fmt(l.amount)}</td><td>${l.purpose||'—'}</td>
+         ${pending.map(l=>`<tr><td>${l.member}</td><td>KES ${fmt(l.amount)}</td><td>${escapeHtml(l.purpose||'—')}</td>
          <td><button class="btn btn-sm btn-primary" onclick="approveLoan(${l.id},'disbursed')">Approve</button>
          <button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="approveLoan(${l.id},'rejected')">Reject</button></td></tr>`).join('')}
          </tbody></table>`
@@ -2329,7 +2386,7 @@ function populateMemberSelects() {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = '<option value="">Select member…</option>' +
-      allMembers.filter(m=>m.status==='active').map(m=>`<option value="${m.id}">${m.full_name}</option>`).join('');
+      allMembers.filter(m=>m.status==='active').map(m=>`<option value="${m.id}">${escapeHtml(m.full_name)}</option>`).join('');
   });
 }
 
@@ -2342,7 +2399,7 @@ async function loadMembers() {
     renderMembersTable(members);
   } catch(e) {
     console.error('loadMembers error:', e);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)} — <a href="#" onclick="loadMembers();return false;" style="color:var(--accent)">Retry</a></td></tr>`;
     toast('Failed to load members: ' + e.message, 'error');
   }
 }
@@ -2599,12 +2656,12 @@ async function loadContribStatus() {
     const rows = await apiFetch(`/contributions/status/${month}`);
     tbody.innerHTML = rows.map(r => `
       <tr>
-        <td>${r.full_name}</td>
+        <td>${escapeHtml(r.full_name)}</td>
         <td>${r.paid ? `KES ${fmt(r.amount)}` : '—'}</td>
         <td><span class="badge ${r.paid?'badge-green':'badge-red'}">${r.paid?'Paid':'Unpaid'}</span></td>
         <td>—</td><td>—</td>
       </tr>`).join('');
-  } catch(e) { console.error('loadContribStatus:',e); tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadContribStatus();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
+  } catch(e) { console.error('loadContribStatus:',e); tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)} — <a href="#" onclick="loadContribStatus();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveContrib() {
@@ -2641,7 +2698,7 @@ async function loadPendingContribs() {
         <td style="font-weight:600;">${r.member}</td>
         <td style="color:#10b981;font-weight:600;">KES ${fmt(r.amount)}</td>
         <td>${r.month}</td>
-        <td style="color:#3b82f6;font-family:monospace;">${r.reference||'—'}</td>
+        <td style="color:#3b82f6;font-family:monospace;">${escapeHtml(r.reference||'—')}</td>
         <td style="color:var(--muted);font-size:0.8rem;">${r.recorded_at ? new Date(r.recorded_at).toLocaleDateString() : '—'}</td>
         <td>
           <button class="btn btn-sm btn-primary" onclick="approveContrib(${r.id})" style="margin-right:6px;">✓ Approve</button>
@@ -2649,7 +2706,7 @@ async function loadPendingContribs() {
         </td>
       </tr>`).join('');
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -2703,7 +2760,7 @@ async function loadLoans() {
           ${l.status==='disbursed'?`<button class="btn btn-sm btn-outline" onclick="openRepay(${l.id})">Repay</button>`:''}
         </td>
       </tr>`).join('');
-  } catch(e) { console.error('loadLoans:',e); tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadLoans();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
+  } catch(e) { console.error('loadLoans:',e); tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)} — <a href="#" onclick="loadLoans();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveLoan() {
@@ -2767,7 +2824,7 @@ async function loadEvents() {
       return `
         <tr>
           <td>${i+1}</td>
-          <td><strong>${ev.title}</strong></td>
+          <td><strong>${escapeHtml(ev.title)}</strong></td>
           <td><span class="badge badge-blue">${ev.event_type}</span></td>
           <td>${ev.beneficiary||'—'}</td>
           <td>KES ${fmt(ev.target_amount)}</td>
@@ -2777,7 +2834,7 @@ async function loadEvents() {
           <td style="display:flex;gap:6px;align-items:center">${manageBtn}${disburseBtn}${closeBtn}</td>
         </tr>`;
     }).join('');
-  } catch(e) { console.error('loadEvents:',e); tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadEvents();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
+  } catch(e) { console.error('loadEvents:',e); tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)} — <a href="#" onclick="loadEvents();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveEvent() {
@@ -2825,7 +2882,7 @@ async function loadPendingReports() {
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
           <div style="flex:1;min-width:200px;">
-            <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">${r.title}</div>
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">${escapeHtml(r.title)}</div>
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;">
               Reported by <strong>${r.reporter_name || '—'}</strong>
               ${r.reporter_phone ? `· ${r.reporter_phone}` : ''}
@@ -2836,7 +2893,7 @@ async function loadPendingReports() {
               ${r.date ? `<span style="font-size:0.78rem;color:var(--silver);padding:2px 8px;border:1px solid var(--border);border-radius:5px;">📅 ${fmtDate(r.date)}</span>` : ''}
               ${r.affected_member_name ? `<span style="font-size:0.78rem;color:var(--silver);padding:2px 8px;border:1px solid var(--border);border-radius:5px;">👤 ${r.affected_member_name}</span>` : ''}
             </div>
-            ${r.description ? `<div style="font-size:0.83rem;color:var(--silver);background:rgba(255,255,255,0.03);border-radius:7px;padding:8px 12px;margin-top:6px;line-height:1.5;">${r.description}</div>` : ''}
+            ${r.description ? `<div style="font-size:0.83rem;color:var(--silver);background:rgba(255,255,255,0.03);border-radius:7px;padding:8px 12px;margin-top:6px;line-height:1.5;">${escapeHtml(r.description)}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
             <button onclick="approveReport(${r.id})"
@@ -2853,7 +2910,7 @@ async function loadPendingReports() {
         </div>
       </div>`).join('');
   } catch(e) {
-    body.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted)">⚠️ Could not load reports: ${e.message}</div>`;
+    body.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted)">⚠️ Could not load reports: ${escapeHtml(e.message)}</div>`;
     console.error('loadPendingReports error:', e);
   }
 }
@@ -2900,7 +2957,7 @@ async function loadCases() {
     renderCasesTable(allCases);
   } catch(e) {
     console.error('loadCases:', e);
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -2910,7 +2967,7 @@ function renderCasesTable(cases) {
   tbody.innerHTML = cases.map(c => `
     <tr>
       <td><strong>#${c.case_no}</strong></td>
-      <td>${c.title}<br><span style="color:var(--muted);font-size:12px">${c.beneficiary_name||'—'}</span></td>
+      <td>${escapeHtml(c.title)}<br><span style="color:var(--muted);font-size:12px">${escapeHtml(c.beneficiary_name||'—')}</span></td>
       <td>KES ${fmt(c.amount_per_member||0)}</td>
       <td>${c.start_date||'—'}</td>
       <td>${c.deadline||'—'}${c.is_open ? ` <span style="color:var(--muted);font-size:11px">(${c.days_remaining}d left)</span>` : ''}</td>
@@ -2949,7 +3006,7 @@ async function loadAttendanceReport() {
       cTbody.innerHTML = data.cases.map(c => `
         <tr>
           <td><strong>#${c.case_no}</strong></td>
-          <td>${c.title}</td>
+          <td>${escapeHtml(c.title)}</td>
           <td>${c.start_date||'—'}</td>
           <td>${c.present}</td>
           <td>${c.absent}</td>
@@ -2958,7 +3015,7 @@ async function loadAttendanceReport() {
     }
   } catch(e) {
     console.error('loadAttendanceReport:', e);
-    mTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    mTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
     cTbody.innerHTML = '';
   }
 }
@@ -2991,7 +3048,7 @@ function filterAttendanceReport() {
 async function openAddCaseModal() {
   const list = document.getElementById('c-beneficiary-datalist');
   const members = allMembers.length ? allMembers : await apiFetch('/members').then(m=>{allMembers=m;return m;});
-  list.innerHTML = members.map(m => `<option value="${m.full_name}">`).join('');
+  list.innerHTML = members.map(m => `<option value="${escapeHtml(m.full_name)}">`).join('');
   document.getElementById('c-case-no').value = '';
   document.getElementById('c-title').value = '';
   document.getElementById('c-description').value = '';
@@ -3072,9 +3129,9 @@ async function openCaseProfile(caseId) {
   openModal('modal-case-profile');
   try {
     const c = await apiFetch(`/cases/${caseId}`);
-    document.getElementById('case-profile-title').textContent = `Case No. ${c.case_no}: ${c.title}`;
+    document.getElementById('case-profile-title').textContent = `Case No. ${c.case_no}: ${escapeHtml(c.title)}`;
     document.getElementById('case-profile-meta').textContent =
-      `Beneficiary: ${c.beneficiary_name||'—'} · KES ${fmt(c.amount_per_member||0)}/member · Start ${c.start_date} · Deadline ${c.deadline} · ${c.is_open?'Open':'Closed'} · Collected KES ${fmt(c.total_collected||0)}`;
+      `Beneficiary: ${escapeHtml(c.beneficiary_name||'—')} · KES ${fmt(c.amount_per_member||0)}/member · Start ${c.start_date} · Deadline ${c.deadline} · ${c.is_open?'Open':'Closed'} · Collected KES ${fmt(c.total_collected||0)}`;
     document.getElementById('case-profile-note').innerHTML =
       `<strong>NOTE</strong> — N = New Member. Present: ${c.attendance_summary.present} · Absent: ${c.attendance_summary.absent} · Apology: ${c.attendance_summary.apology}<br>${c.note}`;
     renderCaseRoster(c.roster);
@@ -3178,9 +3235,9 @@ async function loadMeetings() {
     tbody.innerHTML = meetings.map((m,i) => `
       <tr>
         <td>${i+1}</td>
-        <td><strong>${m.title}</strong></td>
+        <td><strong>${escapeHtml(m.title)}</strong></td>
         <td>${m.date}</td>
-        <td>${m.venue||'TBD'}</td>
+        <td>${escapeHtml(m.venue||'TBD')}</td>
         <td><span class="badge ${statusBadge(m.status)}">${m.status}</span></td>
         <td style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-sm btn-outline" onclick="viewMeeting(${m.id})">View</button>
@@ -3188,7 +3245,7 @@ async function loadMeetings() {
           ${m.status==='scheduled' ? `<button class="btn btn-sm" style="background:rgba(44,180,224,.12);color:#2cb4e0;border:1px solid rgba(44,180,224,.3)" onclick="resendMeetingSMS(${m.id},'${m.title.replace(/'/g,"\\'")}')">📲 SMS</button>` : ''}
         </td>
       </tr>`).join('');
-  } catch(e) { console.error('loadMeetings:',e); tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message} — <a href="#" onclick="loadMeetings();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
+  } catch(e) { console.error('loadMeetings:',e); tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)} — <a href="#" onclick="loadMeetings();return false;" style="color:var(--accent)">Retry</a></td></tr>`; }
 }
 
 async function saveMeeting() {
@@ -3211,9 +3268,9 @@ async function saveMeeting() {
     if (sms.status === 'sent') {
       toast(`✅ Meeting scheduled · Notice posted · SMS sent to ${sms.recipients} members`);
     } else if (sms.status === 'skipped') {
-      toast(`✅ Meeting scheduled & notice posted. SMS skipped: ${sms.reason || 'AT not configured'}`);
+      toast(`✅ Meeting scheduled & notice posted. SMS skipped: ${escapeHtml(sms.reason || 'AT not configured')}`);
     } else if (sms.status === 'error') {
-      toast(`✅ Meeting scheduled & notice posted. SMS error: ${sms.reason}`, 'error');
+      toast(`✅ Meeting scheduled & notice posted. SMS error: ${escapeHtml(sms.reason)}`, 'error');
     } else {
       toast('Meeting scheduled successfully');
     }
@@ -3230,9 +3287,9 @@ async function resendMeetingSMS(id, title) {
     if (res.status === 'sent') {
       toast(`📲 SMS reminder sent to ${res.recipients} members`);
     } else if (res.status === 'skipped') {
-      toast(`SMS skipped: ${res.reason}`, 'error');
+      toast(`SMS skipped: ${escapeHtml(res.reason)}`, 'error');
     } else {
-      toast(`SMS error: ${res.reason}`, 'error');
+      toast(`SMS error: ${escapeHtml(res.reason)}`, 'error');
     }
   } catch(e) { toast(e.message, 'error'); }
 }
@@ -3241,7 +3298,7 @@ async function resendMeetingSMS(id, title) {
 async function viewMeeting(id) {
   try {
     const m = await apiFetch(`/meetings/${id}`);
-    alert(`${m.title}\nDate: ${m.date} ${m.time||''}\nVenue: ${m.venue||'TBD'}\nStatus: ${m.status}\n\nAgenda:\n${m.agenda||'None'}\n\nAttendance: ${m.attendance?.filter(a=>a.present).length||0}/${m.attendance?.length||0} present`);
+    alert(`${escapeHtml(m.title)}\nDate: ${m.date} ${m.time||''}\nVenue: ${escapeHtml(m.venue||'TBD')}\nStatus: ${m.status}\n\nAgenda:\n${m.agenda||'None'}\n\nAttendance: ${m.attendance?.filter(a=>a.present).length||0}/${m.attendance?.length||0} present`);
   } catch(e) { toast(e.message,'error'); }
 }
 
@@ -3260,14 +3317,14 @@ async function loadPendingUsers() {
     tbody.innerHTML = rows.map((u, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${u.full_name}</strong></td>
+        <td><strong>${escapeHtml(u.full_name)}</strong></td>
         <td>${u.phone_number}</td>
         <td>${u.email || '—'}</td>
         <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
         <td style="display:flex;gap:6px;align-items:center">
           <button class="btn btn-sm" style="background:var(--border);color:var(--text)" onclick="viewPending(${u.id})">👁 View</button>
-          <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${u.full_name}')">Approve</button>
-          <button class="btn btn-sm btn-danger"  onclick="rejectUser(${u.id}, '${u.full_name}')">Reject</button>
+          <button class="btn btn-sm btn-primary" onclick="approveUser(${u.id}, '${escapeHtml(u.full_name)}')">Approve</button>
+          <button class="btn btn-sm btn-danger"  onclick="rejectUser(${u.id}, '${escapeHtml(u.full_name)}')">Reject</button>
         </td>
       </tr>`).join('');
   } catch(e) { toast(e.message, 'error'); }
@@ -3288,7 +3345,7 @@ async function loadPendingResets() {
     tbody.innerHTML = rows.map((r, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${r.full_name || '—'}</strong></td>
+        <td><strong>${escapeHtml(r.full_name || '—')}</strong></td>
         <td>${r.phone_number}</td>
         <td style="color:var(--muted);font-size:12px">${new Date(r.requested_at).toLocaleString('en-KE')}</td>
         <td style="display:flex;gap:6px;align-items:center">
@@ -3317,7 +3374,7 @@ function viewRegistration(u) {
   const fmtD = d => d ? new Date(d).toLocaleDateString('en-KE') : '<em style="color:var(--muted)">Not provided</em>';
   const childRows = (u.children||[]).length
     ? u.children.map(c=>`<tr>
-        <td style="padding:4px 8px">${c.full_name||'—'}</td>
+        <td style="padding:4px 8px">${escapeHtml(c.full_name||'—')}</td>
         <td style="padding:4px 8px">${fmtD(c.date_of_birth)}</td>
         <td style="padding:4px 8px">${c.relationship||'—'}</td>
         <td style="padding:4px 8px">${c.cert_number||'—'}</td>
@@ -3391,13 +3448,13 @@ async function loadRejectedUsers() {
     tbody.innerHTML = rows.map((u, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${u.full_name}</strong></td>
+        <td><strong>${escapeHtml(u.full_name)}</strong></td>
         <td>${u.phone_number}</td>
         <td>${u.email || '—'}</td>
         <td style="color:var(--muted);font-size:12px">${u.applied_at ? new Date(u.applied_at).toLocaleDateString('en-KE') : '—'}</td>
         <td style="color:#f87171;font-size:12px;max-width:200px">${u.rejection_reason}</td>
         <td>
-          <button class="btn btn-sm btn-primary" onclick="reinstateUser(${u.id}, '${u.full_name}')">Reinstate</button>
+          <button class="btn btn-sm btn-primary" onclick="reinstateUser(${u.id}, '${escapeHtml(u.full_name)}')">Reinstate</button>
         </td>
       </tr>`).join('');
   } catch(e) { toast(e.message, 'error'); }
@@ -3532,7 +3589,7 @@ async function loadAssets() {
     tbody.innerHTML = assets.map((a, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${a.name}</strong></td>
+        <td><strong>${escapeHtml(a.name)}</strong></td>
         <td>${a.category || '—'}</td>
         <td>KES ${fmt(a.value)}</td>
         <td><span class="badge badge-green">${a.status}</span></td>
@@ -3565,7 +3622,7 @@ async function loadProjects() {
     tbody.innerHTML = projects.map((p, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${p.name}</strong></td>
+        <td><strong>${escapeHtml(p.name)}</strong></td>
         <td>KES ${fmt(p.budget)}</td>
         <td><span class="badge badge-blue">${p.status}</span></td>
         <td>${p.deadline || '—'}</td>
@@ -3676,7 +3733,7 @@ async function loadMyAccount() {
         </div>
       </div>`;
   } catch(e) {
-    body.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">⚠️ ${e.message}</div>`;
+    body.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -3697,7 +3754,7 @@ async function loadDefaulters() {
     tbody.innerHTML = list.map((d,i) => `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="padding:10px 12px">${i+1}</td>
-        <td style="padding:10px 12px"><strong>${d.full_name}</strong></td>
+        <td style="padding:10px 12px"><strong>${escapeHtml(d.full_name)}</strong></td>
         <td style="padding:10px 12px;color:var(--muted)">${d.phone_number}</td>
         <td style="padding:10px 12px"><span style="color:#ef4444;font-weight:700">${d.arrears_months}</span></td>
         <td style="padding:10px 12px">KES ${fmt(d.arrears_amount)}</td>
@@ -3717,7 +3774,7 @@ async function loadDefaulters() {
         </div>
       </div>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -3773,7 +3830,7 @@ async function loadFinReport() {
         <div style="font-size:1.5rem;font-weight:800;color:#f59e0b">KES ${fmt(t.loan_book)}</div>
       </div>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -3808,7 +3865,7 @@ async function loadAuditLog(page=1) {
       <span style="color:var(--muted);font-size:0.82rem;align-self:center">Page ${page} of ${totalPages}</span>
       ${page < totalPages ? `<button class="btn btn-outline btn-sm" onclick="loadAuditLog(${page+1})">Next →</button>` : ''}` : '';
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -3865,18 +3922,18 @@ async function openAttendance(meetingId) {
     document.getElementById('attendance-minutes').value = data.meeting.minutes || '';
     document.getElementById('attendance-meeting-info').innerHTML = `
       <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:12px">
-        <strong>${data.meeting.title}</strong> &mdash; ${fmtDate(data.meeting.date)}
+        <strong>${escapeHtml(data.meeting.title)}</strong> &mdash; ${fmtDate(data.meeting.date)}
         <span style="float:right;color:var(--muted);font-size:0.8rem">${data.present_count}/${data.total_members} present${data.quorum_met?' ✅ Quorum':' ⚠️ No quorum'}</span>
       </div>`;
     renderAttendanceList();
-  } catch(e) { list.innerHTML = `<div style="color:#ef4444;padding:16px">⚠️ ${e.message}</div>`; }
+  } catch(e) { list.innerHTML = `<div style="color:#ef4444;padding:16px">⚠️ ${escapeHtml(e.message)}</div>`; }
 }
 
 function renderAttendanceList() {
   const list = document.getElementById('attendance-list');
   list.innerHTML = attendanceData.map((m,i) => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border)">
-      <span style="font-size:0.85rem">${m.full_name} <span style="color:var(--muted);font-size:0.75rem">${m.role}</span></span>
+      <span style="font-size:0.85rem">${escapeHtml(m.full_name)} <span style="color:var(--muted);font-size:0.75rem">${m.role}</span></span>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem">
         <input type="checkbox" ${m.present?'checked':''} onchange="toggleAttendance(${i},this.checked)" style="width:16px;height:16px;cursor:pointer">
         <span id="att-label-${i}" style="color:${m.present?'#22c55e':'var(--muted)'}">${m.present?'Present':'Absent'}</span>
@@ -4082,7 +4139,7 @@ async function loadUserMgmt() {
       _renderUmTable(allMembers);
       toast('Showing cached member data', 'error');
     } else {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#f87171">${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#f87171">${escapeHtml(e.message)}</td></tr>`;
     }
   }
 }
@@ -4094,7 +4151,7 @@ function _populateMemberSelects(members) {
     sel.innerHTML = '<option value="">— Choose a member —</option>'
       + members.map(m => {
           const isSelf = m.phone_number === currentUser?.phone;
-          return `<option value="${m.id}" data-role="${m.role}" data-name="${m.full_name}" data-phone="${m.phone_number}"${isSelf ? ' disabled' : ''}>${m.full_name} (${m.phone_number})${isSelf ? ' — You' : ''}</option>`;
+          return `<option value="${m.id}" data-role="${m.role}" data-name="${escapeHtml(m.full_name)}" data-phone="${m.phone_number}"${isSelf ? ' disabled' : ''}>${escapeHtml(m.full_name)} (${m.phone_number})${isSelf ? ' — You' : ''}</option>`;
         }).join('');
   });
   // Start buttons dimmed until a member is chosen
@@ -4126,7 +4183,7 @@ function _renderUmTable(members) {
     return `<tr>
       <td style="color:var(--muted)">${i+1}</td>
       <td>
-        <strong>${m.full_name}</strong>
+        <strong>${escapeHtml(m.full_name)}</strong>
         ${isSelf ? '<span style="font-size:10px;background:rgba(44,180,224,.15);color:#2cb4e0;padding:1px 6px;border-radius:10px;margin-left:6px;">You</span>' : ''}
       </td>
       <td style="color:var(--muted)">${m.phone_number}</td>
@@ -4319,7 +4376,7 @@ async function loadNotices() {
         padding:20px;margin-bottom:12px;border-left:4px solid ${priorityColor(n.priority)};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div>
-            <div style="font-weight:600;font-size:15px;margin-bottom:6px;">${n.title}</div>
+            <div style="font-weight:600;font-size:15px;margin-bottom:6px;">${escapeHtml(n.title)}</div>
             <div style="color:var(--muted);font-size:13px;line-height:1.6;">${n.body}</div>
           </div>
           <button onclick="deleteNotice(${n.id})" style="background:rgba(248,81,73,0.1);border:none;
@@ -4477,7 +4534,7 @@ async function loadFinance() {
     } catch(_) {}
   } catch(e) {
     document.getElementById('fin-tbody').innerHTML =
-      `<tr><td colspan="7" style="text-align:center;padding:32px;color:#f87171">${e.message}</td></tr>`;
+      `<tr><td colspan="7" style="text-align:center;padding:32px;color:#f87171">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -4508,7 +4565,7 @@ function _renderFinance(records) {
         ? '<span class="badge badge-green">Income</span>'
         : '<span class="badge" style="background:rgba(239,68,68,.15);color:#f87171">Expense</span>'}</td>
       <td style="font-size:12px">${catLabel[r.category] || r.category}</td>
-      <td style="font-size:12px;color:var(--muted)">${r.description || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${escapeHtml(r.description || '—')}</td>
       <td style="font-weight:600;color:${r.type==='income'?'#10b981':'#f87171'}">
         ${r.type === 'income' ? '+' : '−'} KES ${fmt(r.amount)}
       </td>
@@ -4596,7 +4653,7 @@ async function submitBulkImport() {
     loadMembers();
     toast(`✅ Imported ${data.inserted} member(s)`);
   } catch(e) {
-    resultEl.innerHTML = `<div style="color:#f87171">❌ ${e.message}</div>`;
+    resultEl.innerHTML = `<div style="color:#f87171">❌ ${escapeHtml(e.message)}</div>`;
     resultEl.style.display = 'block';
     toast(e.message, 'error');
   }

@@ -3,10 +3,13 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.database import get_connection, release_connection
 from app.models import UserRegister, UserLogin, TokenResponse
 from app.utils import safe_db_error
+from app.rate_limit import enforce_rate_limit
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import os
+import secrets
+import hashlib
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -26,7 +29,8 @@ if not SECRET_KEY:
     )
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -44,6 +48,63 @@ def create_token(data: dict) -> str:
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def _hash_token(raw: str) -> str:
+    """One-way hash of a refresh token before it's stored, so a DB leak alone
+    doesn't hand out usable refresh tokens — only the raw token (given to the
+    client) can be matched against the stored hash."""
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def create_refresh_token(user_id: int) -> str:
+    """Generate a long-lived opaque refresh token, store only its hash, and
+    return the raw token to hand to the client."""
+    raw = secrets.token_urlsafe(48)
+    token_hash = _hash_token(raw)
+    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # Opportunistic cleanup: this table has no external cron job, so
+        # each new token issuance also sweeps this user's own old rows
+        # (expired, or revoked more than a day ago) to keep it from
+        # growing forever. Scoped to one user_id, so it stays cheap.
+        cur.execute(
+            """DELETE FROM refresh_tokens
+               WHERE user_id=%s AND (expires_at < NOW() OR (revoked AND created_at < NOW() - INTERVAL '1 day'))""",
+            (user_id,)
+        )
+        cur.execute(
+            """INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+               VALUES (%s, %s, %s)""",
+            (user_id, token_hash, expires_at)
+        )
+        conn.commit()
+    finally:
+        cur.close()
+        release_connection(conn)
+    return raw
+
+
+def _revoke_refresh_token(raw: str):
+    """Best-effort revoke — used on logout and on rotation. Silently no-ops
+    if the token doesn't exist (already revoked, expired, or garbage)."""
+    if not raw:
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE refresh_tokens SET revoked=true WHERE token_hash=%s",
+            (_hash_token(raw),)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        cur.close()
+        release_connection(conn)
 
 
 # Endpoints a user must still be able to reach even while their password
@@ -105,6 +166,10 @@ def require_admin(current_user: dict = Depends(get_current_user)):
 @router.post("/register", status_code=201)
 @limiter.limit("3/minute")
 def register(request: Request, data: UserRegister):
+    # In-memory limiter above is a cheap first pass; this DB-backed check
+    # is the one that actually holds across serverless cold starts.
+    enforce_rate_limit(f"register:{get_remote_address(request)}", limit=3, window_seconds=60)
+
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -205,30 +270,64 @@ def register(request: Request, data: UserRegister):
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 def login(request: Request, data: UserLogin):
+    # DB-backed IP limit — the authoritative check across serverless cold starts.
+    enforce_rate_limit(f"login:{get_remote_address(request)}", limit=5, window_seconds=60)
+
     conn = get_connection()
     cur = conn.cursor()
     try:
         if data.email:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until
                    FROM users WHERE email=%s""",
                 (data.email,)
             )
         elif data.phone_number:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until
                    FROM users WHERE phone_number=%s""",
                 (data.phone_number,)
             )
         else:
             raise HTTPException(status_code=400, detail="Phone number or email required")
         user = cur.fetchone()
+
+        # Account-level lockout, independent of the IP-based limit above —
+        # this is what stops a slow, patient attacker who spreads guesses
+        # across many IPs or takes days to grind through one account.
+        if user and user[10] and user[10] > datetime.utcnow():
+            minutes_left = max(1, int((user[10] - datetime.utcnow()).total_seconds() // 60) + 1)
+            raise HTTPException(
+                status_code=403,
+                detail=f"Too many failed attempts. This account is locked for about {minutes_left} more minute(s)."
+            )
+
+        if not user or not verify_password(data.password, user[3]):
+            if user:
+                attempts = (user[9] or 0) + 1
+                if attempts >= 5:
+                    cur.execute(
+                        "UPDATE users SET failed_login_attempts=0, locked_until=%s WHERE id=%s",
+                        (datetime.utcnow() + timedelta(minutes=15), user[0])
+                    )
+                else:
+                    cur.execute(
+                        "UPDATE users SET failed_login_attempts=%s WHERE id=%s",
+                        (attempts, user[0])
+                    )
+                conn.commit()
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        if user[9]:  # had prior failed attempts — clear them on a successful login
+            cur.execute(
+                "UPDATE users SET failed_login_attempts=0, locked_until=NULL WHERE id=%s",
+                (user[0],)
+            )
+            conn.commit()
     finally:
         cur.close()
         release_connection(conn)
 
-    if not user or not verify_password(data.password, user[3]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
     if user[5] == "pending":
         raise HTTPException(status_code=403, detail="Your registration is pending admin approval.")
     if user[5] == "rejected":
@@ -239,11 +338,12 @@ def login(request: Request, data: UserLogin):
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_token({"sub": str(user[0]), "user_id": user[0], "role": user[2]})
+    refresh = create_refresh_token(user[0])
 
     from app.routes.audit import log_action
     log_action("Login", user[1], detail=f"Successful login ({user[2]})", target=user[1])
 
-    return TokenResponse(access_token=token, user_id=user[0], full_name=user[1], role=user[2],
+    return TokenResponse(access_token=token, refresh_token=refresh, user_id=user[0], full_name=user[1], role=user[2],
                           phone_number=user[6] or "", must_change_password=bool(user[7]),
                           must_accept_privacy=bool(user[8]))
 
@@ -281,13 +381,83 @@ def token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token_str, "token_type": "bearer"}
 
 
+# ------------------------------------------------------------------ #
+#  REFRESH — exchange a valid refresh token for a new access token
+# ------------------------------------------------------------------ #
+@router.post("/refresh")
+@limiter.limit("30/minute")
+def refresh_access_token(request: Request, data: dict):
+    """
+    Called silently by the frontend every few minutes (well before the
+    15-minute access token expires) so an *active* user is never kicked
+    out mid-session, while a genuinely abandoned/idle session still stops
+    working once its refresh token isn't renewed.
+
+    The refresh token is rotated on every use: the old one is revoked and
+    a new one issued, so a stolen refresh token can only be replayed once
+    before the legitimate client's next refresh invalidates it.
+    """
+    raw_token = (data.get("refresh_token") or "").strip()
+    if not raw_token:
+        raise HTTPException(status_code=400, detail="refresh_token is required")
+
+    enforce_rate_limit(f"refresh:{get_remote_address(request)}", limit=30, window_seconds=60)
+
+    token_hash = _hash_token(raw_token)
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked,
+                      u.role, u.is_active, u.registration_status
+               FROM refresh_tokens rt
+               JOIN users u ON u.id = rt.user_id
+               WHERE rt.token_hash=%s""",
+            (token_hash,)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        rt_id, user_id, expires_at, revoked, role, is_active, reg_status = row
+
+        if revoked:
+            raise HTTPException(status_code=401, detail="Session has been signed out. Please log in again.")
+        if expires_at < datetime.utcnow():
+            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+        if not is_active or reg_status != "approved":
+            raise HTTPException(status_code=401, detail="Account is no longer active")
+
+        # Rotate: kill the token that was just used, mint a fresh pair
+        cur.execute("UPDATE refresh_tokens SET revoked=true WHERE id=%s", (rt_id,))
+        conn.commit()
+
+        new_access = create_token({"sub": str(user_id), "user_id": user_id, "role": role})
+        new_refresh = create_refresh_token(user_id)
+
+        return {"access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        safe_db_error(e, status=500, public_msg="Could not refresh session. Please log in again.")
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
 @router.post("/logout")
-def logout(current_user: dict = Depends(get_current_user)):
+def logout(data: dict = None, current_user: dict = Depends(get_current_user)):
     """
-    JWTs are stateless so there's nothing to invalidate server-side —
-    this endpoint exists purely to record the logout in the audit log.
-    The frontend still clears its local token regardless of this call's outcome.
+    The access token itself is still stateless and can't be individually
+    killed — but it now only lives for 15 minutes, so that's a short-lived
+    risk. The refresh token, however, IS stored server-side, so logout can
+    genuinely revoke it here: once revoked, /auth/refresh will reject it,
+    meaning no new access token can be minted for this session again.
     """
+    if data and data.get("refresh_token"):
+        _revoke_refresh_token(data["refresh_token"])
+
     conn = get_connection()
     cur = conn.cursor()
     try:

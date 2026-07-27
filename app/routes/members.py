@@ -153,12 +153,29 @@ async def bulk_import_members(
                 errors.append({"row": i, "error": "full_name and phone_number are required"})
                 continue
             id_number   = (row.get("id_number") or "").strip() or None
-            role        = (row.get("role") or "member").strip()
+            # SECURITY: role is intentionally NOT taken from the CSV. This
+            # endpoint only requires `require_secretary`, and the file used
+            # to insert whatever string was in the "role" column straight
+            # into the database — meaning a CSV with role=super_admin (or
+            # any other elevated role) in one row would have granted it,
+            # completely bypassing the rule that only an existing
+            # super_admin can promote someone to super_admin. Bulk import
+            # is for onboarding regular members; anyone who genuinely needs
+            # an elevated role should get it through the single-member role
+            # change endpoint, by someone authorized to grant it.
+            role        = "member"
             status      = (row.get("status") or "active").strip()
             date_joined = (row.get("date_joined") or "").strip() or None
             nok_name    = (row.get("next_of_kin_name") or "").strip() or None
             nok_phone   = (row.get("next_of_kin_phone") or "").strip() or None
             notes       = (row.get("notes") or "").strip() or None
+
+            if id_number:
+                cur.execute("SELECT id FROM users WHERE id_number=%s", (id_number,))
+                if cur.fetchone():
+                    errors.append({"row": i, "error": f"ID number {id_number} is already registered to another member"})
+                    continue
+
             try:
                 cur.execute("""
                     INSERT INTO members

@@ -15,7 +15,16 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-app = FastAPI(title="ChamaLink API", redirect_slashes=True)
+_APP_ENV = os.getenv("APP_ENV", "development").lower()
+_IS_PROD = _APP_ENV == "production"
+
+app = FastAPI(
+    title="ChamaLink API",
+    redirect_slashes=True,
+    docs_url=None if _IS_PROD else "/docs",
+    redoc_url=None if _IS_PROD else "/redoc",
+    openapi_url=None if _IS_PROD else "/openapi.json",
+)
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -132,12 +141,42 @@ def startup():
                 resolved_by   INT REFERENCES users(id),
                 resolved_at   TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS refresh_tokens (
+                id          SERIAL PRIMARY KEY,
+                user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token_hash  VARCHAR(64) NOT NULL UNIQUE,
+                created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                expires_at  TIMESTAMP NOT NULL,
+                revoked     BOOLEAN NOT NULL DEFAULT false
+            );
+            CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+            CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+
+            CREATE TABLE IF NOT EXISTS otp_codes (
+                id           SERIAL PRIMARY KEY,
+                phone_number VARCHAR(20) NOT NULL,
+                otp_hash     VARCHAR(64) NOT NULL,
+                created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                expires_at   TIMESTAMP NOT NULL,
+                used         BOOLEAN NOT NULL DEFAULT false
+            );
+            CREATE INDEX IF NOT EXISTS idx_otp_codes_phone ON otp_codes(phone_number);
+
+            CREATE TABLE IF NOT EXISTS rate_limit_events (
+                id          SERIAL PRIMARY KEY,
+                rl_key      VARCHAR(120) NOT NULL,
+                created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_rate_limit_key_time ON rate_limit_events(rl_key, created_at);
         """)
         for col_sql in [
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20)",
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS children_json TEXT",
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS parents_json  TEXT",
             "ALTER TABLE member_parents ADD COLUMN IF NOT EXISTS status VARCHAR(20)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
         ]:
             cur.execute(col_sql)
         conn.commit()
