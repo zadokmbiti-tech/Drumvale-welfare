@@ -16,10 +16,6 @@
       "dest": "/public/sitemap.xml"
     },
     {
-      "src": "/robots.txt",
-      "dest": "/public/robots.txt"
-    },
-    {
       "src": "/(.*)",
       "dest": "main.py"
     }
