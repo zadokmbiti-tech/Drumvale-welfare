@@ -296,9 +296,13 @@
       <input id="login-phone" type="tel" placeholder="e.g. 0712345678"/>
     </div>
     <div class="form-group">
-      <label>Password</label>
-      <input id="login-pass" type="password" placeholder="enter your password"/>
-    </div>
+  <label>Password</label>
+  <div style="position:relative;">
+    <input id="login-pass" type="password" placeholder="enter your password" style="width:100%;padding-right:36px;"/>
+    <span onclick="toggleDashPassVisibility()"
+      style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;user-select:none;">👁️</span>
+  </div>
+</div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center;padding:12px" onclick="doLogin()">Sign In</button>
     <div id="login-error" class="login-error"></div>
     <p style="margin-top:20px;text-align:center;font-size:12px;color:var(--muted)">
@@ -2070,6 +2074,14 @@ async function doLogin() {
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function toggleDashPassVisibility() {
+  const input = document.getElementById('login-pass');
+  const icon = event.target;
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  icon.textContent = isHidden ? '🙈' : '👁️';
+}
 
 function logout() {
   fetch(`${API}/auth/logout/`, {method:'POST', headers:{'Authorization': `Bearer ${token}`,'Content-Type':'application/json'}, body: JSON.stringify({refresh_token: refreshToken})}).catch(()=>{});

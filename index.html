@@ -438,9 +438,14 @@
       </div>
       <div class="form-group">
         <label>Password</label>
-        <input type="password" id="login-password" placeholder="••••••••"
-               onkeydown="if(event.key==='Enter')handleLogin()"
-               autocomplete="current-password" />
+        <div style="position:relative;">
+         <input type="password" id="login-password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')handleLogin()"
+          autocomplete="current-password"
+          style="padding-right:36px;" />
+         <span onclick="toggleLoginPassVisibility()"
+          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;user-select:none;">👁️</span>
+        </div>
       </div>
 
       <button class="form-submit" onclick="handleLogin()">Sign In</button>
@@ -746,6 +751,13 @@
       }
       return String(Math.abs(hash) % 9000 + 1000);
     }
+function toggleLoginPassVisibility() {
+  const input = document.getElementById('login-password');
+  const icon = event.target;
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  icon.textContent = isHidden ? '🙈' : '👁️';
+}
 
 async function handleLogin() {
   const errEl  = document.getElementById('login-error');
