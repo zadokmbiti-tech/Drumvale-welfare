@@ -1052,5 +1052,142 @@ async function loadPublicStats() {
 }
 loadPublicStats();
   </script>
+  <style>
+#help{--bg:#0f1e2e;--card:#16293d;--line:#27425c;--ink:#eaf1f8;--mute:#9db2c7;--acc:#2bb3e0;--ok:#3ecf8e;
+ font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);background:var(--bg);padding:56px 18px;
+ display:none;position:fixed;inset:0;z-index:9999;overflow-y:auto}
+#help.open{display:block}
+#helpClose{position:sticky;top:0;float:right;margin:-40px -6px 0 0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:8px 16px;font:inherit;cursor:pointer;z-index:2}
+#helpBtn{position:fixed;right:16px;bottom:16px;z-index:9998;background:#2bb3e0;color:#04202d;border:0;border-radius:99px;padding:13px 20px;font:700 1rem system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}
+#helpBtn:focus-visible,#helpClose:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#help *{box-sizing:border-box}
+#help .wrap{max-width:820px;margin:0 auto}
+#help h2{font-family:Georgia,'Playfair Display',serif;font-size:clamp(1.7rem,5vw,2.4rem);margin:0 0 8px}
+#help .lead{color:var(--mute);margin:0 0 28px;line-height:1.6}
+#help h3{font-family:Georgia,serif;font-size:1.25rem;margin:36px 0 14px}
+#help .steps{list-style:none;margin:0;padding:0;counter-reset:s}
+#help .steps li{counter-increment:s;position:relative;padding:12px 14px 12px 54px;margin-bottom:8px;background:var(--card);border-left:3px solid var(--acc);border-radius:6px;line-height:1.5}
+#help .steps li::before{content:counter(s);position:absolute;left:14px;top:11px;width:26px;height:26px;border-radius:50%;background:var(--acc);color:#04202d;font-weight:700;display:grid;place-items:center;font-size:.85rem}
+#help .fees{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+#help .fee{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px}
+#help .fee b{display:block;font-size:1.35rem;color:var(--ok)}
+#help .fee span{color:var(--mute);font-size:.9rem}
+#help details{background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
+#help summary{cursor:pointer;padding:14px 16px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:'+';color:var(--acc);font-size:1.3rem;line-height:1}
+#help details[open] summary::after{content:'\2212'}
+#help details p{margin:0;padding:0 16px 16px;color:var(--mute);line-height:1.6}
+#help summary:focus-visible,#help button:focus-visible,#help input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#help .bot{margin-top:40px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#help .bot header{padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600}
+#help .log{height:270px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+#help .m{max-width:85%;padding:10px 13px;border-radius:12px;line-height:1.5;font-size:.95rem}
+#help .m.b{background:#1d3550;align-self:flex-start}
+#help .m.u{background:var(--acc);color:#04202d;align-self:flex-end}
+#help .chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px}
+#help .chips button{background:transparent;border:1px solid var(--line);color:var(--ink);padding:6px 11px;border-radius:99px;cursor:pointer;font:inherit;font-size:.85rem}
+#help .chips button:hover{border-color:var(--acc)}
+#help form{display:flex;border-top:1px solid var(--line)}
+#help input{flex:1;background:transparent;border:0;color:var(--ink);padding:14px;font:inherit}
+#help form button{background:var(--acc);color:#04202d;border:0;padding:0 20px;font-weight:700;cursor:pointer}
+</style>
+ 
+<button id="helpBtn" type="button" aria-haspopup="dialog">Help</button>
+<section id="help" role="dialog" aria-modal="true" aria-label="Help and FAQs">
+<div class="wrap">
+  <button id="helpClose" type="button">Close</button>
+  <h2>Joining and paying made simple</h2>
+  <p class="lead">Everything you need to register, pay your contributions and get help from the group.</p>
+ 
+  <h3>How to register</h3>
+  <ol class="steps">
+    <li>Tap <b>Register</b> in the menu and fill in your name, phone, ID number, date of birth, court and email.</li>
+    <li>Create a password, then add your children and at least one biological parent or parent-in-law.</li>
+    <li>Tick the boxes accepting the bylaws, constitution and privacy policy.</li>
+    <li>Tap <b>Submit Registration</b>. The committee reviews your application.</li>
+    <li>Sign in with your phone number and password to reach your member portal.</li>
+  </ol>
+ 
+  <h3>How to pay a contribution</h3>
+  <ol class="steps">
+    <li>In the portal, open <b>Contributions</b> and tap <b>Make Contribution</b>. The Paybill and account number are shown there.</li>
+    <li>On M-Pesa, choose Lipa na M-Pesa, then Pay Bill. Enter the amount and your PIN.</li>
+    <li>Keep the confirmation SMS and tap <b>I've Paid, Continue</b>.</li>
+    <li>Choose the type and month, enter the amount and M-Pesa code, then tap <b>Review</b>.</li>
+    <li>Check the summary and tap <b>Submit Contribution</b>.</li>
+  </ol>
+ 
+  <h3>Fees and payouts</h3>
+  <div class="fees">
+    <div class="fee"><b>Ksh 100</b><span>Registration, once-off</span></div>
+    <div class="fee"><b>Ksh 2,000</b><span>Entry contribution</span></div>
+    <div class="fee"><b>Ksh 100,000</b><span>Principal member cover</span></div>
+    <div class="fee"><b>Ksh 60,000</b><span>Nuclear family cover</span></div>
+    <div class="fee"><b>Ksh 30,000</b><span>Parents and in-laws</span></div>
+  </div>
+ 
+  <h3>Frequently asked questions</h3>
+  <div id="faq"></div>
+ 
+  <div class="bot" role="region" aria-label="Help assistant">
+    <header>Ask the Drumvale helper</header>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <form id="ask"><input id="q" placeholder="Type a question, e.g. how do I pay?" aria-label="Your question" autocomplete="off"><button>Ask</button></form>
+  </div>
+</div>
+</section>
+ 
+<script>
+(function(){
+  var FAQ=[
+    {q:"Who can join the group?",a:"Households in Drumvale Riverview Estate, Kamulu. You register as the principal member and add your family.",k:["who","join","eligible","eligibility","member"]},
+    {q:"How much does it cost to join?",a:"Ksh 100 registration (non-refundable) plus a Ksh 2,000 entry contribution. Both are once-off.",k:["cost","fee","fees","join","registration","entry","price","much"]},
+    {q:"How do I pay a contribution?",a:"Open Contributions in the member portal and tap Make Contribution. The Paybill details are shown there. After paying on M-Pesa, enter the transaction code from your SMS.",k:["pay","paybill","mpesa","m-pesa","contribute","contribution","code"]},
+    {q:"How much is each contribution?",a:"Per case: Ksh 500 for a principal member, Ksh 300 for a nuclear family member and Ksh 200 for a parent or in-law.",k:["amount","case","500","300","200","how much","monthly"]},
+    {q:"When is the payment deadline?",a:"Contributions are due within 7 days of the announcement, with no exceptions.",k:["deadline","when","late","days","due"]},
+    {q:"When can I get welfare help?",a:"New members wait two months from their entry date before welfare assistance applies.",k:["wait","waiting","start","benefit","assistance","help","eligible"]},
+    {q:"How much is paid out?",a:"Ksh 100,000 for a principal member, Ksh 60,000 for a nuclear family member and Ksh 30,000 for parents and in-laws.",k:["payout","cover","bereavement","death","paid out","receive"]},
+    {q:"Who is covered?",a:"The principal member, spouse, children up to age 30, and the biological parents of both spouses.",k:["covered","cover","family","children","parents","spouse"]},
+    {q:"What if I miss contributions?",a:"Arrears in three consecutive cases means you do not qualify for assistance.",k:["miss","missed","arrears","default","skip"]},
+    {q:"Can I take a loan?",a:"Yes. But the service is not yet available",k:["loan","loans","borrow","interest"]},
+    {q:"Can I resign?",a:"Yes, at any time. You receive 80% of your savings.",k:["resign","leave","quit","exit"]},
+    {q:"I forgot my password. What now?",a:"Contact the Chairperson on 0713 063 239 or welfareDrumvale@gmail.com to have it reset.",k:["password","forgot","login","sign in","reset"]}
+  ];
+  var faq=document.getElementById('faq'),log=document.getElementById('log'),chips=document.getElementById('chips'),q=document.getElementById('q');
+  FAQ.forEach(function(f){
+    var d=document.createElement('details'),s=document.createElement('summary'),p=document.createElement('p');
+    s.textContent=f.q;p.textContent=f.a;d.appendChild(s);d.appendChild(p);faq.appendChild(d);
+  });
+  function say(t,who){var m=document.createElement('div');m.className='m '+who;m.textContent=t;log.appendChild(m);log.scrollTop=log.scrollHeight;}
+  function answer(text){
+    var t=text.toLowerCase(),best=null,score=0;
+    FAQ.forEach(function(f){
+      var n=0;f.k.forEach(function(w){if(t.indexOf(w)>-1)n++;});
+      if(t.indexOf(f.q.toLowerCase().slice(0,12))>-1)n+=2;
+      if(n>score){score=n;best=f;}
+    });
+    return best?best.a:"I could not find that one. Call the Chairperson on 0713 063 239 or message the group on WhatsApp.";
+  }
+  function ask(text){if(!text.trim())return;say(text,'u');setTimeout(function(){say(answer(text),'b');},350);}
+  say("Hello! Ask me about registering, paying contributions, payouts or loans.",'b');
+  ["How do I register?","How do I pay?","What are the fees?","Can I take a loan?"].forEach(function(c){
+    var b=document.createElement('button');b.type='button';b.textContent=c;
+    b.onclick=function(){
+      if(c==="How do I register?"){say(c,'u');say("Tap Register, fill in your details, add a parent (and children if any), accept the terms and submit. The committee then reviews your application.",'b');}
+      else ask(c);
+    };chips.appendChild(b);
+  });
+  var box=document.getElementById('help'),btn=document.getElementById('helpBtn');
+  function openHelp(){box.classList.add('open');document.body.style.overflow='hidden';box.scrollTop=0;}
+  function closeHelp(){box.classList.remove('open');document.body.style.overflow='';btn.focus();}
+  btn.addEventListener('click',openHelp);
+  document.getElementById('helpClose').addEventListener('click',closeHelp);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&box.classList.contains('open'))closeHelp();});
+  document.getElementById('ask').addEventListener('submit',function(e){e.preventDefault();ask(q.value);q.value='';});
+})();
+</script>
+
 </body>
 </html>
