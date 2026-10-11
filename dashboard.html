@@ -1872,9 +1872,19 @@
 <!-- AUDIT LOG PAGE -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div id="page-audit" class="page">
-  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center">
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
     <div><h1 class="page-title">Audit Log</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Full trail of all system actions</p></div>
-    <button class="btn btn-outline" onclick="loadAuditLog()">🔄 Refresh</button>
+    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:0.72rem;color:var(--muted)">From
+        <input type="date" id="auditFrom" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:inherit;color-scheme:dark">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:0.72rem;color:var(--muted)">To
+        <input type="date" id="auditTo" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:inherit;color-scheme:dark">
+      </label>
+      <button class="btn btn-outline" id="auditDownloadBtn" onclick="downloadAuditCsv()">⬇ Download CSV</button>
+      <button class="btn btn-outline" onclick="loadAuditLog()">🔄 Refresh</button>
+    </div>
+    <div id="auditExportMsg" role="status" style="width:100%;text-align:right;font-size:0.78rem;color:var(--muted);min-height:1em"></div>
   </div>
   <div class="card" style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
@@ -3865,10 +3875,10 @@ async function loadAuditLog(page=1) {
       const color = Object.entries(actionColors).find(([k])=>l.action.toLowerCase().includes(k))?.[1] || 'var(--muted)';
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:8px 12px;color:var(--muted);font-size:0.78rem;white-space:nowrap">${fmtDateTime(l.created_at)}</td>
-        <td style="padding:8px 12px"><span style="color:${color};font-weight:600">${l.action}</span></td>
-        <td style="padding:8px 12px">${l.performed_by}</td>
-        <td style="padding:8px 12px;color:var(--muted)">${l.detail||'—'}</td>
-        <td style="padding:8px 12px;color:var(--muted)">${l.target||'—'}</td>
+        <td style="padding:8px 12px"><span style="color:${color};font-weight:600">${escapeHtml(l.action)}</span></td>
+        <td style="padding:8px 12px">${escapeHtml(l.performed_by)}</td>
+        <td style="padding:8px 12px;color:var(--muted)">${escapeHtml(l.detail)||'—'}</td>
+        <td style="padding:8px 12px;color:var(--muted)">${escapeHtml(l.target)||'—'}</td>
       </tr>`;
     }).join('');
     const totalPages = Math.ceil(data.total / 50);
@@ -3881,6 +3891,56 @@ async function loadAuditLog(page=1) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// AUDIT LOG — CSV DOWNLOAD (all entries, or a date range)
+// ══════════════════════════════════════════════════════════════
+async function downloadAuditCsv() {
+  const btn  = document.getElementById('auditDownloadBtn');
+  const msg  = document.getElementById('auditExportMsg');
+  const from = document.getElementById('auditFrom').value;   // YYYY-MM-DD or ''
+  const to   = document.getElementById('auditTo').value;
+  const say  = t => { msg.textContent = t; };
+
+  if (from && to && from > to) { say('"From" must be on or before "To".'); return; }
+
+  const qs = new URLSearchParams();
+  if (from) qs.set('start', from);
+  if (to)   qs.set('end', to);
+  const url = `${API}/audit/export` + (qs.toString() ? `?${qs}` : '');
+  const doFetch = () => fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Preparing…'; say('');
+  try {
+    let res = await doFetch();
+    if (res.status === 401 && refreshToken) { await silentRefresh(); res = await doFetch(); }
+    if (res.status === 401) { logout(); return; }
+    if (res.status === 403) { say('You do not have permission to download the audit log.'); return; }
+    if (res.status === 400) {
+      const e = await res.json().catch(() => ({}));
+      say(e.detail || 'Check the dates and try again.'); return;
+    }
+    if (!res.ok) { say('The download failed. Try again.'); return; }
+
+    const count = res.headers.get('X-Row-Count');
+    if (count === '0') { say('No audit entries in that date range.'); return; }
+
+    const name = (from || to)
+      ? `audit-log_${from || 'start'}_to_${to || 'today'}.csv`
+      : `audit-log_all_${new Date().toISOString().slice(0, 10)}.csv`;
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    say(count ? `Downloaded ${count} entries.` : 'Downloaded.');
+  } catch (err) {
+    say('Could not reach the server. Check your connection and try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
 // ══════════════════════════════════════════════════════════════
 // PASSWORD RESET
 // ══════════════════════════════════════════════════════════════
@@ -4763,7 +4823,6 @@ async function rejectProfileUpdate(reqId) {
     loadProfileUpdateRequests();
   } catch(e) { toast('Connection error.', 'error'); }
 }
-
 </script>
 </body>
 </html>
