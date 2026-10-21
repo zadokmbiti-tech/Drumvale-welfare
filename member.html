@@ -2114,5 +2114,35 @@ async function loadMyReports() {  const body = document.getElementById('my-repor
   </div>
 </div>
 
+<script>
+// Show/hide toggle on every password field (login, reset, forced change)
+(function () {
+  function init() {
+    document.querySelectorAll('input[type="password"]').forEach(function (inp) {
+      if (inp.dataset.pwToggle) return;
+      inp.dataset.pwToggle = '1';
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;width:100%;';
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(inp);
+      inp.style.paddingRight = '64px';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'Show';
+      b.setAttribute('aria-label', 'Show password');
+      b.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;' +
+        'color:var(--sky,#2cb4e0);font-size:0.78rem;font-weight:600;cursor:pointer;padding:6px;';
+      b.addEventListener('click', function () {
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        b.textContent = show ? 'Hide' : 'Show';
+        b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      });
+      wrap.appendChild(b);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 </body>
 </html>
