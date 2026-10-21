@@ -185,6 +185,20 @@ def startup():
         release_connection(conn)
 
 
+# ── PWA files (must be served from the site root) ────────────────────
+@app.get("/manifest.json", include_in_schema=False)
+def pwa_manifest():
+    return FileResponse("static/manifest.json", media_type="application/manifest+json")
+
+@app.get("/sw.js", include_in_schema=False)
+def pwa_service_worker():
+    return FileResponse(
+        "static/sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
 # ── Static page routes ────────────────────────────────────────────────
 @app.get("/")
 def root():
