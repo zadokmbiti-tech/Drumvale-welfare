@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from app.routes import members, events, meetings, auth, contributions, loans, event_contributions, finance, profile_updates, assets, projects
 from app.routes import statements, audit, password_reset, meeting_attendance, disbursements
 from app.routes.auth import get_current_user, require_admin
@@ -199,9 +199,32 @@ def pwa_service_worker():
     )
 
 
+# ── Host-aware page routing ───────────────────────────────────────────
+# drumvale-welfare.com      -> public homepage
+# app.drumvale-welfare.com  -> member portal (/), admin dashboard (/dashboard)
+APP_HOST   = os.getenv("APP_HOST", "app.drumvale-welfare.com").lower()
+MAIN_HOSTS = {h.strip().lower() for h in os.getenv(
+    "MAIN_HOSTS", "drumvale-welfare.com,www.drumvale-welfare.com"
+).split(",") if h.strip()}
+
+
+def _host(request: Request) -> str:
+    raw = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    return raw.split(",")[0].split(":")[0].strip().lower()
+
+
+def _to_app(request: Request, path: str):
+    """On the public domain, send portal pages to the app subdomain."""
+    if _host(request) in MAIN_HOSTS:
+        return RedirectResponse(f"https://{APP_HOST}{path}", status_code=307)
+    return None
+
+
 # ── Static page routes ────────────────────────────────────────────────
 @app.get("/")
-def root():
+def root(request: Request):
+    if _host(request) == APP_HOST:
+        return FileResponse("member.html")
     return FileResponse("index.html")
 
 @app.get("/about")
@@ -213,12 +236,12 @@ def contact():
     return FileResponse("index.html")
 
 @app.get("/dashboard")
-def dashboard():
-    return FileResponse("dashboard.html")
+def dashboard(request: Request):
+    return _to_app(request, "/dashboard") or FileResponse("dashboard.html")
 
 @app.get("/member")
-def member_portal():
-    return FileResponse("member.html")
+def member_portal(request: Request):
+    return _to_app(request, "/member") or FileResponse("member.html")
 
 
 # ── Notices (public read, admin write) ───────────────────────────────

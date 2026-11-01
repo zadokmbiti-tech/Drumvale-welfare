@@ -814,10 +814,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
 </div>
 
 <script>
-const API = window.CHAMALINK_API ||
-  (location.hostname === '127.0.0.1' || location.hostname === 'localhost'
-    ? ''
-: 'https://drumvale-welfare.com');
+const API = window.CHAMALINK_API || '';
 let token = null;
 let refreshToken = null;
 let currentUser = null;

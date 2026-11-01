@@ -1963,10 +1963,10 @@
                         <a href="#contact">Contact</a>
                     </li>
                     <li>
-                        <a href="/member" class="nav-btn nav-btn-login" style="padding:7px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.85rem;">LOGIN</a>
+                        <a href="https://app.drumvale-welfare.com/member" class="nav-btn nav-btn-login" style="padding:7px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.85rem;">LOGIN</a>
                     </li>
                     <li>
-                        <a href="/dashboard" style="font-size:11px;color:var(--silver);opacity:0.5;text-decoration:none;" title="Committee Access">⚙</a>
+                        <a href="https://app.drumvale-welfare.com/dashboard" style="font-size:11px;color:var(--silver);opacity:0.5;text-decoration:none;" title="Committee Access">⚙</a>
                     </li>
                     <li>
                         <a href="javascript:void(0)" class="nav-btn nav-btn-register" onclick="openModal('register')" style="display:inline-block;cursor:pointer;">Register</a>
@@ -1995,7 +1995,7 @@
                     </p>
                     <div class="hero-cta">
                         <button class="btn-primary" onclick="openModal('register')" style="position:relative;z-index:20;">Begin Registration</button>
-                        <a class="btn-outline" href="/member" style="position:relative;z-index:20;">Access Member Portal</a>
+                        <a class="btn-outline" href="https://app.drumvale-welfare.com/member" style="position:relative;z-index:20;">Access Member Portal</a>
                         <a class="btn-outline" href="#about" style="position:relative;z-index:20;">Learn More</a>
                     </div>
                 </section>
@@ -2074,7 +2074,7 @@
                     </ol>
                     <div class="join-cta">
                         <button class="btn-primary" onclick="openModal('register')">Register now</button>
-                        <a class="btn-outline" href="/member"> Access Member portal</a>
+                        <a class="btn-outline" href="https://app.drumvale-welfare.com/member"> Access Member portal</a>
                     </div>
                 </section>
                 <section id="about">
@@ -2230,7 +2230,7 @@
                             <h4>Members</h4>
                             <ul>
                                 <li>
-                                    <a href="/member">Sign in</a>
+                                    <a href="https://app.drumvale-welfare.com/member">Sign in</a>
                                 </li>
                                 <li>
                                     <button type="button" onclick="openModal('register')">Register</button>
@@ -2239,7 +2239,7 @@
                                     <button type="button" onclick="document.getElementById('helpBtn').click()">Help and FAQs</button>
                                 </li>
                                 <li>
-                                    <a href="/dashboard">Committee access</a>
+                                    <a href="https://app.drumvale-welfare.com/dashboard">Committee access</a>
                                 </li>
                             </ul>
                         </div>
@@ -2518,7 +2518,7 @@
                         <div class="form-error" id="reg-error">Please fill all required fields and accept the terms.</div>
                         <button class="form-submit" id="reg-submit" onclick="handleRegister()" disabled>Submit Registration</button>
                         <p class="form-switch">
-                            Already a member? <a href="/member">Sign in here</a>
+                            Already a member? <a href="https://app.drumvale-welfare.com/member">Sign in here</a>
                         </p>
                     </div>
                     <div id="register-success" style="display:none;" class="form-success">
@@ -2529,7 +2529,7 @@
                             Your application will be reviewed by the committee.<br/>You may now log in with your phone number and password.
                         </p>
                         <br/>
-                        <a href="/member" class="btn-primary">Proceed to Login</a>
+                        <a href="https://app.drumvale-welfare.com/member" class="btn-primary">Proceed to Login</a>
                     </div>
                 </div>
             </div>
@@ -2803,7 +2803,7 @@
 
                         if (response.ok) {
                             localStorage.setItem('token', data.access_token);
-                            window.location.href = '/member';
+                            window.location.href = 'https://app.drumvale-welfare.com/member';
                         } else {
                             errEl.textContent = data.detail || 'Invalid phone number or password.';
                             errEl.style.display = 'block';
