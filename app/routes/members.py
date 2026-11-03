@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from app.database import get_connection, release_connection
 from app.models import MemberCreate
 from app.schemas import ProfileUpdateRequest
-from app.routes.auth import get_current_user, require_admin
+from app.routes.auth import get_current_user, require_admin, invalidate_user_cache
 from app.auth_deps import require_secretary, require_chairperson, require_super_admin, ROLE_LEVELS
 from app.utils import safe_db_error
 
@@ -561,6 +561,7 @@ def deactivate_member(
     if row and row[1]:
         cur.execute("UPDATE users SET is_active=false WHERE phone_number=%s", (row[1],))
     conn.commit()
+    invalidate_user_cache()
 
     from app.routes.audit import log_action, get_actor_name
     actor = get_actor_name(cur, current_user)
@@ -620,6 +621,7 @@ def delete_member(
             (existing[1],)
         )
     conn.commit()
+    invalidate_user_cache()
 
     if deleted:
         from app.routes.audit import log_action, get_actor_name

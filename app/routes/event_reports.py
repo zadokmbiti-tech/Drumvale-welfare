@@ -138,11 +138,7 @@ def list_pending_reports(_=Depends(require_admin)):
         err_msg = str(e).lower()
         if "does not exist" in err_msg or "undefined table" in err_msg:
             # Table hasn't been created on this DB yet — return empty list
-            cur.close()
-            release_connection(conn)
             return []
-        cur.close()
-        release_connection(conn)
         safe_db_error(e, status=500)
     finally:
         try:

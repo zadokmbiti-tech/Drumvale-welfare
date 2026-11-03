@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import os
 import secrets
 import hashlib
+import time
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -118,6 +119,30 @@ PASSWORD_CHANGE_EXEMPT_PATHS = {
 }
 
 
+# Short-lived "this account is fine" cache.
+#
+# get_current_user re-checks the users table on every request so a
+# deactivated member is locked out. That check used to cost a brand-new
+# database connection per request. Now a clean result (active, no forced
+# password change) is remembered per process for AUTH_CACHE_TTL seconds, so
+# a member's burst of portal requests costs one lookup instead of one each.
+#
+# Only the all-clear verdict is cached, never a rejection, so a member who
+# has just changed their forced password is never stuck behind a stale
+# "must change password" answer. The trade-off: a deactivation can take up
+# to AUTH_CACHE_TTL seconds to reach a process that cached the member
+# beforehand (the process that handles the deactivation forgets at once).
+# Set AUTH_CACHE_TTL=0 in the environment to restore check-every-request.
+_AUTH_CACHE_TTL = float(os.getenv("AUTH_CACHE_TTL", "30"))
+_auth_ok_until: dict = {}
+
+
+def invalidate_user_cache():
+    """Forget every cached verdict in this process. Call after anything that
+    deactivates, rejects or deletes a user."""
+    _auth_ok_until.clear()
+
+
 def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -128,7 +153,11 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
     # deleted or deactivated member's existing token is otherwise still
     # valid until it expires, since a JWT isn't re-validated against the
     # DB by default. This is what makes deletion/deactivation take effect
-    # on their very next request instead of only after the token expires.
+    # within AUTH_CACHE_TTL seconds instead of only after the token expires.
+    user_id = payload.get("user_id")
+    if _AUTH_CACHE_TTL > 0 and _auth_ok_until.get(user_id, 0.0) > time.monotonic():
+        return payload
+
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -151,6 +180,11 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
             headers={"X-Must-Change-Password": "true"},
         )
 
+    if _AUTH_CACHE_TTL > 0:
+        if len(_auth_ok_until) > 5000:
+            _auth_ok_until.clear()
+        _auth_ok_until[user_id] = time.monotonic() + _AUTH_CACHE_TTL
+
     return payload
 
 
@@ -164,11 +198,13 @@ def require_admin(current_user: dict = Depends(get_current_user)):
 #  REGISTER
 # ------------------------------------------------------------------ #
 @router.post("/register", status_code=201)
-@limiter.limit("3/minute")
+@limiter.limit("10/minute")
 def register(request: Request, data: UserRegister):
     # In-memory limiter above is a cheap first pass; this DB-backed check
-    # is the one that actually holds across serverless cold starts.
-    enforce_rate_limit(f"register:{get_remote_address(request)}", limit=3, window_seconds=60)
+    # is the one that actually holds across serverless cold starts. Limits
+    # are per IP, and members on the same estate wifi or mobile carrier can
+    # share one, so they are set well above a single person's needs.
+    enforce_rate_limit(f"register:{get_remote_address(request)}", limit=10, window_seconds=60)
 
     conn = get_connection()
     cur = conn.cursor()
@@ -268,10 +304,15 @@ def register(request: Request, data: UserRegister):
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("60/minute")
 def login(request: Request, data: UserLogin):
     # DB-backed IP limit — the authoritative check across serverless cold starts.
-    enforce_rate_limit(f"login:{get_remote_address(request)}", limit=5, window_seconds=60)
+    # Deliberately generous: many members can share one public IP (estate
+    # wifi, mobile carriers), and guessing a single account is already
+    # stopped by the per-account lockout further down (5 wrong passwords =
+    # 15 minute lock). This limit only has to stop one IP hammering many
+    # accounts.
+    enforce_rate_limit(f"login:{get_remote_address(request)}", limit=30, window_seconds=60)
 
     conn = get_connection()
     cur = conn.cursor()
@@ -385,7 +426,7 @@ def token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
 #  REFRESH — exchange a valid refresh token for a new access token
 # ------------------------------------------------------------------ #
 @router.post("/refresh")
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 def refresh_access_token(request: Request, data: dict):
     """
     Called silently by the frontend every few minutes (well before the
@@ -401,7 +442,7 @@ def refresh_access_token(request: Request, data: dict):
     if not raw_token:
         raise HTTPException(status_code=400, detail="refresh_token is required")
 
-    enforce_rate_limit(f"refresh:{get_remote_address(request)}", limit=30, window_seconds=60)
+    enforce_rate_limit(f"refresh:{get_remote_address(request)}", limit=120, window_seconds=60)
 
     token_hash = _hash_token(raw_token)
     conn = get_connection()
@@ -474,7 +515,7 @@ def logout(data: dict = None, current_user: dict = Depends(get_current_user)):
 #  CHANGE PASSWORD (self-service, requires current password)
 # ------------------------------------------------------------------ #
 @router.post("/change-password")
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 def change_password(request: Request, data: dict, current_user: dict = Depends(get_current_user)):
     """
     Lets a logged-in user set a new password themselves.
@@ -789,6 +830,7 @@ def reject_user(user_id: int, body: dict = None, current_user=Depends(require_ad
 
         from app.routes.audit import log_action, get_actor_name
         actor = get_actor_name(cur, current_user)
+        invalidate_user_cache()
         log_action("Member Rejected", actor, detail=reason or "No reason given", target=row[1])
 
         return {"message": f"{row[1]} rejected"}
@@ -857,6 +899,7 @@ def reinstate_user(user_id: int, current_user=Depends(require_admin)):
 
         from app.routes.audit import log_action, get_actor_name
         actor = get_actor_name(cur, current_user)
+        invalidate_user_cache()
         log_action("Member Reinstated", actor, detail=f"{row[1]} moved back to pending", target=row[1])
 
         return {"message": f"{row[1]} moved back to pending"}

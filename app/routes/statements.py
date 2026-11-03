@@ -176,6 +176,30 @@ def defaulters_report(_=Depends(require_admin)):
         this_month = date.today().replace(day=1)
         result = []
 
+        # Two bulk queries instead of three per member: every member's paid
+        # months, and every member's active-loan balance / overdue count.
+        member_ids = [m[0] for m in members]
+        paid_by_member = {}
+        loans_by_member = {}
+        if member_ids:
+            cur.execute(
+                "SELECT member_id, month FROM monthly_contributions WHERE member_id = ANY(%s)",
+                (member_ids,)
+            )
+            for mid, month in cur.fetchall():
+                paid_by_member.setdefault(mid, set()).add(month)
+
+            cur.execute("""
+                SELECT member_id,
+                       COALESCE(SUM(amount - amount_repaid), 0),
+                       COUNT(*) FILTER (WHERE due_date < %s)
+                FROM loans
+                WHERE status='active' AND member_id = ANY(%s)
+                GROUP BY member_id
+            """, (date.today(), member_ids))
+            for mid, balance, overdue in cur.fetchall():
+                loans_by_member[mid] = (float(balance or 0), overdue)
+
         for m in members:
             member_id, full_name, phone, joined_date = m
 
@@ -185,8 +209,7 @@ def defaulters_report(_=Depends(require_admin)):
             else:
                 joined = this_month
 
-            cur.execute("SELECT month FROM monthly_contributions WHERE member_id=%s", (member_id,))
-            paid_months = {r[0] for r in cur.fetchall()}
+            paid_months = paid_by_member.get(member_id, set())
 
             arrears = []
             cursor_m = joined
@@ -196,17 +219,7 @@ def defaulters_report(_=Depends(require_admin)):
                     arrears.append(ym)
                 cursor_m += relativedelta(months=1)
 
-            cur.execute("""
-                SELECT COALESCE(SUM(amount - amount_repaid), 0)
-                FROM loans WHERE member_id=%s AND status='active'
-            """, (member_id,))
-            loan_balance = float(cur.fetchone()[0] or 0)
-
-            cur.execute("""
-                SELECT COUNT(*) FROM loans
-                WHERE member_id=%s AND status='active' AND due_date < %s
-            """, (member_id, date.today()))
-            overdue_loans = cur.fetchone()[0]
+            loan_balance, overdue_loans = loans_by_member.get(member_id, (0.0, 0))
 
             if arrears or loan_balance > 0:
                 result.append({
