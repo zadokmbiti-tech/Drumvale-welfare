@@ -1825,6 +1825,17 @@
     <div><h1 class="page-title">Defaulters Report</h1><p style="color:var(--muted);font-size:0.85rem;margin:4px 0 0">Members with contribution arrears or overdue loans</p></div>
     <button class="btn btn-outline" onclick="loadDefaulters()">🔄 Refresh</button>
   </div>
+  <div class="card" id="def-start-card" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <label style="font-size:0.72rem;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Start counting arrears from</label>
+        <input type="month" id="def-start-month" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2,#1a1a2e);color:inherit;font-family:inherit;color-scheme:dark">
+      </div>
+      <button class="btn btn-primary" id="def-start-save" onclick="saveDefaultersStart(false)">Save date</button>
+      <button class="btn btn-outline" id="def-start-pause" onclick="saveDefaultersStart(true)">Pause counting</button>
+    </div>
+    <p id="def-start-status" style="font-size:0.8rem;color:var(--muted);margin:10px 0 0"></p>
+  </div>
   <div class="card" style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:0.84rem">
       <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">
@@ -3771,14 +3782,39 @@ async function loadMyAccount() {
 // ══════════════════════════════════════════════════════════════
 // DEFAULTERS
 // ══════════════════════════════════════════════════════════════
+function renderDefaultersStart(data) {
+  const inp = document.getElementById('def-start-month');
+  const st  = document.getElementById('def-start-status');
+  const isSuper = currentUser && currentUser.role === 'super_admin';
+  if (inp && document.activeElement !== inp) inp.value = data.start_month || '';
+  ['def-start-month','def-start-save','def-start-pause'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = !isSuper;
+  });
+  if (st) st.textContent = data.counting_enabled
+    ? `Counting missed months from ${data.start_month}. Earlier months are ignored.` + (isSuper ? '' : ' Only a super admin can change this.')
+    : 'Counting is paused: no contribution arrears are shown until you pick a start month.' + (isSuper ? '' : ' Only a super admin can change this.');
+}
+async function saveDefaultersStart(pause) {
+  const val = pause ? null : (document.getElementById('def-start-month').value || null);
+  if (!pause && !val) { alert('Pick a start month first.'); return; }
+  if (!confirm(pause ? 'Pause arrears counting? The report will show no contribution arrears.'
+                     : `Start counting missed months from ${val}?`)) return;
+  try {
+    await apiFetch('/statements/defaulters/settings', { method:'PUT', body: JSON.stringify({ start_month: val }) });
+    loadDefaulters();
+  } catch(e) { alert(e.message || 'Could not save'); }
+}
 async function loadDefaulters() {
   const tbody = document.getElementById('defaulters-tbody');
   const summary = document.getElementById('defaulters-summary');
   try {
     const data = await apiFetch('/statements/defaulters');
     const list = data.defaulters;
+    renderDefaultersStart(data);
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#22c55e">✅ No defaulters — all members are up to date!</td></tr>';
+      tbody.innerHTML = data.counting_enabled
+        ? '<tr><td colspan="7" style="text-align:center;padding:32px;color:#22c55e">✅ No defaulters — all members are up to date!</td></tr>'
+        : '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Arrears counting has not started. Pick a start month above.</td></tr>';
       summary.innerHTML = '';
       return;
     }

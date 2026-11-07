@@ -10,6 +10,10 @@ Member self-service & reporting routes
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_connection, release_connection
 from app.routes.auth import get_current_user, require_admin
+from app.auth_deps import require_super_admin
+from pydantic import BaseModel
+from typing import Optional
+import re
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
@@ -161,6 +165,80 @@ def member_statement(member_id: int, _=Depends(require_admin)):
     return stmt
 
 
+
+# ── Defaulters start date ─────────────────────────────────────────────────────
+# Arrears are only counted from this month onward. Until a super admin sets it,
+# contribution arrears are NOT counted (loans are still reported).
+_DEFAULTERS_KEY = "defaulters_start_month"
+
+def _ensure_settings(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key        TEXT PRIMARY KEY,
+            value      TEXT,
+            updated_at TIMESTAMP DEFAULT NOW(),
+            updated_by TEXT
+        )
+    """)
+
+def _get_start_month(cur):
+    _ensure_settings(cur)
+    cur.execute("SELECT value FROM app_settings WHERE key=%s", (_DEFAULTERS_KEY,))
+    row = cur.fetchone()
+    return row[0] if row and row[0] else None
+
+
+class DefaultersSettings(BaseModel):
+    start_month: Optional[str] = None      # "YYYY-MM", or null to pause counting
+
+
+@router.get("/defaulters/settings")
+@router.get("/defaulters/settings/")
+def get_defaulters_settings(_=Depends(require_admin)):
+    conn = get_connection()
+    cur  = conn.cursor()
+    try:
+        start = _get_start_month(cur)
+        conn.commit()
+        return {"start_month": start, "counting_enabled": bool(start)}
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+@router.put("/defaulters/settings")
+@router.put("/defaulters/settings/")
+def set_defaulters_settings(data: DefaultersSettings, current_user=Depends(require_super_admin)):
+    sm = (data.start_month or "").strip() or None
+    if sm and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", sm):
+        raise HTTPException(status_code=400, detail="start_month must be YYYY-MM")
+    conn = get_connection()
+    cur  = conn.cursor()
+    try:
+        _ensure_settings(cur)
+        cur.execute("""
+            INSERT INTO app_settings (key, value, updated_at, updated_by)
+            VALUES (%s, %s, NOW(), %s)
+            ON CONFLICT (key) DO UPDATE
+               SET value=EXCLUDED.value, updated_at=NOW(), updated_by=EXCLUDED.updated_by
+        """, (_DEFAULTERS_KEY, sm, str(current_user.get("username") or current_user.get("user_id"))))
+        conn.commit()
+        try:
+            from app.routes.audit import log_user_action
+            log_user_action(current_user, "Defaulters Start Date Changed",
+                            detail=f"Arrears counted from {sm or 'paused'}", target="settings")
+        except Exception:
+            pass
+        return {"start_month": sm, "counting_enabled": bool(sm)}
+    except HTTPException:
+        raise
+    except Exception:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="Could not save the setting")
+    finally:
+        cur.close()
+        release_connection(conn)
+
 @router.get("/defaulters")
 def defaulters_report(_=Depends(require_admin)):
     """List all members with contribution arrears or overdue loans."""
@@ -175,6 +253,10 @@ def defaulters_report(_=Depends(require_admin)):
 
         this_month = date.today().replace(day=1)
         result = []
+
+        start_month = _get_start_month(cur)
+        conn.commit()
+        count_from = date.fromisoformat(start_month + "-01") if start_month else None
 
         # Two bulk queries instead of three per member: every member's paid
         # months, and every member's active-loan balance / overdue count.
@@ -212,7 +294,8 @@ def defaulters_report(_=Depends(require_admin)):
             paid_months = paid_by_member.get(member_id, set())
 
             arrears = []
-            cursor_m = joined
+            # Only count from the configured start month (none set = no arrears counted)
+            cursor_m = max(joined, count_from) if count_from else this_month + relativedelta(months=1)
             while cursor_m <= this_month:
                 ym = cursor_m.strftime("%Y-%m")
                 if ym not in paid_months:
@@ -234,7 +317,8 @@ def defaulters_report(_=Depends(require_admin)):
                 })
 
         result.sort(key=lambda x: x["total_owed"], reverse=True)
-        return {"defaulters": result, "std_monthly_amount": std_amount, "generated_at": datetime.now().isoformat()}
+        return {"defaulters": result, "std_monthly_amount": std_amount,
+                "start_month": start_month, "counting_enabled": bool(start_month), "generated_at": datetime.now().isoformat()}
     finally:
         cur.close()
         release_connection(conn)
