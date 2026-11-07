@@ -437,7 +437,8 @@ tr:hover td{background:rgba(44,180,224,0.03);}
             <label>Contribution Type</label>
             <select id="cm-type" onchange="cmTypeChanged()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;">
               <option value="">— Select type —</option>
-              <option value="Monthly Welfare fee">Monthly Welfare fee</option>
+              <option value="Monthly Contribution">Monthly Contribution</option>
+              <option value="Welfare Registration Fee">Welfare Registration Fee</option>
               <option value="Mchango">Mchango</option>
               <option value="Project Fund">Project Fund</option>
             </select>
@@ -455,6 +456,11 @@ tr:hover td{background:rgba(44,180,224,0.03);}
           <div class="field" id="cm-project-wrap" style="display:none;">
             <label>Project</label>
             <input type="text" id="cm-project" placeholder="Which project is this for?" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;" />
+          </div>
+          <div class="field">
+            <label>Date Paid</label>
+            <input type="date" id="cm-paid-date" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;color-scheme:dark;" />
+            <p style="font-size:0.75rem;color:var(--muted);margin-top:5px;">The day you made the M-Pesa payment</p>
           </div>
           <div class="field">
             <label>Amount Paid (KES)</label>
@@ -481,6 +487,9 @@ tr:hover td{background:rgba(44,180,224,0.03);}
             </div>
             <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
               <span id="rv-detail-label" style="color:var(--silver);font-size:0.85rem;">Period</span><span id="rv-month" style="color:var(--white);font-weight:500;font-size:0.85rem;">—</span>
+            </div>
+            <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span style="color:var(--silver);font-size:0.85rem;">Date Paid</span><span id="rv-paid" style="color:var(--white);font-weight:500;font-size:0.85rem;">—</span>
             </div>
             <div class="modal-row" style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
               <span style="color:var(--silver);font-size:0.85rem;">M-Pesa Code</span><span id="rv-code" style="color:var(--sky);font-weight:600;font-size:0.85rem;letter-spacing:0.04em;">—</span>
@@ -1383,7 +1392,7 @@ async function loadOverview() {
       document.getElementById('recent-contrib-body').innerHTML = cs.length===0 ? emptyState('💸','No contributions yet.')
         : `<table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Notes</th></tr></thead><tbody>
            ${cs.slice(0,5).map(c=>`<tr>
-             <td>${fmtDate(c.date||c.created_at)}</td>
+             <td>${fmtDate(cmSplitNotes(c).paid ? cmSplitNotes(c).paid + 'T00:00:00' : (c.date||c.created_at))}</td>
              <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
              <td><span class="badge badge-blue">${escapeHtml(cmSplitNotes(c).type)}</span></td>
              <td style="color:var(--silver);">${escapeHtml(cmSplitNotes(c).note||'—')}</td>
@@ -1668,16 +1677,18 @@ function openContribModal() {
   }
   document.getElementById('contrib-modal-backdrop').style.display = 'flex';
   cmTypeChanged();
+  cmSetPaidDefault();
   cmRender();
 }
 function closeContribModal() {
   document.getElementById('contrib-modal-backdrop').style.display = 'none';
 
-  ['cm-type','cm-month','cm-case','cm-project','cm-amount','cm-mpesa-code','cm-notes'].forEach(id => {
+  ['cm-type','cm-month','cm-case','cm-project','cm-paid-date','cm-amount','cm-mpesa-code','cm-notes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   cmTypeChanged();
+  cmSetPaidDefault();
   ['cm-step2-err','cm-submit-err'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.style.display='none'; el.textContent=''; }
@@ -1744,19 +1755,19 @@ function cmMonthLabel(ym) {
 function cmTypeChanged() {
   const t = (document.getElementById('cm-type') || {}).value || '';
   const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
-  show('cm-month-wrap',   t === 'Monthly Welfare fee');
+  show('cm-month-wrap',   t === 'Monthly Contribution');
   show('cm-case-wrap',    t === 'Mchango');
   show('cm-project-wrap', t === 'Project Fund');
   // Default the month picker to the current month when it becomes visible
   const m = document.getElementById('cm-month');
-  if (t === 'Monthly Welfare fee' && m && !m.value) {
+  if (t === 'Monthly Contribution' && m && !m.value) {
     const now = new Date();
     m.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   }
 }
 function cmDetail() {
   const type = document.getElementById('cm-type').value.trim();
-  if (type === 'Monthly Welfare fee') {
+  if (type === 'Monthly Contribution') {
     const m = document.getElementById('cm-month').value.trim();
     return { label: 'Month', value: m ? cmMonthLabel(m) : '', raw: m };
   }
@@ -1768,14 +1779,35 @@ function cmDetail() {
     const p = document.getElementById('cm-project').value.trim();
     return { label: 'Project', value: p, raw: p };
   }
-  return { label: 'Detail', value: '', raw: '' };
+  return { label: '', value: '', raw: '' };
 }
-// Type is stored as the start of notes ("Mchango · Case 12 — note") so admins can see it
+function cmToday() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+function cmSetPaidDefault() {
+  const el = document.getElementById('cm-paid-date');
+  if (!el) return;
+  el.max = cmToday();
+  if (!el.value) el.value = cmToday();
+}
+// Stored in notes as "Type · detail · Paid YYYY-MM-DD — your note" so admins can see it
 function cmSplitNotes(c) {
   const n = c.notes || '';
-  const m = /^(Monthly Welfare fee|Mchango|Project Fund)(?: · ([^—]*?))?(?: — (.*))?$/.exec(n);
-  if (!m) return { type: c.contribution_type || c.type || 'monthly', note: n };
-  return { type: m[1], note: [m[2], m[3]].filter(Boolean).join(' — ') };
+  const i = n.indexOf(' — ');
+  const head = i === -1 ? n : n.slice(0, i);
+  const user = i === -1 ? '' : n.slice(i + 3);
+  const parts = head.split(' · ');
+  const KNOWN = ['Monthly Contribution','Welfare Registration Fee','Monthly Welfare fee','Mchango','Project Fund'];
+  if (!KNOWN.includes(parts[0])) {
+    return { type: c.contribution_type || c.type || 'monthly', note: n, paid: null };
+  }
+  let paid = null; const detail = [];
+  parts.slice(1).forEach(x => {
+    const m = /^Paid (\d{4}-\d{2}-\d{2})$/.exec(x);
+    if (m) paid = m[1]; else detail.push(x);
+  });
+  return { type: parts[0], note: [detail.join(' · '), user].filter(Boolean).join(' — '), paid };
 }
 async function cmGoNext() {
   const errEl2 = document.getElementById('cm-step2-err');
@@ -1789,18 +1821,24 @@ async function cmGoNext() {
     const code   = document.getElementById('cm-mpesa-code').value.trim();
     errEl2.style.display = 'none';
     if (!type)           { errEl2.textContent='Please select a contribution type.';  errEl2.style.display='block'; return; }
-    if (!detail.value)   {
+    if (detail.label && !detail.value)   {
       errEl2.textContent = type === 'Mchango' ? 'Please enter the case number.'
                          : type === 'Project Fund' ? 'Please enter the project name.'
                          : 'Please select the month.';
       errEl2.style.display='block'; return;
     }
+    const paidDate = document.getElementById('cm-paid-date').value;
+    if (!paidDate)       { errEl2.textContent='Please enter the date you made the payment.'; errEl2.style.display='block'; return; }
+    if (paidDate > cmToday()) { errEl2.textContent='Date paid cannot be in the future.'; errEl2.style.display='block'; return; }
     if (!amount || amount < 1) { errEl2.textContent='Please enter a valid amount.'; errEl2.style.display='block'; return; }
     if (!code)           { errEl2.textContent='Please enter your M-Pesa transaction code.'; errEl2.style.display='block'; return; }
 
     document.getElementById('rv-type').textContent   = type;
+    const dRow = document.getElementById('rv-detail-label').parentElement;
+    dRow.style.display = detail.label ? 'flex' : 'none';
     document.getElementById('rv-detail-label').textContent = detail.label;
     document.getElementById('rv-month').textContent  = detail.value;
+    document.getElementById('rv-paid').textContent   = fmtDate(paidDate + 'T00:00:00');
     document.getElementById('rv-code').textContent   = code.toUpperCase();
     document.getElementById('rv-notes').textContent  = document.getElementById('cm-notes').value.trim() || '—';
     document.getElementById('rv-amount').textContent = 'KES ' + amount.toLocaleString();
@@ -1817,11 +1855,15 @@ async function cmGoNext() {
       // Backend needs YYYY-MM: use the chosen month for monthly fees, else the current month
       const now = new Date();
       const currentYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      const month = type === 'Monthly Welfare fee' ? detail.raw : currentYM;
+      const month = type === 'Monthly Contribution' ? detail.raw : currentYM;
       // Type + detail go at the start of notes so admins see what the payment is for
-      const head = type === 'Mchango' ? `${type} · Case ${detail.raw}`
-                 : type === 'Project Fund' ? `${type} · ${detail.raw}`
-                 : type;
+      const paidDate = document.getElementById('cm-paid-date').value;
+      const head = [
+        type === 'Mchango' ? `${type} · Case ${detail.raw}`
+        : type === 'Project Fund' ? `${type} · ${detail.raw}`
+        : type,
+        `Paid ${paidDate}`
+      ].join(' · ');
       const payload = {
         month             : month,
         amount            : parseFloat(document.getElementById('cm-amount').value),
@@ -1868,7 +1910,7 @@ async function loadContributions() {
     body.innerHTML = data.length===0 ? emptyState('💸','No contributions yet.')
       : `<table><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Month</th><th>Notes</th></tr></thead><tbody>
          ${data.map(c=>`<tr>
-           <td>${fmtDate(c.date||c.created_at)}</td>
+           <td>${fmtDate(cmSplitNotes(c).paid ? cmSplitNotes(c).paid + 'T00:00:00' : (c.date||c.created_at))}</td>
            <td style="color:var(--green);font-weight:600;">${fmt(c.amount)}</td>
            <td><span class="badge badge-blue">${escapeHtml(cmSplitNotes(c).type)}</span></td>
            <td style="color:var(--silver);">${c.month||'—'}</td>
