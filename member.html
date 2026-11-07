@@ -445,13 +445,8 @@ tr:hover td{background:rgba(44,180,224,0.03);}
           </div>
           <div class="field">
             <label>Period / Month</label>
-            <select id="cm-month" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;">
-              <option value="">— Select period —</option>
-              <option value="June 2026">June 2026</option>
-              <option value="May 2026">May 2026</option>
-              <option value="April 2026">April 2026</option>
-              <option value="March 2026">March 2026</option>
-            </select>
+            <input type="month" id="cm-month" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--white);border-radius:8px;padding:10px 12px;font-size:0.88rem;font-family:inherit;outline:none;color-scheme:dark;" />
+            <p style="font-size:0.75rem;color:var(--muted);margin-top:5px;">Tap to open the calendar and pick the month you are paying for</p>
           </div>
           <div class="field">
             <label>Amount Paid (KES)</label>
@@ -1657,6 +1652,12 @@ let cmStep = 1;
 
 function openContribModal() {
   cmStep = 1;
+  // Default the calendar to the current month (member can change it freely)
+  const monthEl = document.getElementById('cm-month');
+  if (monthEl && !monthEl.value) {
+    const now = new Date();
+    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
   document.getElementById('contrib-modal-backdrop').style.display = 'flex';
   cmRender();
 }
@@ -1718,10 +1719,17 @@ function cmGoBack() {
   if (cmStep > 1) { cmStep--; cmRender(); }
 }
 function cmMonthToYYYYMM(label) {
-
+  // The calendar picker already gives YYYY-MM; keep legacy "June 2026" labels working
+  if (/^\d{4}-\d{2}$/.test(label)) return label;
   const d = new Date(label + ' 1');
   if (isNaN(d)) return label;
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function cmMonthLabel(ym) {
+  // "2026-11" -> "November 2026" for the review screen
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return ym;
+  return new Date(+m[1], +m[2]-1, 1).toLocaleDateString('en-GB', { month:'long', year:'numeric' });
 }
 async function cmGoNext() {
   const errEl2 = document.getElementById('cm-step2-err');
@@ -1740,7 +1748,7 @@ async function cmGoNext() {
     if (!code)           { errEl2.textContent='Please enter your M-Pesa transaction code.'; errEl2.style.display='block'; return; }
 
     document.getElementById('rv-type').textContent   = type;
-    document.getElementById('rv-month').textContent  = month;
+    document.getElementById('rv-month').textContent  = cmMonthLabel(month);
     document.getElementById('rv-code').textContent   = code.toUpperCase();
     document.getElementById('rv-notes').textContent  = document.getElementById('cm-notes').value.trim() || '—';
     document.getElementById('rv-amount').textContent = 'KES ' + amount.toLocaleString();
