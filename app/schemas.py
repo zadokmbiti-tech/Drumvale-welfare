@@ -118,12 +118,13 @@ class LoanStatusUpdate(BaseModel):
     status: str
 
 class MonthlyContributionCreate(BaseModel):
-    member_id:      int
-    amount:         float
-    month:          str
-    payment_method: str = "M-Pesa"
-    reference:      Optional[str] = None
-    notes:          Optional[str] = None
+    member_id:         int
+    amount:            float
+    month:             str
+    payment_method:    str = "M-Pesa"
+    reference:         Optional[str] = None
+    notes:             Optional[str] = None
+    contribution_type: Optional[str] = None
 
 class EventContributionCreate(BaseModel):
     member_id: int
