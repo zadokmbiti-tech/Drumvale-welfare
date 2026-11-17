@@ -177,6 +177,12 @@ def startup():
             "ALTER TABLE member_parents ADD COLUMN IF NOT EXISTS status VARCHAR(20)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
+            # What a payment is for (see migrations/011). Older rows default to monthly,
+            # then the three other types are recovered from the text the portal put in notes.
+            "ALTER TABLE monthly_contributions ADD COLUMN IF NOT EXISTS contribution_type VARCHAR(40) NOT NULL DEFAULT 'Monthly Contribution'",
+            "UPDATE monthly_contributions SET contribution_type='Welfare Registration Fee' WHERE contribution_type='Monthly Contribution' AND notes LIKE 'Welfare Registration Fee%'",
+            "UPDATE monthly_contributions SET contribution_type='Mchango' WHERE contribution_type='Monthly Contribution' AND notes LIKE 'Mchango%'",
+            "UPDATE monthly_contributions SET contribution_type='Project Fund' WHERE contribution_type='Monthly Contribution' AND notes LIKE 'Project Fund%'",
         ]:
             cur.execute(col_sql)
         conn.commit()

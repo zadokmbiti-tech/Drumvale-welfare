@@ -1877,6 +1877,7 @@ async function cmGoNext() {
           amount            : payload.amount,
           month             : cmMonthToYYYYMM(payload.month),
           payment_method    : 'M-Pesa',
+          contribution_type : type,
           reference         : payload.mpesa_code,
           notes             : payload.notes,
         }),

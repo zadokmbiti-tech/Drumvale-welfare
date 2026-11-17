@@ -143,6 +143,8 @@
   .modal-backdrop.open { display: flex; }
   /* forms opened from inside the payment-history window must stack above it */
   #modal-add-contrib, #modal-edit-payment { z-index: 210; }
+  #modal-member-payments .modal.modal-lg { max-width: 1000px !important; }
+  #modal-member-payments td, #modal-member-payments th { padding-left: 8px; padding-right: 8px; }
   .modal {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
@@ -1157,8 +1159,18 @@
       <div class="form-group full"><label>Member</label>
         <select id="c-member"><option value="">Select member…</option></select>
       </div>
+      <div class="form-group full"><label>Contribution Type</label>
+        <select id="c-type" onchange="contribTypeChanged()">
+          <option value="Monthly Contribution">Monthly Contribution</option>
+          <option value="Welfare Registration Fee">Welfare Registration Fee</option>
+          <option value="Mchango">Mchango</option>
+          <option value="Project Fund">Project Fund</option>
+        </select>
+      </div>
+      <div class="form-group" id="c-month-wrap"><label>Month</label><input id="c-month" type="month"/></div>
+      <div class="form-group" id="c-case-wrap" style="display:none"><label>Case Number</label><input id="c-case" placeholder="e.g. 12"/></div>
+      <div class="form-group" id="c-project-wrap" style="display:none"><label>Project</label><input id="c-project" placeholder="Which project is this for?"/></div>
       <div class="form-group"><label>Amount (KES)</label><input id="c-amount" type="number" placeholder="500"/></div>
-      <div class="form-group"><label>Month</label><input id="c-month" type="month"/></div>
       <div class="form-group"><label>Payment Method</label>
         <select id="c-method"><option value="M-Pesa">M-Pesa</option><option value="Bank">Bank Transfer</option><option value="Cash">Cash</option></select>
       </div>
@@ -1184,8 +1196,8 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Month</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Recorded</th><th>Actions</th></tr></thead>
-        <tbody id="mp-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr></tbody>
+        <thead><tr><th>Month</th><th>Type</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Recorded</th><th>Actions</th></tr></thead>
+        <tbody id="mp-tbody"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1200,6 +1212,14 @@
     <div id="pay-edit-member" style="margin-bottom:14px;color:var(--muted);font-size:13px"></div>
     <input type="hidden" id="pay-edit-id"/>
     <div class="form-grid">
+      <div class="form-group full"><label>Contribution Type</label>
+        <select id="pay-edit-type">
+          <option value="Monthly Contribution">Monthly Contribution</option>
+          <option value="Welfare Registration Fee">Welfare Registration Fee</option>
+          <option value="Mchango">Mchango</option>
+          <option value="Project Fund">Project Fund</option>
+        </select>
+      </div>
       <div class="form-group"><label>Amount (KES)</label><input id="pay-edit-amount" type="number" min="1" step="any"/></div>
       <div class="form-group"><label>Month</label><input id="pay-edit-month" type="month"/></div>
       <div class="form-group"><label>Payment Method</label>
@@ -2759,19 +2779,43 @@ async function loadContribStatus() {
 }
 
 async function saveContrib() {
+  const type = document.getElementById('c-type').value;
+  const memberId = +document.getElementById('c-member').value;
+  const amount = +document.getElementById('c-amount').value;
+  if (!memberId) { toast('Select a member', 'error'); return; }
+  if (!(amount > 0)) { toast('Enter an amount greater than 0', 'error'); return; }
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  let month = thisMonth, detail = '';
+  if (type === 'Monthly Contribution') {
+    month = document.getElementById('c-month').value;
+    if (!month) { toast('Pick the month this payment is for', 'error'); return; }
+  } else if (type === 'Mchango') {
+    const c = document.getElementById('c-case').value.trim();
+    if (!c) { toast('Enter the case number', 'error'); return; }
+    detail = `Case ${c}`;
+  } else if (type === 'Project Fund') {
+    detail = document.getElementById('c-project').value.trim();
+    if (!detail) { toast('Enter the project name', 'error'); return; }
+  }
+  const userNotes = document.getElementById('c-notes').value.trim();
+  const head = [type, detail].filter(Boolean).join(' · ');
   try {
     await apiFetch('/contributions', {
       method: 'POST',
       body: JSON.stringify({
-        member_id: +document.getElementById('c-member').value,
-        amount: +document.getElementById('c-amount').value,
-        month: document.getElementById('c-month').value,
+        member_id: memberId,
+        amount,
+        month,
+        contribution_type: type,
         payment_method: document.getElementById('c-method').value,
         reference: document.getElementById('c-ref').value || null,
-        notes: document.getElementById('c-notes').value || null,
+        notes: [head, userNotes].filter(Boolean).join(' — '),
       })
     });
     closeModal('modal-add-contrib');
+    ['c-amount','c-ref','c-notes','c-case','c-project'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('c-type').value = 'Monthly Contribution';
+    contribTypeChanged();
     toast('Contribution recorded');
     refreshContribViews();
   } catch(e) { toast(e.message,'error'); }
@@ -2781,13 +2825,33 @@ async function saveContrib() {
 let _payHistMemberId = null;
 let _payHistPayments = [];
 
+const CONTRIB_TYPES = ['Monthly Contribution','Welfare Registration Fee','Mchango','Project Fund'];
+
+// Case number / project name live in the notes after the type ("Mchango · Case 12 — note"),
+// the same layout the member portal writes, so both sides read each other's payments.
+function payDetail(p) {
+  const head = (p.notes || '').split(' — ')[0].split(' · ');
+  if (!CONTRIB_TYPES.includes(head[0])) return '';
+  return head.slice(1).filter(x => !/^Paid \d{4}-\d{2}-\d{2}$/.test(x)).join(' · ');
+}
+
+function contribTypeChanged() {
+  const t = document.getElementById('c-type').value;
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('c-month-wrap',   t === 'Monthly Contribution');
+  show('c-case-wrap',    t === 'Mchango');
+  show('c-project-wrap', t === 'Project Fund');
+  const m = document.getElementById('c-month');
+  if (t === 'Monthly Contribution' && m && !m.value) m.value = new Date().toISOString().slice(0, 7);
+}
+
 function canDeleteContrib() { return ['chairperson','super_admin'].includes(currentUser?.role); }
 
 async function openMemberPayments(memberId) {
   _payHistMemberId = memberId;
   document.getElementById('mp-title').textContent = 'Payments';
   document.getElementById('mp-total').textContent = '';
-  document.getElementById('mp-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
+  document.getElementById('mp-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
   openModal('modal-member-payments');
   await loadMemberPayments(memberId);
 }
@@ -2802,13 +2866,14 @@ async function loadMemberPayments(memberId) {
     document.getElementById('mp-total').textContent =
       `${d.payments.length} payment${d.payments.length === 1 ? '' : 's'} · approved total KES ${fmt(d.total_approved)}`;
     if (!d.payments.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">No payments recorded yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">No payments recorded yet</td></tr>';
       return;
     }
     const badge = st => st === 'approved' ? 'badge-green' : st === 'pending' ? 'badge-blue' : 'badge-red';
     tbody.innerHTML = d.payments.map(p => `
       <tr>
         <td style="white-space:nowrap">${escapeHtml(p.month)}</td>
+        <td>${escapeHtml(p.contribution_type || 'Monthly Contribution')}${payDetail(p) ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(payDetail(p))}</div>` : ''}</td>
         <td style="color:#10b981;font-weight:600;white-space:nowrap">KES ${fmt(p.amount)}</td>
         <td>${escapeHtml(p.payment_method)}</td>
         <td style="font-family:monospace;color:#3b82f6">${escapeHtml(p.reference || '—')}</td>
@@ -2820,7 +2885,7 @@ async function loadMemberPayments(memberId) {
         </td>
       </tr>`).join('');
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -2832,6 +2897,7 @@ function refreshContribViews() {
 
 function recordPaymentForMember() {
   openModal('modal-add-contrib');          // repopulates the member dropdown first
+  contribTypeChanged();
   const sel = document.getElementById('c-member');
   const id = String(_payHistMemberId);
   if (![...sel.options].some(o => o.value === id)) {
@@ -2847,6 +2913,7 @@ function editContrib(id) {
   if (!p) return;
   document.getElementById('pay-edit-id').value = p.id;
   document.getElementById('pay-edit-member').textContent = document.getElementById('mp-title').textContent.replace(/^Payments — /, '');
+  document.getElementById('pay-edit-type').value = p.contribution_type || 'Monthly Contribution';
   document.getElementById('pay-edit-amount').value = p.amount;
   document.getElementById('pay-edit-month').value = p.month;
   document.getElementById('pay-edit-method').value = p.payment_method;
@@ -2861,14 +2928,18 @@ async function saveEditedContrib() {
   const month = document.getElementById('pay-edit-month').value;
   if (!(amount > 0)) { toast('Enter an amount greater than 0', 'error'); return; }
   if (!month) { toast('Pick the month this payment is for', 'error'); return; }
+  const type = document.getElementById('pay-edit-type').value;
+  let notes = document.getElementById('pay-edit-notes').value || null;
+  // keep the type label at the start of the notes in step with the chosen type
+  if (notes) notes = notes.replace(/^(Monthly Contribution|Welfare Registration Fee|Monthly Welfare fee|Mchango|Project Fund)/, type);
   try {
     await apiFetch(`/contributions/${id}`, {
       method: 'PUT',
       body: JSON.stringify({
-        amount, month,
+        amount, month, contribution_type: type,
         payment_method: document.getElementById('pay-edit-method').value,
         reference: document.getElementById('pay-edit-ref').value || null,
-        notes: document.getElementById('pay-edit-notes').value || null,
+        notes,
       })
     });
     closeModal('modal-edit-payment');
@@ -2900,7 +2971,7 @@ async function loadPendingContribs() {
     }
     tbody.innerHTML = rows.map(r => `
       <tr>
-        <td style="font-weight:600;">${r.member}</td>
+        <td style="font-weight:600;">${escapeHtml(r.member)}<div style="font-size:11px;font-weight:400;color:var(--muted)">${escapeHtml(r.contribution_type || 'Monthly Contribution')}</div></td>
         <td style="color:#10b981;font-weight:600;">KES ${fmt(r.amount)}</td>
         <td>${r.month}</td>
         <td style="color:#3b82f6;font-family:monospace;">${escapeHtml(r.reference||'—')}</td>
@@ -3717,6 +3788,7 @@ function openModal(id) {
   if (el.classList.contains('modal-overlay')) { el.style.display = 'flex'; }
   else { el.classList.add('open'); }
   populateMemberSelects();
+  if (id === 'modal-add-contrib') contribTypeChanged();   // shows the right fields, defaults the month
 }
 function closeModal(id) {
   const el = document.getElementById(id);

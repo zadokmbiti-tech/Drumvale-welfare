@@ -10,7 +10,28 @@ from app.utils import safe_db_error
 router = APIRouter()
 
 
+MONTHLY = "Monthly Contribution"
+CONTRIBUTION_TYPES = [MONTHLY, "Welfare Registration Fee", "Mchango", "Project Fund"]
+
+
+def resolve_type(explicit, notes=None):
+    """Pick the contribution type: the explicit value if given (must be valid),
+    otherwise recover it from the text the member portal puts at the start of the
+    notes (keeps older cached portal pages working), otherwise Monthly."""
+    if explicit:
+        if explicit not in CONTRIBUTION_TYPES:
+            raise HTTPException(status_code=400,
+                detail="Contribution type must be one of: " + ", ".join(CONTRIBUTION_TYPES))
+        return explicit
+    head = (notes or "").strip()
+    for t in CONTRIBUTION_TYPES[1:]:
+        if head.startswith(t):
+            return t
+    return MONTHLY
+
+
 class MemberContributionSubmit(BaseModel):
+    contribution_type: Optional[str] = None
     amount: float
     month: str                          # YYYY-MM  e.g. "2026-06"
     payment_method: str = "M-Pesa"
@@ -31,22 +52,24 @@ def record_contribution(
         if not member:
             raise HTTPException(status_code=404, detail="Member not found")
 
+        ctype = resolve_type(data.contribution_type, data.notes)
         cur.execute("""
             INSERT INTO monthly_contributions
-                (member_id, amount, month, payment_method, reference, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                (member_id, amount, month, payment_method, reference, notes, contribution_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (data.member_id, data.amount, data.month,
-              data.payment_method, data.reference, data.notes))
+              data.payment_method, data.reference, data.notes, ctype))
         new_id = cur.fetchone()[0]
         conn.commit()
 
         from app.routes.audit import log_user_action
         log_user_action(current_user, "Contribution Created",
-                         detail=f"KES {data.amount} · {data.month}",
+                         detail=f"{ctype} · KES {data.amount} · {data.month}",
                          target=member[1])
 
-        return {"message": "Contribution recorded", "id": new_id, "member": member[1]}
+        return {"message": "Contribution recorded", "id": new_id, "member": member[1],
+                "contribution_type": ctype}
     except HTTPException:
         raise
     except Exception as e:
@@ -72,7 +95,7 @@ def list_contributions(
     cur = conn.cursor()
     query = """
         SELECT mc.id, m.full_name, mc.amount, mc.month,
-               mc.payment_method, mc.reference, mc.recorded_at
+               mc.payment_method, mc.reference, mc.recorded_at, mc.contribution_type
         FROM monthly_contributions mc
         JOIN members m ON mc.member_id = m.id
         WHERE mc.status = 'approved'
@@ -93,7 +116,8 @@ def list_contributions(
     release_connection(conn)
     return [
         {"id": r[0], "member": r[1], "amount": float(r[2]),
-         "month": r[3], "payment_method": r[4], "reference": r[5], "recorded_at": r[6]}
+         "month": r[3], "payment_method": r[4], "reference": r[5], "recorded_at": r[6],
+         "contribution_type": r[7]}
         for r in rows
     ]
 
@@ -103,7 +127,8 @@ def contributions_summary(_=Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT month, SUM(amount) as total, COUNT(*) as count
+        SELECT month, SUM(amount) as total,
+               COUNT(DISTINCT member_id) FILTER (WHERE contribution_type = 'Monthly Contribution') as count
         FROM monthly_contributions
         WHERE month LIKE %s AND status = 'approved'
         GROUP BY month ORDER BY month
@@ -138,6 +163,7 @@ def month_payment_status(month: str, _=Depends(get_current_user)):
         FROM members m
         LEFT JOIN monthly_contributions mc
             ON mc.member_id = m.id AND mc.month = %s AND mc.status = 'approved'
+               AND mc.contribution_type = 'Monthly Contribution'
         WHERE m.status = 'active'
         GROUP BY m.id, m.full_name
         ORDER BY m.full_name
@@ -160,7 +186,7 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
         cur.execute(
             """SELECT mc.id, mc.member_id, mc.amount, mc.month,
                       mc.payment_method, mc.reference, mc.notes, mc.recorded_at,
-                      mc.status
+                      mc.status, mc.contribution_type
                FROM monthly_contributions mc
                JOIN members m ON mc.member_id = m.id
                JOIN users u   ON u.phone_number = m.phone_number
@@ -177,7 +203,7 @@ def my_contributions(current_user: dict = Depends(get_current_user)):
          "month": r[3], "payment_method": r[4], "reference": r[5],
          "notes": r[6], "recorded_at": str(r[7]) if r[7] else None,
          "date": str(r[7]) if r[7] else None,
-         "contribution_type": "monthly",
+         "contribution_type": r[9] or MONTHLY,
          "status": r[8] if r[8] else "approved"}   # legacy rows have no status
         for r in rows
     ]
@@ -207,21 +233,22 @@ def member_submit_contribution(
             )
         member_id = row[0]
 
+        ctype = resolve_type(data.contribution_type, data.notes)
         cur.execute("""
             INSERT INTO monthly_contributions
                 (member_id, amount, month, payment_method, reference, notes,
-                 status, submitted_by)
-            VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s)
+                 status, submitted_by, contribution_type)
+            VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s, %s)
             RETURNING id
         """, (member_id, data.amount, data.month,
               data.payment_method, data.reference, data.notes,
-              current_user["user_id"]))
+              current_user["user_id"], ctype))
         new_id = cur.fetchone()[0]
         conn.commit()
 
         from app.routes.audit import log_user_action
         log_user_action(current_user, "Contribution Submitted",
-                         detail=f"KES {data.amount} · {data.month} (awaiting approval)",
+                         detail=f"{ctype} · KES {data.amount} · {data.month} (awaiting approval)",
                          target=f"member #{member_id}")
 
         return {
@@ -325,7 +352,7 @@ def list_pending_contributions(_=Depends(require_treasurer)):
         cur.execute("""
             SELECT mc.id, m.full_name, mc.amount, mc.month,
                    mc.payment_method, mc.reference, mc.notes,
-                   mc.recorded_at, mc.status
+                   mc.recorded_at, mc.status, mc.contribution_type
             FROM monthly_contributions mc
             JOIN members m ON mc.member_id = m.id
             WHERE mc.status = 'pending'
@@ -339,7 +366,8 @@ def list_pending_contributions(_=Depends(require_treasurer)):
         {
             "id": r[0], "member": r[1], "amount": float(r[2]),
             "month": r[3], "payment_method": r[4], "reference": r[5],
-            "notes": r[6], "recorded_at": str(r[7]), "status": r[8]
+            "notes": r[6], "recorded_at": str(r[7]), "status": r[8],
+            "contribution_type": r[9]
         }
         for r in rows
     ]
@@ -379,6 +407,7 @@ class MonthlyContributionUpdate(BaseModel):
     payment_method: str = "M-Pesa"
     reference: Optional[str] = None
     notes: Optional[str] = None
+    contribution_type: Optional[str] = None   # None = leave unchanged
 
 
 @router.get("/member/{member_id}")
@@ -397,7 +426,7 @@ def member_payment_history(
 
         cur.execute("""
             SELECT id, amount, month, payment_method, reference, notes,
-                   COALESCE(status, 'approved'), recorded_at
+                   COALESCE(status, 'approved'), recorded_at, contribution_type
             FROM monthly_contributions
             WHERE member_id = %s
             ORDER BY month DESC, recorded_at DESC
@@ -409,7 +438,8 @@ def member_payment_history(
 
     payments = [
         {"id": r[0], "amount": float(r[1]), "month": r[2], "payment_method": r[3],
-         "reference": r[4], "notes": r[5], "status": r[6], "recorded_at": str(r[7])}
+         "reference": r[4], "notes": r[5], "status": r[6], "recorded_at": str(r[7]),
+         "contribution_type": r[8]}
         for r in rows
     ]
     return {
@@ -436,7 +466,8 @@ def update_contribution(
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT mc.amount, mc.month, mc.payment_method, mc.reference, m.full_name
+            SELECT mc.amount, mc.month, mc.payment_method, mc.reference, m.full_name,
+                   mc.contribution_type
             FROM monthly_contributions mc
             JOIN members m ON m.id = mc.member_id
             WHERE mc.id = %s
@@ -445,11 +476,12 @@ def update_contribution(
         if not old:
             raise HTTPException(status_code=404, detail="Contribution not found")
 
+        new_type = resolve_type(data.contribution_type) if data.contribution_type else old[5]
         cur.execute("""
             UPDATE monthly_contributions
-            SET amount=%s, month=%s, payment_method=%s, reference=%s, notes=%s
+            SET amount=%s, month=%s, payment_method=%s, reference=%s, notes=%s, contribution_type=%s
             WHERE id=%s
-        """, (data.amount, data.month, data.payment_method, reference, notes, contribution_id))
+        """, (data.amount, data.month, data.payment_method, reference, notes, new_type, contribution_id))
         conn.commit()
 
         changes = []
@@ -461,6 +493,8 @@ def update_contribution(
             changes.append(f"method {old[2]} → {data.payment_method}")
         if (old[3] or None) != reference:
             changes.append(f"ref {old[3] or '—'} → {reference or '—'}")
+        if old[5] != new_type:
+            changes.append(f"type {old[5]} → {new_type}")
 
         from app.routes.audit import log_user_action
         log_user_action(current_user, "Contribution Edited",

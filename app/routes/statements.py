@@ -35,11 +35,12 @@ def _member_statement(member_id: int):
 
         # Monthly contributions
         cur.execute("""
-            SELECT month, amount, payment_method, reference, recorded_at
+            SELECT month, amount, payment_method, reference, recorded_at, contribution_type
             FROM monthly_contributions WHERE member_id=%s AND status='approved' ORDER BY month DESC
         """, (member_id,))
         contributions = [{"month": r[0], "amount": float(r[1]), "payment_method": r[2],
-                          "reference": r[3], "recorded_at": str(r[4])} for r in cur.fetchall()]
+                          "reference": r[3], "recorded_at": str(r[4]),
+                          "contribution_type": r[5]} for r in cur.fetchall()]
         total_contributions = sum(c["amount"] for c in contributions)
 
         # Loans
@@ -85,7 +86,8 @@ def _member_statement(member_id: int):
         else:
             joined = date.today().replace(day=1)
 
-        paid_months = {c["month"] for c in contributions}
+        paid_months = {c["month"] for c in contributions
+                       if c["contribution_type"] == "Monthly Contribution"}
         arrears_months = []
         cursor_month = joined.replace(day=1)
         this_month = date.today().replace(day=1)
@@ -96,7 +98,7 @@ def _member_statement(member_id: int):
             cursor_month += relativedelta(months=1)
 
         # Standard contribution amount (get from most common)
-        cur.execute("SELECT COALESCE(mode() WITHIN GROUP (ORDER BY amount), 500) FROM monthly_contributions")
+        cur.execute("SELECT COALESCE(mode() WITHIN GROUP (ORDER BY amount), 500) FROM monthly_contributions WHERE contribution_type = 'Monthly Contribution'")
         std_amount = float(cur.fetchone()[0] or 500)
         total_arrears_amount = len(arrears_months) * std_amount
 
@@ -248,7 +250,7 @@ def defaulters_report(_=Depends(require_admin)):
         cur.execute("SELECT id, full_name, phone_number, date_joined FROM members WHERE status='active' ORDER BY full_name")
         members = cur.fetchall()
 
-        cur.execute("SELECT COALESCE(mode() WITHIN GROUP (ORDER BY amount), 500) FROM monthly_contributions")
+        cur.execute("SELECT COALESCE(mode() WITHIN GROUP (ORDER BY amount), 500) FROM monthly_contributions WHERE contribution_type = 'Monthly Contribution'")
         std_amount = float(cur.fetchone()[0] or 500)
 
         this_month = date.today().replace(day=1)
@@ -265,7 +267,7 @@ def defaulters_report(_=Depends(require_admin)):
         loans_by_member = {}
         if member_ids:
             cur.execute(
-                "SELECT member_id, month FROM monthly_contributions WHERE member_id = ANY(%s) AND status = 'approved'",
+                "SELECT member_id, month FROM monthly_contributions WHERE member_id = ANY(%s) AND status = 'approved' AND contribution_type = 'Monthly Contribution'",
                 (member_ids,)
             )
             for mid, month in cur.fetchall():
