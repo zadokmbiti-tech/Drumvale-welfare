@@ -27,6 +27,7 @@ physical presence is tracked independently of their payment.
 Run migrations/002_case_management.sql once before using this.
 """
 
+import re
 from datetime import date, timedelta
 from enum import Enum
 from typing import Optional
@@ -90,6 +91,27 @@ def _compute_note(present: int, absent: int, apology: int) -> str:
     if present > absent and present > apology:
         return "Members will visit you and also handover the contribution."
     return "Attendance is mixed — check the roster for details."
+
+
+def _mchango_paid(cur, case_no):
+    """
+    Mchango payments recorded from the Payments screen live in monthly_contributions,
+    with the case in the notes ("Mchango · Case 58 — ..."). Return
+    {member_id: {"amount": total, "date_paid": latest date}} for this case so the
+    roster can show those members as paid.
+    """
+    if case_no is None:
+        return {}
+    pattern = r"(^|·)\s*Case\s+" + re.escape(str(case_no).strip()) + r"\s*(·|$)"
+    cur.execute("""
+        SELECT member_id, SUM(amount), MAX(date(recorded_at))
+        FROM monthly_contributions
+        WHERE contribution_type = 'Mchango'
+          AND status = 'approved'
+          AND split_part(notes, ' — ', 1) ~* %s
+        GROUP BY member_id
+    """, (pattern,))
+    return {r[0]: {"amount": r[1], "date_paid": r[2]} for r in cur.fetchall()}
 
 
 def _case_row_to_dict(row, total_collected=None):
@@ -295,7 +317,17 @@ def list_cases(current_user=Depends(get_current_user)):
             ORDER BY e.start_date DESC NULLS LAST, e.id DESC
         """)
         rows = cur.fetchall()
-        return [_case_row_to_dict(r[:-1], total_collected=r[-1]) for r in rows]
+        result = []
+        for r in rows:
+            total = float(r[-1] or 0)
+            roster_ids = set()
+            cur.execute("SELECT member_id FROM contributions WHERE event_id=%s", (r[0],))
+            roster_ids = {x[0] for x in cur.fetchall()}
+            for mid, c in _mchango_paid(cur, r[10]).items():
+                if mid not in roster_ids:
+                    total += float(c["amount"])
+            result.append(_case_row_to_dict(r[:-1], total_collected=total))
+        return result
     finally:
         cur.close()
         release_connection(conn)
@@ -335,6 +367,10 @@ def get_case_profile(case_id: int, current_user=Depends(get_current_user)):
 
         cur.execute("SELECT member_id, amount, date(recorded_at) FROM contributions WHERE event_id=%s", (case_id,))
         contributions = {r[0]: {"amount": r[1], "date_paid": r[2]} for r in cur.fetchall()}
+        # Members who paid via Payments > Mchango for this case count as paid too
+        # (a roster entry, if one exists, takes priority so nothing is double counted).
+        for mid, c in _mchango_paid(cur, row[10]).items():
+            contributions.setdefault(mid, c)
 
         cur.execute("SELECT member_id, status, is_new_member FROM case_attendance WHERE event_id=%s", (case_id,))
         attendance = {r[0]: {"status": r[1], "is_new_member": r[2]} for r in cur.fetchall()}
@@ -408,11 +444,12 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT amount_per_member FROM events WHERE id=%s", (case_id,))
+        cur.execute("SELECT amount_per_member, case_no FROM events WHERE id=%s", (case_id,))
         case_row = cur.fetchone()
         if not case_row:
             raise HTTPException(404, "Case not found")
         default_amount = case_row[0]
+        already_paid_mchango = _mchango_paid(cur, case_row[1])
 
         saved = 0
         skipped_no_amount = 0
@@ -425,6 +462,10 @@ def save_roster(case_id: int, entries: list[RosterEntry], current_user=Depends(r
                     DO UPDATE SET status = EXCLUDED.status, is_new_member = EXCLUDED.is_new_member
                 """, (case_id, e.member_id, e.attendance_status.value, e.is_new_member))
 
+            if e.paid and e.member_id in already_paid_mchango:
+                # Already paid through Payments > Mchango; don't record it twice.
+                saved += 1
+                continue
             if e.paid:
                 amount = e.amount if e.amount is not None else default_amount
                 if amount is None:
