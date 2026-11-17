@@ -223,11 +223,15 @@ async def bulk_import_members(
 @router.get("")
 @router.get("/")
 def list_members(
-    limit: int = 200,
+    limit: int = 2000,
     offset: int = 0,
     _=Depends(get_current_user)
 ):
-    limit = max(1, min(limit, 500))   # hard cap so a bad/huge value can't force a full table scan
+    # The UIs load the whole list and search/filter in the browser, so the
+    # default must comfortably exceed the group's size. (It used to be 200,
+    # which silently dropped the oldest members, since rows are ordered
+    # newest-first — they could not be found by search anywhere.)
+    limit = max(1, min(limit, 5000))   # hard cap so a bad/huge value can't force a full table scan
     offset = max(0, offset)
     conn = get_connection()
     cur = conn.cursor()

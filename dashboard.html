@@ -875,6 +875,9 @@
           <!-- Member select + role buttons -->
           <div style="margin-bottom:14px;">
             <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">SELECT MEMBER</label>
+            <input type="search" id="sys-member-search" placeholder="🔍 Search name, phone or member no…" autocomplete="off"
+              oninput="filterMemberSelect('sys-member-sel', this.value)"
+              style="width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;"/>
             <select id="sys-member-sel" onchange="onSysMemberChange()"
               style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;">
               <option value="">— Choose a member —</option>
@@ -924,6 +927,9 @@
           <!-- Member select + position buttons -->
           <div style="margin-bottom:14px;">
             <label style="font-size:0.78rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">SELECT MEMBER</label>
+            <input type="search" id="com-member-search" placeholder="🔍 Search name, phone or member no…" autocomplete="off"
+              oninput="filterMemberSelect('com-member-sel', this.value)"
+              style="width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;"/>
             <select id="com-member-sel" onchange="onComMemberChange()"
               style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;">
               <option value="">— Choose a member —</option>
@@ -4261,15 +4267,41 @@ async function loadUserMgmt() {
   }
 }
 
+function _memberOptionsHtml(members) {
+  return '<option value="">— Choose a member —</option>'
+    + members.map(m => {
+        const isSelf = m.phone_number === currentUser?.phone;
+        const no = m.membership_no ? ` #${escapeHtml(m.membership_no)}` : '';
+        return `<option value="${m.id}" data-role="${m.role}" data-name="${escapeHtml(m.full_name)}" data-phone="${m.phone_number}"${isSelf ? ' disabled' : ''}>${escapeHtml(m.full_name)}${no} (${m.phone_number})${isSelf ? ' — You' : ''}</option>`;
+      }).join('');
+}
+
+// Search box above a member <select>: filters by name, phone or member no.
+// While a search is active the select expands into a short list so matches
+// are visible without opening the dropdown; the selected member is kept.
+function filterMemberSelect(selId, query) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  const q = (query || '').toLowerCase().trim();
+  const keep = sel.value;
+  const matches = !q ? allUsersForMgmt : allUsersForMgmt.filter(m =>
+    (m.full_name || '').toLowerCase().includes(q) ||
+    (m.phone_number || '').includes(q) ||
+    (m.membership_no || '').toString().toLowerCase().includes(q));
+  sel.innerHTML = _memberOptionsHtml(matches);
+  if (keep && matches.some(m => String(m.id) === String(keep))) sel.value = keep;
+  sel.size = q ? Math.min(Math.max(matches.length + 1, 2), 7) : 1;
+  if (!sel.value) sel.dispatchEvent(new Event('change'));
+}
+
 function _populateMemberSelects(members) {
   ['sys-member-sel','com-member-sel'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    sel.innerHTML = '<option value="">— Choose a member —</option>'
-      + members.map(m => {
-          const isSelf = m.phone_number === currentUser?.phone;
-          return `<option value="${m.id}" data-role="${m.role}" data-name="${escapeHtml(m.full_name)}" data-phone="${m.phone_number}"${isSelf ? ' disabled' : ''}>${escapeHtml(m.full_name)} (${m.phone_number})${isSelf ? ' — You' : ''}</option>`;
-        }).join('');
+    sel.size = 1;
+    sel.innerHTML = _memberOptionsHtml(members);
+    const box = document.getElementById(id.replace('-member-sel','-member-search'));
+    if (box) box.value = '';
   });
   // Start buttons dimmed until a member is chosen
   onSysMemberChange();
@@ -4315,7 +4347,7 @@ function _renderUmTable(members) {
 // ── System Role panel ─────────────────────────────────────────
 function onSysMemberChange() {
   const sel = document.getElementById('sys-member-sel');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel.options[sel.selectedIndex] || { value: '', dataset: {} };
   const info = document.getElementById('sys-current-role');
   const hasVal = !!opt.value;
   if (!hasVal) { info.textContent = ''; }
@@ -4367,7 +4399,7 @@ async function setSysRole(newRole) {
 // ── Committee Role panel ──────────────────────────────────────
 function onComMemberChange() {
   const sel = document.getElementById('com-member-sel');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel.options[sel.selectedIndex] || { value: '', dataset: {} };
   const info = document.getElementById('com-current-role');
   const hasVal = !!opt.value;
   if (!hasVal) { info.textContent = ''; }
