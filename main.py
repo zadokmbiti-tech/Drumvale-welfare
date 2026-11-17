@@ -318,12 +318,12 @@ def dashboard_stats(_=Depends(get_current_user)):
 
         this_month = date.today().strftime("%Y-%m")
         cur.execute(
-            "SELECT COALESCE(SUM(amount),0) FROM monthly_contributions WHERE month=%s",
+            "SELECT COALESCE(SUM(amount),0) FROM monthly_contributions WHERE month=%s AND status='approved'",
             (this_month,)
         )
         this_month_contrib = float(cur.fetchone()[0])
 
-        cur.execute("SELECT COALESCE(SUM(amount),0) FROM monthly_contributions")
+        cur.execute("SELECT COALESCE(SUM(amount),0) FROM monthly_contributions WHERE status='approved'")
         all_time_contrib = float(cur.fetchone()[0])
 
         cur.execute("SELECT COUNT(*) FROM loans WHERE status='disbursed'")

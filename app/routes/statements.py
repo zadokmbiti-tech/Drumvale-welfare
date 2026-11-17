@@ -36,7 +36,7 @@ def _member_statement(member_id: int):
         # Monthly contributions
         cur.execute("""
             SELECT month, amount, payment_method, reference, recorded_at
-            FROM monthly_contributions WHERE member_id=%s ORDER BY month DESC
+            FROM monthly_contributions WHERE member_id=%s AND status='approved' ORDER BY month DESC
         """, (member_id,))
         contributions = [{"month": r[0], "amount": float(r[1]), "payment_method": r[2],
                           "reference": r[3], "recorded_at": str(r[4])} for r in cur.fetchall()]
@@ -265,7 +265,7 @@ def defaulters_report(_=Depends(require_admin)):
         loans_by_member = {}
         if member_ids:
             cur.execute(
-                "SELECT member_id, month FROM monthly_contributions WHERE member_id = ANY(%s)",
+                "SELECT member_id, month FROM monthly_contributions WHERE member_id = ANY(%s) AND status = 'approved'",
                 (member_ids,)
             )
             for mid, month in cur.fetchall():
@@ -336,7 +336,7 @@ def finance_report(year: int = None, month: str = None, _=Depends(require_admin)
         # Monthly contributions per month
         cur.execute("""
             SELECT month, SUM(amount) FROM monthly_contributions
-            WHERE month LIKE %s GROUP BY month ORDER BY month
+            WHERE month LIKE %s AND status = 'approved' GROUP BY month ORDER BY month
         """, (f"{y}-%",))
         monthly_contribs = {r[0]: float(r[1]) for r in cur.fetchall()}
 

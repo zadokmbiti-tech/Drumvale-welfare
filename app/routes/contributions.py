@@ -75,7 +75,7 @@ def list_contributions(
                mc.payment_method, mc.reference, mc.recorded_at
         FROM monthly_contributions mc
         JOIN members m ON mc.member_id = m.id
-        WHERE 1=1
+        WHERE mc.status = 'approved'
     """
     params = []
     if month:
@@ -105,7 +105,7 @@ def contributions_summary(_=Depends(get_current_user)):
     cur.execute("""
         SELECT month, SUM(amount) as total, COUNT(*) as count
         FROM monthly_contributions
-        WHERE month LIKE %s
+        WHERE month LIKE %s AND status = 'approved'
         GROUP BY month ORDER BY month
     """, (f"{__import__('datetime').date.today().year}-%",))
     rows = cur.fetchall()
@@ -113,7 +113,7 @@ def contributions_summary(_=Depends(get_current_user)):
     cur.execute("SELECT COUNT(*) FROM members WHERE status='active'")
     total_members = cur.fetchone()[0]
 
-    cur.execute("SELECT COALESCE(SUM(amount),0) FROM monthly_contributions")
+    cur.execute("SELECT COALESCE(SUM(amount),0) FROM monthly_contributions WHERE status = 'approved'")
     all_time_total = cur.fetchone()[0]
 
     cur.close()
@@ -133,12 +133,13 @@ def month_payment_status(month: str, _=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
         SELECT m.id, m.full_name,
-               COALESCE(mc.amount, 0) as amount,
-               CASE WHEN mc.id IS NOT NULL THEN true ELSE false END as paid
+               COALESCE(SUM(mc.amount), 0) as amount,
+               COUNT(mc.id) > 0 as paid
         FROM members m
         LEFT JOIN monthly_contributions mc
-            ON mc.member_id = m.id AND mc.month = %s
+            ON mc.member_id = m.id AND mc.month = %s AND mc.status = 'approved'
         WHERE m.status = 'active'
+        GROUP BY m.id, m.full_name
         ORDER BY m.full_name
     """, (month,))
     rows = cur.fetchall()
@@ -365,3 +366,113 @@ def delete_contribution(
                      target=f"contribution #{contribution_id}")
 
     return {"message": "Deleted"}
+
+# ── Edit a recorded contribution / per-member payment history ────────────────
+
+import re as _re
+from pydantic import Field
+
+
+class MonthlyContributionUpdate(BaseModel):
+    amount: float = Field(gt=0)
+    month: str                          # YYYY-MM
+    payment_method: str = "M-Pesa"
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.get("/member/{member_id}")
+def member_payment_history(
+    member_id: int,
+    _=Depends(require_treasurer)        # treasurer, secretary-and-above payment records
+):
+    """Every monthly contribution recorded for one member, newest month first."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, full_name, membership_no FROM members WHERE id=%s", (member_id,))
+        member = cur.fetchone()
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found")
+
+        cur.execute("""
+            SELECT id, amount, month, payment_method, reference, notes,
+                   COALESCE(status, 'approved'), recorded_at
+            FROM monthly_contributions
+            WHERE member_id = %s
+            ORDER BY month DESC, recorded_at DESC
+        """, (member_id,))
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        release_connection(conn)
+
+    payments = [
+        {"id": r[0], "amount": float(r[1]), "month": r[2], "payment_method": r[3],
+         "reference": r[4], "notes": r[5], "status": r[6], "recorded_at": str(r[7])}
+        for r in rows
+    ]
+    return {
+        "member": {"id": member[0], "full_name": member[1], "membership_no": member[2]},
+        "total_approved": sum(p["amount"] for p in payments if p["status"] == "approved"),
+        "payments": payments,
+    }
+
+
+@router.put("/{contribution_id}")
+def update_contribution(
+    contribution_id: int,
+    data: MonthlyContributionUpdate,
+    current_user=Depends(require_treasurer)        # treasurer, chairperson, super_admin
+):
+    """Correct the amount, month, method, M-Pesa code or notes of a recorded payment."""
+    if not _re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", data.month or ""):
+        raise HTTPException(status_code=400, detail="Month must be in YYYY-MM format")
+
+    reference = (data.reference or "").strip() or None
+    notes = (data.notes or "").strip() or None
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT mc.amount, mc.month, mc.payment_method, mc.reference, m.full_name
+            FROM monthly_contributions mc
+            JOIN members m ON m.id = mc.member_id
+            WHERE mc.id = %s
+        """, (contribution_id,))
+        old = cur.fetchone()
+        if not old:
+            raise HTTPException(status_code=404, detail="Contribution not found")
+
+        cur.execute("""
+            UPDATE monthly_contributions
+            SET amount=%s, month=%s, payment_method=%s, reference=%s, notes=%s
+            WHERE id=%s
+        """, (data.amount, data.month, data.payment_method, reference, notes, contribution_id))
+        conn.commit()
+
+        changes = []
+        if float(old[0]) != float(data.amount):
+            changes.append(f"amount KES {float(old[0]):g} → {float(data.amount):g}")
+        if old[1] != data.month:
+            changes.append(f"month {old[1]} → {data.month}")
+        if old[2] != data.payment_method:
+            changes.append(f"method {old[2]} → {data.payment_method}")
+        if (old[3] or None) != reference:
+            changes.append(f"ref {old[3] or '—'} → {reference or '—'}")
+
+        from app.routes.audit import log_user_action
+        log_user_action(current_user, "Contribution Edited",
+                         detail=f"Contribution #{contribution_id}: " + (", ".join(changes) or "notes updated"),
+                         target=old[4])
+
+        return {"message": "Contribution updated", "id": contribution_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        safe_db_error(e, status=400)
+    finally:
+        cur.close()
+        release_connection(conn)

@@ -141,6 +141,8 @@
     display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
   }
   .modal-backdrop.open { display: flex; }
+  /* forms opened from inside the payment-history window must stack above it */
+  #modal-add-contrib, #modal-edit-payment { z-index: 210; }
   .modal {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
@@ -1166,6 +1168,49 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-add-contrib')">Cancel</button>
       <button class="btn btn-primary" onclick="saveContrib()">Record Payment</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-member-payments" class="modal-backdrop">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="mp-title">Payments</h3>
+      <button class="modal-close" onclick="closeModal('modal-member-payments')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <div id="mp-total" style="flex:1;color:var(--muted);font-size:13px"></div>
+      <button class="btn btn-primary btn-sm" onclick="recordPaymentForMember()">+ Record Payment</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Month</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Recorded</th><th>Actions</th></tr></thead>
+        <tbody id="mp-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="modal-edit-payment" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Payment</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-payment')">✕</button>
+    </div>
+    <div id="pay-edit-member" style="margin-bottom:14px;color:var(--muted);font-size:13px"></div>
+    <input type="hidden" id="pay-edit-id"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Amount (KES)</label><input id="pay-edit-amount" type="number" min="1" step="any"/></div>
+      <div class="form-group"><label>Month</label><input id="pay-edit-month" type="month"/></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="pay-edit-method"><option value="M-Pesa">M-Pesa</option><option value="Bank">Bank Transfer</option><option value="Cash">Cash</option></select>
+      </div>
+      <div class="form-group"><label>Reference / Transaction ID</label><input id="pay-edit-ref"/></div>
+      <div class="form-group full"><label>Notes</label><textarea id="pay-edit-notes"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-payment')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditedContrib()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -2481,6 +2526,7 @@ function renderMembersTable(members) {
       <td>${m.date_joined||'—'}</td>
       <td><span class="badge ${m.status==='active'?'badge-green':'badge-gray'}">${escapeHtml(m.status)}</span></td>
       <td style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm btn-outline" onclick="openMemberPayments(${m.id})" title="View, record or edit this member's payments">💰 Payments</button>
         ${m.status==='active'
           ? `<button class="btn btn-sm btn-danger" onclick="deactivateMember(${m.id})">Deactivate</button>`
           : `<button class="btn btn-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.35)" onclick="reactivateMember(${m.id})">Reactivate</button>`}
@@ -2704,7 +2750,7 @@ async function loadContribStatus() {
     const rows = await apiFetch(`/contributions/status/${month}`);
     tbody.innerHTML = rows.map(r => `
       <tr>
-        <td>${escapeHtml(r.full_name)}</td>
+        <td><a href="#" onclick="openMemberPayments(${r.member_id});return false;" style="color:inherit;text-decoration:underline dotted" title="View / edit payments">${escapeHtml(r.full_name)}</a></td>
         <td>${r.paid ? `KES ${fmt(r.amount)}` : '—'}</td>
         <td><span class="badge ${r.paid?'badge-green':'badge-red'}">${r.paid?'Paid':'Unpaid'}</span></td>
         <td>—</td><td>—</td>
@@ -2727,8 +2773,119 @@ async function saveContrib() {
     });
     closeModal('modal-add-contrib');
     toast('Contribution recorded');
-    loadContribSummary(); loadContribStatus(); loadPendingContribs();
+    refreshContribViews();
   } catch(e) { toast(e.message,'error'); }
+}
+
+// ── Per-member payment history: view, record, edit, delete ────────────────
+let _payHistMemberId = null;
+let _payHistPayments = [];
+
+function canDeleteContrib() { return ['chairperson','super_admin'].includes(currentUser?.role); }
+
+async function openMemberPayments(memberId) {
+  _payHistMemberId = memberId;
+  document.getElementById('mp-title').textContent = 'Payments';
+  document.getElementById('mp-total').textContent = '';
+  document.getElementById('mp-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading…</td></tr>';
+  openModal('modal-member-payments');
+  await loadMemberPayments(memberId);
+}
+
+async function loadMemberPayments(memberId) {
+  const tbody = document.getElementById('mp-tbody');
+  try {
+    const d = await apiFetch(`/contributions/member/${memberId}`);
+    _payHistPayments = d.payments;
+    const no = d.member.membership_no ? ` · #${escapeHtml(d.member.membership_no)}` : '';
+    document.getElementById('mp-title').innerHTML = `Payments — ${escapeHtml(d.member.full_name)}${no}`;
+    document.getElementById('mp-total').textContent =
+      `${d.payments.length} payment${d.payments.length === 1 ? '' : 's'} · approved total KES ${fmt(d.total_approved)}`;
+    if (!d.payments.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">No payments recorded yet</td></tr>';
+      return;
+    }
+    const badge = st => st === 'approved' ? 'badge-green' : st === 'pending' ? 'badge-blue' : 'badge-red';
+    tbody.innerHTML = d.payments.map(p => `
+      <tr>
+        <td style="white-space:nowrap">${escapeHtml(p.month)}</td>
+        <td style="color:#10b981;font-weight:600;white-space:nowrap">KES ${fmt(p.amount)}</td>
+        <td>${escapeHtml(p.payment_method)}</td>
+        <td style="font-family:monospace;color:#3b82f6">${escapeHtml(p.reference || '—')}</td>
+        <td><span class="badge ${badge(p.status)}">${escapeHtml(p.status)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${fmtDate(p.recorded_at)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm btn-outline" onclick="editContrib(${p.id})">Edit</button>
+          ${canDeleteContrib() ? `<button class="btn btn-sm btn-danger" onclick="deleteContrib(${p.id})">Delete</button>` : ''}
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444">⚠️ ${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function refreshContribViews() {
+  loadContribSummary(); loadContribStatus(); loadPendingContribs();
+  const open = document.getElementById('modal-member-payments')?.classList.contains('open');
+  if (open && _payHistMemberId) loadMemberPayments(_payHistMemberId);
+}
+
+function recordPaymentForMember() {
+  openModal('modal-add-contrib');          // repopulates the member dropdown first
+  const sel = document.getElementById('c-member');
+  const id = String(_payHistMemberId);
+  if (![...sel.options].some(o => o.value === id)) {
+    // inactive members are not in the dropdown; add this one so it can be selected
+    const name = document.getElementById('mp-title').textContent.replace(/^Payments — /, '');
+    sel.add(new Option(name, id));
+  }
+  sel.value = id;
+}
+
+function editContrib(id) {
+  const p = _payHistPayments.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('pay-edit-id').value = p.id;
+  document.getElementById('pay-edit-member').textContent = document.getElementById('mp-title').textContent.replace(/^Payments — /, '');
+  document.getElementById('pay-edit-amount').value = p.amount;
+  document.getElementById('pay-edit-month').value = p.month;
+  document.getElementById('pay-edit-method').value = p.payment_method;
+  document.getElementById('pay-edit-ref').value = p.reference || '';
+  document.getElementById('pay-edit-notes').value = p.notes || '';
+  openModal('modal-edit-payment');
+}
+
+async function saveEditedContrib() {
+  const id = document.getElementById('pay-edit-id').value;
+  const amount = +document.getElementById('pay-edit-amount').value;
+  const month = document.getElementById('pay-edit-month').value;
+  if (!(amount > 0)) { toast('Enter an amount greater than 0', 'error'); return; }
+  if (!month) { toast('Pick the month this payment is for', 'error'); return; }
+  try {
+    await apiFetch(`/contributions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        amount, month,
+        payment_method: document.getElementById('pay-edit-method').value,
+        reference: document.getElementById('pay-edit-ref').value || null,
+        notes: document.getElementById('pay-edit-notes').value || null,
+      })
+    });
+    closeModal('modal-edit-payment');
+    toast('Payment updated');
+    refreshContribViews();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteContrib(id) {
+  const p = _payHistPayments.find(x => x.id === id);
+  const what = p ? `KES ${fmt(p.amount)} for ${p.month}` : `payment #${id}`;
+  if (!confirm(`Delete ${what}? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/contributions/${id}`, { method: 'DELETE' });
+    toast('Payment deleted');
+    refreshContribViews();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function loadPendingContribs() {
