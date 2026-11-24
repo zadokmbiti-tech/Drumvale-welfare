@@ -10,13 +10,25 @@ from app.database import get_connection, release_connection
 from app.routes.auth import require_admin
 from app.rate_limit import enforce_rate_limit
 from passlib.context import CryptContext
-import random, string, hashlib
+import secrets, string, hashlib, hmac, os
 from datetime import datetime, timedelta
 
 limiter = Limiter(key_func=get_remote_address)  # Create a Limiter instance
 
 router = APIRouter(prefix="/reset", tags=["Password Reset"])
+
+# How long an OTP stays valid. The admin relays it by phone/WhatsApp, so it
+# needs to outlive a slow reply; set OTP_VALIDITY_HOURS in .env to change it.
+OTP_VALIDITY_HOURS = max(1, min(int(os.getenv("OTP_VALIDITY_HOURS", "48")), 48))  # hard cap: 48h
+# Wrong guesses allowed per OTP before it is burned. Because the code lives
+# for hours, this (not just the per-minute rate limit) caps brute-forcing.
+OTP_MAX_ATTEMPTS = 5
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _validity_label() -> str:
+    h = OTP_VALIDITY_HOURS
+    return f"{h} hour{'s' if h != 1 else ''}"
 
 
 def _hash_otp(otp: str) -> str:
@@ -43,8 +55,11 @@ def _generate_and_store_otp(phone: str):
         # any still-outstanding OTP for this number before issuing a new one.
         cur.execute("DELETE FROM otp_codes WHERE phone_number=%s AND (used OR expires_at < NOW())", (phone,))
 
-        otp = "".join(random.choices(string.digits, k=6))
-        expires_at = datetime.utcnow() + timedelta(minutes=15)
+        # Only one live OTP per number: burn any earlier unused code.
+        cur.execute("UPDATE otp_codes SET used=true WHERE phone_number=%s AND used=false", (phone,))
+
+        otp = "".join(secrets.choice(string.digits) for _ in range(6))
+        expires_at = datetime.utcnow() + timedelta(hours=OTP_VALIDITY_HOURS)
         cur.execute(
             "INSERT INTO otp_codes (phone_number, otp_hash, expires_at) VALUES (%s, %s, %s)",
             (phone, _hash_otp(otp), expires_at)
@@ -106,7 +121,7 @@ def request_reset(request: Request, data: dict):
 
     return {
         "message": "Request received. An admin will share your OTP via phone or WhatsApp.",
-        "expires_in": "15 minutes",
+        "expires_in": _validity_label(),
     }
 
 
@@ -148,7 +163,7 @@ def admin_request_reset(request: Request, data: dict, current_user: dict = Depen
     return {
         "message": f"OTP generated for {full_name}. Share with member via phone/WhatsApp.",
         "otp": otp,  # Admin sees this and calls/WhatsApps the member
-        "expires_in": "15 minutes"
+        "expires_in": _validity_label(),
     }
 
 
@@ -223,7 +238,7 @@ def confirm_reset(request: Request, data: dict):
     cur  = conn.cursor()
     try:
         cur.execute(
-            """SELECT id, otp_hash, expires_at FROM otp_codes
+            """SELECT id, otp_hash, expires_at, attempts FROM otp_codes
                WHERE phone_number=%s AND used=false
                ORDER BY created_at DESC LIMIT 1""",
             (phone,)
@@ -231,10 +246,18 @@ def confirm_reset(request: Request, data: dict):
         stored = cur.fetchone()
         if not stored:
             raise HTTPException(status_code=400, detail="No OTP found for this number. Request a new one.")
-        otp_id, otp_hash, expires_at = stored
+        otp_id, otp_hash, expires_at, attempts = stored
         if datetime.utcnow() > expires_at:
             raise HTTPException(status_code=400, detail="OTP has expired. Request a new one.")
-        if _hash_otp(otp) != otp_hash:
+        if not hmac.compare_digest(_hash_otp(otp), otp_hash):
+            attempts += 1
+            # Burn the code once the guess limit is hit; commit before raising
+            # so the count actually persists.
+            cur.execute("UPDATE otp_codes SET attempts=%s, used=%s WHERE id=%s",
+                        (attempts, attempts >= OTP_MAX_ATTEMPTS, otp_id))
+            conn.commit()
+            if attempts >= OTP_MAX_ATTEMPTS:
+                raise HTTPException(status_code=400, detail="Too many wrong attempts. Request a new OTP.")
             raise HTTPException(status_code=400, detail="Invalid OTP")
 
         cur.execute("SELECT full_name FROM users WHERE phone_number=%s", (phone,))

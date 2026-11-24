@@ -2010,7 +2010,7 @@
         <div id="reset-otp-display" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:8px;padding:16px;text-align:center;margin-bottom:12px">
           <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">OTP for member (share via phone/WhatsApp):</div>
           <div id="reset-otp-value" style="font-size:2rem;font-weight:900;letter-spacing:8px;color:var(--accent)">------</div>
-          <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Expires in 15 minutes</div>
+          <div id="reset-otp-expiry" style="font-size:0.72rem;color:var(--muted);margin-top:4px">Expires in 48 hours</div>
         </div>
         <label class="form-label">New Password (if resetting directly)</label>
         <input id="reset-new-pass" class="form-control" type="password" placeholder="Min 6 characters">
@@ -4237,6 +4237,7 @@ async function requestPasswordReset() {
   try {
     const res = await apiFetch('/reset/admin-request', {method:'POST', body:JSON.stringify({phone_number:phone})});
     document.getElementById('reset-otp-value').textContent = res.otp || '------';
+    if (res.expires_in) document.getElementById('reset-otp-expiry').textContent = 'Expires in ' + res.expires_in;
     document.getElementById('reset-otp-input').value = res.otp || '';
     document.getElementById('reset-step-1').style.display = 'none';
     document.getElementById('reset-step-2').style.display = 'block';

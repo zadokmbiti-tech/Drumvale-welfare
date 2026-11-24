@@ -149,7 +149,7 @@ Environment variables are configured in the Vercel dashboard.
 - Passwords hashed with **bcrypt**
 - JWT tokens with 24-hour expiry
 - Logout invalidates tokens via a **PostgreSQL blacklist**
-- OTPs stored in PostgreSQL with 15-minute expiry
+- OTPs stored hashed in PostgreSQL, valid 48 hours by default, never more (`OTP_VALIDITY_HOURS` can lower it), burned after 5 wrong attempts
 - Rate limiting on auth endpoints (login, register, OTP)
 - Role-based access control on all admin endpoints
 - `.env` and database backups excluded from version control

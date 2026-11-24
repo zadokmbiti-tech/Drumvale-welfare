@@ -159,7 +159,8 @@ def startup():
                 otp_hash     VARCHAR(64) NOT NULL,
                 created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
                 expires_at   TIMESTAMP NOT NULL,
-                used         BOOLEAN NOT NULL DEFAULT false
+                used         BOOLEAN NOT NULL DEFAULT false,
+                attempts     INT NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_otp_codes_phone ON otp_codes(phone_number);
 
@@ -175,6 +176,7 @@ def startup():
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS children_json TEXT",
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS parents_json  TEXT",
             "ALTER TABLE member_parents ADD COLUMN IF NOT EXISTS status VARCHAR(20)",
+            "ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
             # What a payment is for (see migrations/011). Older rows default to monthly,
