@@ -64,6 +64,9 @@ def submit_case_report(
                          detail=f"{body.event_type}: {body.title}",
                          target=body.affected_member_name or body.title)
 
+        from app.notify import notify_admins
+        notify_admins(f"New {body.event_type} report \"{body.title[:60]}\" is awaiting committee approval.")
+
         return {
             "message":      "Case report submitted — awaiting committee approval.",
             "id":           row[0],

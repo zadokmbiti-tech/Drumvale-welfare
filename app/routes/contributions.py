@@ -251,6 +251,10 @@ def member_submit_contribution(
                          detail=f"{ctype} · KES {data.amount} · {data.month} (awaiting approval)",
                          target=f"member #{member_id}")
 
+        from app.notify import notify_admins, user_name, FINANCE_ROLES
+        notify_admins(f"{user_name(current_user['user_id'])} submitted a {ctype} payment of KES {data.amount:,.0f} "
+                      f"(ref {data.reference or 'none'}) for approval.", roles=FINANCE_ROLES)
+
         return {
             "message": "Contribution submitted and awaiting admin approval",
             "id": new_id,

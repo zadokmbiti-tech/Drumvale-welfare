@@ -287,6 +287,9 @@ def register(request: Request, data: UserRegister):
                     detail=f"New member registration ({data.phone_number}) awaiting approval",
                     target=data.full_name)
 
+        from app.notify import notify_admins
+        notify_admins(f"New registration from {data.full_name} is awaiting approval.")
+
         return {
             "message": "Registration submitted. Await admin approval.",
             "user_id": new_user_id,

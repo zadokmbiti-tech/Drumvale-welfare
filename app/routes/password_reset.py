@@ -119,6 +119,9 @@ def request_reset(request: Request, data: dict):
     from app.routes.audit import log_action
     log_action("Password Reset Requested", full_name, detail=f"Reset requested for {phone}", target=full_name)
 
+    from app.notify import notify_admins
+    notify_admins(f"{full_name} ({phone}) requested a password reset. Open the dashboard to generate their OTP.")
+
     return {
         "message": "Request received. An admin will share your OTP via phone or WhatsApp.",
         "expires_in": _validity_label(),

@@ -4,7 +4,7 @@
 
 A full-stack web platform that digitizes and manages the operations of **Drumvale Riverside Welfare Association** — a community welfare group based in Kenya. Built to replace manual record-keeping with a secure, accessible, and modern system.
 
-🌐 **Live:** [drumvale-welfare.vercel.app](https://drumvale-welfare.vercel.app)
+🌐 **Live:** [drumvale-welfare.com](https://drumvale-welfare.com)
 
 ---
 
@@ -160,10 +160,16 @@ Environment variables are configured in the Vercel dashboard.
 
 Built by **Zadok Mutethia Mbiti**
 - GitHub: [@zadokmbiti-tech](https://github.com/zadokmbiti-tech)
-- Project: Final year BSc ICT Management — Maseno University
+- Project: Graduate BSc ICT Management — Maseno University
 
 ---
 
 ## License
 
 Private project. All rights reserved — Drumvale Riverside Welfare Association.
+## Admin SMS alerts
+`app/notify.py` texts admins (Africa's Talking) on: new registration, password reset request,
+member payment submitted, profile update request, case report submitted. Set `ADMIN_ALERT_PHONES`
+(comma-separated) to choose recipients, or leave empty to text active `super_admin`/`admin` users
+(treasurers also get payment alerts). `ADMIN_SMS_ENABLED=false` turns it off; `ADMIN_SMS_HOURLY_CAP`
+(default 30) limits cost. Needs `AT_USERNAME` and `AT_API_KEY`.

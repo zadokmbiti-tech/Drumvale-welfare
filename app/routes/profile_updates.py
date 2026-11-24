@@ -107,6 +107,9 @@ def submit_update_request(
                          detail=f"Fields: {', '.join(changed) or 'none'}",
                          target=f"user #{user_id}")
 
+        from app.notify import notify_admins, user_name
+        notify_admins(f"{user_name(user_id)} submitted a profile update request for review.")
+
         return {
             "message": "Update request submitted. An admin will review it shortly.",
             "request_id": req_id
