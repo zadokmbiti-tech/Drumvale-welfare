@@ -209,9 +209,9 @@ def register(request: Request, data: UserRegister):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id FROM users WHERE phone_number=%s", (data.phone_number,))
-        if cur.fetchone():
-            raise HTTPException(status_code=400, detail="Phone number already registered")
+        from app.utils import phone_in_use, PHONE_IN_USE_MSG
+        if phone_in_use(cur, data.phone_number):
+            raise HTTPException(status_code=400, detail=PHONE_IN_USE_MSG)
 
         if data.id_number:
             cur.execute("SELECT id FROM users WHERE id_number=%s", (data.id_number,))

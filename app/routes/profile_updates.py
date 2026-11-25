@@ -65,6 +65,14 @@ def submit_update_request(
                 "Please wait for admin review before submitting another."
             )
 
+        if data.get("phone_number"):
+            from app.utils import phone_in_use, PHONE_IN_USE_MSG
+            cur.execute("SELECT phone_number FROM users WHERE id=%s", (user_id,))
+            _me = cur.fetchone()
+            _mine = _me[0] if _me else None
+            if data["phone_number"] != _mine and phone_in_use(cur, data["phone_number"], _mine):
+                raise HTTPException(400, PHONE_IN_USE_MSG)
+
         # Separate scalar fields
         scalar_data  = {f: data[f] for f in SCALAR_FIELDS if f in data}
         children_val = None
@@ -207,6 +215,14 @@ def approve_update(req_id: int, current_user: dict = Depends(require_admin)):
         # Build scalar changes dict (non-null values only)
         proposed = dict(zip(SCALAR_FIELDS, row[1:15]))
         changes  = {k: v for k, v in proposed.items() if v is not None}
+
+        if changes.get("phone_number"):
+            from app.utils import phone_in_use, PHONE_IN_USE_MSG
+            cur.execute("SELECT phone_number FROM users WHERE id=%s", (user_id,))
+            _me = cur.fetchone()
+            _mine = _me[0] if _me else None
+            if changes["phone_number"] != _mine and phone_in_use(cur, changes["phone_number"], _mine):
+                raise HTTPException(400, PHONE_IN_USE_MSG)
 
         # 1. Apply scalar changes to users table
         if changes:

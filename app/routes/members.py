@@ -1,3 +1,4 @@
+import logging
 import csv
 import io
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
@@ -23,9 +24,9 @@ def add_member(
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id FROM members WHERE phone_number=%s", (member.phone_number,))
-        if cur.fetchone():
-            raise HTTPException(status_code=400, detail="A member with this phone number already exists")
+        from app.utils import phone_in_use, PHONE_IN_USE_MSG
+        if phone_in_use(cur, member.phone_number):
+            raise HTTPException(status_code=400, detail=PHONE_IN_USE_MSG)
 
         if member.email:
             cur.execute("SELECT id FROM users WHERE email=%s", (member.email,))
@@ -169,6 +170,11 @@ async def bulk_import_members(
             nok_name    = (row.get("next_of_kin_name") or "").strip() or None
             nok_phone   = (row.get("next_of_kin_phone") or "").strip() or None
             notes       = (row.get("notes") or "").strip() or None
+
+            from app.utils import phone_in_use
+            if phone_in_use(cur, phone_number):
+                errors.append({"row": i, "error": f"Phone number {phone_number} is already registered to another account"})
+                continue
 
             if id_number:
                 cur.execute("SELECT id FROM users WHERE id_number=%s", (id_number,))
@@ -406,6 +412,11 @@ def update_member(
     conn = get_connection()
     cur = conn.cursor()
     try:
+        from app.utils import phone_in_use, PHONE_IN_USE_MSG
+        cur.execute("SELECT phone_number FROM members WHERE id=%s", (member_id,))
+        _cur_row = cur.fetchone()
+        if _cur_row and member.phone_number != _cur_row[0] and phone_in_use(cur, member.phone_number, _cur_row[0]):
+            raise HTTPException(status_code=400, detail=PHONE_IN_USE_MSG)
         cur.execute("""
             UPDATE members SET full_name=%s, phone_number=%s, id_number=%s,
             role=%s, status=%s, date_joined=%s, next_of_kin_name=%s,
@@ -423,6 +434,8 @@ def update_member(
                          target=member.full_name or f"member #{member_id}")
 
         return {"message": "Member updated"}
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         safe_db_error(e, status=400)
@@ -485,6 +498,11 @@ def admin_edit_full_profile(
             )
         user_id = user_row[0]
 
+        if changes.get("phone_number"):
+            from app.utils import phone_in_use, PHONE_IN_USE_MSG
+            if changes["phone_number"] != old_phone and phone_in_use(cur, changes["phone_number"], old_phone):
+                raise HTTPException(400, PHONE_IN_USE_MSG)
+
         if changes.get("membership_no"):
             cur.execute(
                 "SELECT id FROM users WHERE membership_no=%s AND id != %s",
@@ -543,7 +561,22 @@ def admin_edit_full_profile(
         raise
     except Exception as e:
         conn.rollback()
-        safe_db_error(e, status=400)
+        # Turn the common database failures into messages the admin can act
+        # on, instead of the generic "A server error occurred".
+        code = getattr(e, "pgcode", None)
+        if code == "23505":  # unique violation
+            constraint = (getattr(getattr(e, "diag", None), "constraint_name", "") or "").lower()
+            label = ("phone number" if "phone" in constraint else
+                     "ID number" if "id_number" in constraint else
+                     "email" if "email" in constraint else
+                     "Member ID" if "membership" in constraint else "value")
+            logging.getLogger(__name__).error("admin-edit unique violation: %s", e)
+            raise HTTPException(400, f"That {label} is already used by another member record.")
+        if code in ("22001", "22007", "22008", "22P02"):  # too long / bad date / bad format
+            logging.getLogger(__name__).error("admin-edit bad value: %s", e)
+            raise HTTPException(400, "One of the values is too long or in the wrong format "
+                                     "(phone and ID numbers are limited to 20 characters).")
+        safe_db_error(e, status=400, public_msg=f"Could not save changes (database error {code or 'unknown'}).")
     finally:
         cur.close()
         release_connection(conn)
