@@ -89,8 +89,14 @@ def _member_statement(member_id: int):
         paid_months = {c["month"] for c in contributions
                        if c["contribution_type"] == "Monthly Contribution"}
         arrears_months = []
-        cursor_month = joined.replace(day=1)
         this_month = date.today().replace(day=1)
+        # Same rule as the defaulters report: count only from the configured start
+        # month (none set = no contribution arrears counted).
+        start_month = _get_start_month(cur)
+        if start_month:
+            cursor_month = max(joined.replace(day=1), date.fromisoformat(start_month + "-01"))
+        else:
+            cursor_month = this_month + relativedelta(months=1)
         while cursor_month <= this_month:
             ym = cursor_month.strftime("%Y-%m")
             if ym not in paid_months:
@@ -140,11 +146,6 @@ def my_statement(current_user: dict = Depends(get_current_user)):
         cur.execute("SELECT id FROM members WHERE phone_number=%s AND status='active'",
                     (phone_number,))
         row = cur.fetchone()
-        if not row:
-            # Same number saved in a different format (0712... vs +254712...)
-            from app.utils import find_member_id
-            _mid = find_member_id(cur, phone_number)
-            row = (_mid,) if _mid else None
         if not row:
             # Try by name
             cur.execute("SELECT id FROM members WHERE full_name=%s LIMIT 1",
