@@ -141,6 +141,11 @@ def my_statement(current_user: dict = Depends(get_current_user)):
                     (phone_number,))
         row = cur.fetchone()
         if not row:
+            # Same number saved in a different format (0712... vs +254712...)
+            from app.utils import find_member_id
+            _mid = find_member_id(cur, phone_number)
+            row = (_mid,) if _mid else None
+        if not row:
             # Try by name
             cur.execute("SELECT id FROM members WHERE full_name=%s LIMIT 1",
                         (full_name,))

@@ -24,9 +24,18 @@ def add_member(
     conn = get_connection()
     cur = conn.cursor()
     try:
-        from app.utils import phone_in_use, PHONE_IN_USE_MSG
-        if phone_in_use(cur, member.phone_number):
+        from app.utils import phone_in_use, PHONE_IN_USE_MSG, find_user_phone
+        # Block if another *member record* already has this number. A login
+        # account with no member record yet (e.g. an officer who was set up
+        # as a user first) is allowed: this creates the missing member
+        # record and links it to that account instead of making a second one.
+        if phone_in_use(cur, member.phone_number, tables=("members",)):
             raise HTTPException(status_code=400, detail=PHONE_IN_USE_MSG)
+        _existing = find_user_phone(cur, member.phone_number)
+        if _existing and _existing != member.phone_number:
+            raise HTTPException(status_code=400, detail=(
+                f"An account already exists for this number, saved as {_existing}. "
+                f"Enter the number exactly as {_existing} to link it."))
 
         if member.email:
             cur.execute("SELECT id FROM users WHERE email=%s", (member.email,))
@@ -339,8 +348,9 @@ def get_member(member_id: int, current_user=Depends(get_current_user)):
         if ROLE_LEVELS.get(current_user.get("role"), 0) < ROLE_LEVELS["secretary"]:
             cur.execute("SELECT phone_number FROM users WHERE id=%s", (current_user.get("user_id"),))
             urow = cur.fetchone()
-            cur.execute("SELECT id FROM members WHERE phone_number=%s", (urow[0] if urow else None,))
-            mrow = cur.fetchone()
+            from app.utils import find_member_id
+            _mid = find_member_id(cur, urow[0]) if urow else None
+            mrow = (_mid,) if _mid else None
             if not urow or not mrow or mrow[0] != member_id:
                 raise HTTPException(status_code=403, detail="You don't have permission to view this member")
 

@@ -27,14 +27,14 @@ def phone_key(phone) -> str:
     return re.sub(r"\D", "", phone or "")[-9:]
 
 
-def phone_in_use(cur, phone, own_current_phone=None) -> bool:
+def phone_in_use(cur, phone, own_current_phone=None, tables=("users", "members")) -> bool:
     """True if another users/members record already uses this number (any
     format). Pass own_current_phone when editing an existing record so it
     doesn't count as a clash with itself."""
     key = phone_key(phone)
     if not key:
         return False
-    for table in ("users", "members"):
+    for table in tables:
         sql = (f"SELECT 1 FROM {table} "
                "WHERE RIGHT(regexp_replace(phone_number, '[^0-9]', '', 'g'), 9) = %s")
         params = [key]
@@ -45,3 +45,31 @@ def phone_in_use(cur, phone, own_current_phone=None) -> bool:
         if cur.fetchone():
             return True
     return False
+
+
+def find_user_phone(cur, phone):
+    """The phone string a users record stores for this number (any format),
+    or None if no account uses it."""
+    key = phone_key(phone)
+    if not key:
+        return None
+    cur.execute("SELECT phone_number FROM users "
+                "WHERE RIGHT(regexp_replace(phone_number, '[^0-9]', '', 'g'), 9) = %s LIMIT 1", (key,))
+    row = cur.fetchone()
+    return row[0] if row else None
+
+
+def find_member_id(cur, phone):
+    """members.id for this number, tolerant of format differences
+    (0712..., +254712..., 254712...). Exact match wins."""
+    cur.execute("SELECT id FROM members WHERE phone_number=%s LIMIT 1", (phone,))
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    key = phone_key(phone)
+    if not key:
+        return None
+    cur.execute("SELECT id FROM members "
+                "WHERE RIGHT(regexp_replace(phone_number, '[^0-9]', '', 'g'), 9) = %s LIMIT 1", (key,))
+    row = cur.fetchone()
+    return row[0] if row else None
