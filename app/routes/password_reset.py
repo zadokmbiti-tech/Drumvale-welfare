@@ -1,7 +1,13 @@
 """
-Password reset flow (admin-assisted OTP via phone):
-  POST /reset/request   — generate a 6-digit OTP for a phone number
-  POST /reset/confirm   — validate OTP + set new password
+Password reset flow:
+  POST /reset/request   — member gives phone OR email.
+                          * Account has an email on file (and SMTP is set up):
+                            a 6-digit OTP is emailed straight to them, valid
+                            EMAIL_OTP_MINUTES (default 15).
+                          * Otherwise (no email / email failed): the admins are
+                            alerted and relay an OTP by phone/WhatsApp, as before.
+  POST /reset/confirm   — validate OTP + set new password (phone or email)
+The response is identical whether or not an account exists.
 """
 from fastapi import APIRouter, HTTPException, Request, Depends
 from slowapi import Limiter
@@ -9,8 +15,9 @@ from slowapi.util import get_remote_address
 from app.database import get_connection, release_connection
 from app.routes.auth import require_admin
 from app.rate_limit import enforce_rate_limit
+from app.email_service import send_otp_email, email_configured
 from passlib.context import CryptContext
-import secrets, string, hashlib, hmac, os
+import secrets, string, hashlib, hmac, os, re
 from datetime import datetime, timedelta
 
 limiter = Limiter(key_func=get_remote_address)  # Create a Limiter instance
@@ -23,7 +30,45 @@ OTP_VALIDITY_HOURS = max(1, min(int(os.getenv("OTP_VALIDITY_HOURS", "48")), 48))
 # Wrong guesses allowed per OTP before it is burned. Because the code lives
 # for hours, this (not just the per-minute rate limit) caps brute-forcing.
 OTP_MAX_ATTEMPTS = 5
+# Emailed codes are self-service (no admin in the loop), so they are short-lived.
+EMAIL_OTP_MINUTES = max(5, min(int(os.getenv("EMAIL_OTP_MINUTES", "15")), 60))
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _resolve_account(identifier: str):
+    """Find an account by phone number or email. Returns
+    (phone_number, full_name, email, id_number) or None."""
+    identifier = (identifier or "").strip()
+    if not identifier:
+        return None
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        if "@" in identifier:
+            cur.execute(
+                "SELECT phone_number, full_name, email, id_number FROM users WHERE lower(email)=lower(%s) LIMIT 1",
+                (identifier,))
+        else:
+            cur.execute(
+                "SELECT phone_number, full_name, email, id_number FROM users WHERE phone_number=%s",
+                (identifier,))
+        return cur.fetchone()
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+def _norm_id(v) -> str:
+    return "".join(str(v or "").split()).lower()
+
+
+def _mask_email(e: str) -> str:
+    name, _, dom = e.partition("@")
+    return (name[:1] + "***@" + dom) if dom else "***"
+
+
+def _valid_email(e: str) -> bool:
+    return bool(re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", e)) and len(e) <= 200
 
 
 def _validity_label() -> str:
@@ -35,7 +80,7 @@ def _hash_otp(otp: str) -> str:
     return hashlib.sha256(otp.encode()).hexdigest()
 
 
-def _generate_and_store_otp(phone: str):
+def _generate_and_store_otp(phone: str, valid_for: timedelta = None):
     """Shared logic: create a fresh OTP for a phone number and store it in
     the database (not in-process memory — this app can run as short-lived
     serverless invocations with no shared memory between them, and an
@@ -59,7 +104,7 @@ def _generate_and_store_otp(phone: str):
         cur.execute("UPDATE otp_codes SET used=true WHERE phone_number=%s AND used=false", (phone,))
 
         otp = "".join(secrets.choice(string.digits) for _ in range(6))
-        expires_at = datetime.utcnow() + timedelta(hours=OTP_VALIDITY_HOURS)
+        expires_at = datetime.utcnow() + (valid_for or timedelta(hours=OTP_VALIDITY_HOURS))
         cur.execute(
             "INSERT INTO otp_codes (phone_number, otp_hash, expires_at) VALUES (%s, %s, %s)",
             (phone, _hash_otp(otp), expires_at)
@@ -89,16 +134,85 @@ def _generate_and_store_otp(phone: str):
 @router.post("/request/")
 @limiter.limit("5/minute")  # Prevent abuse of OTP generation
 def request_reset(request: Request, data: dict):
-    phone = data.get("phone_number", "").strip()
-    if not phone:
-        raise HTTPException(status_code=400, detail="Phone number required")
+    # Inputs (all optional individually, but we need a phone or an email):
+    #   phone_number  the member's account phone (or "identifier")
+    #   email         where the member wants the code sent
+    #   id_number     National ID, required to send the code to an email that
+    #                 is NOT already on the account
+    ident = str(data.get("identifier") or "").strip()
+    phone_in = str(data.get("phone_number") or (ident if "@" not in ident else "")).strip()
+    email_in = str(data.get("email") or (ident if "@" in ident else "")).strip()
+    id_in = str(data.get("id_number") or "").strip()
+    if not phone_in and not email_in:
+        raise HTTPException(status_code=400, detail="Phone number or email required")
+    if email_in and not _valid_email(email_in):
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
 
     enforce_rate_limit(f"otp-request:{get_remote_address(request)}", limit=5, window_seconds=60)
 
+    # Same answer whether or not the account exists, and whether the code
+    # went by email or to the admins — so this can't be used to find out
+    # who is a member.
+    generic = {"message": "If the details match an account, a reset code has been emailed to you, "
+                          "or the admin has been notified to share one with you."}
+
+    acct = _resolve_account(phone_in or email_in)
+    if not acct:
+        return generic
+    phone, acct_name, acct_email, acct_id = acct
+
+    # Where may the code go?
+    #   1. the email already on the account  -> only its owner can read it
+    #   2. any other email the member typed  -> only if they also prove who
+    #      they are with the National ID on file. Without this, anyone who
+    #      knows a member's phone number could send the code to their own
+    #      inbox and take over the account.
+    #   Anything else falls back to the admin-relayed OTP below.
+    target = None
+    if email_in and acct_email and email_in.lower() == acct_email.lower():
+        target = acct_email
+    elif not email_in and acct_email:
+        target = acct_email                      # phone only: use the email on file
+    elif email_in and id_in and acct_id:
+        try:
+            # Each guess at an ID is also a chance of a code landing in the
+            # guesser's inbox, so wrong guesses are capped per account.
+            enforce_rate_limit(f"otp-id-check:{phone}", limit=5, window_seconds=3600)
+            if hmac.compare_digest(_norm_id(id_in).encode(), _norm_id(acct_id).encode()):
+                target = email_in
+        except HTTPException:
+            target = None
+
+    # ── Preferred path: email the OTP ─────────────────────────────────
+    if target and email_configured():
+        try:
+            # Caps email-bombing of one member's inbox.
+            enforce_rate_limit(f"otp-email:{phone}", limit=3, window_seconds=900)
+        except HTTPException:
+            return generic
+        _, email_otp = _generate_and_store_otp(phone, timedelta(minutes=EMAIL_OTP_MINUTES))
+        if email_otp and send_otp_email(target, acct_name, email_otp, EMAIL_OTP_MINUTES):
+            from app.routes.audit import log_action
+            from app.notify import notify_admins, notify_member
+            different = not (acct_email and target.lower() == acct_email.lower())
+            log_action("Password Reset Requested", acct_name,
+                       detail=("Reset code emailed to a NEW address (" + _mask_email(target) + "), verified by ID number"
+                               if different else "Reset code emailed to the member's email on file"),
+                       target=acct_name)
+            if different:
+                # Warn the real owner (SMS to the account phone) and the admins.
+                # No code in either message.
+                notify_member(phone, f"A password reset code was sent to {_mask_email(target)}. "
+                                     f"If this wasn't you, contact the admin immediately.")
+                notify_admins(f"{acct_name} requested a password reset code to a different email "
+                              f"({_mask_email(target)}), verified by ID number.")
+            return generic
+        # Email failed (SMTP down / bad address): fall through to admin relay.
+
+    # ── Fallback: admin-relayed OTP by phone/WhatsApp ─────────────────
     full_name, otp = _generate_and_store_otp(phone)
     if not full_name:
-        # Don't reveal whether the phone is registered — just say OK either way
-        return {"message": "If that number is registered, an admin has been notified."}
+        return generic
 
     # Record this so admins see it on their dashboard — this is the actual
     # notification the admin needs, separate from generating the OTP itself.
@@ -122,10 +236,7 @@ def request_reset(request: Request, data: dict):
     from app.notify import notify_admins
     notify_admins(f"{full_name} ({phone}) requested a password reset. Open the dashboard to generate their OTP.")
 
-    return {
-        "message": "Request received. An admin will share your OTP via phone or WhatsApp.",
-        "expires_in": _validity_label(),
-    }
+    return generic
 
 
 # Admin-only — used by the dashboard's password-reset tool. This is the one
@@ -223,14 +334,19 @@ def dismiss_pending_reset(request_id: int, current_user: dict = Depends(require_
 @router.post("/confirm/")
 @limiter.limit("10/minute")  # Prevent brute-force OTP attempts
 def confirm_reset(request: Request, data: dict):
-    phone    = data.get("phone_number", "").strip()
-    otp      = data.get("otp", "").strip()
-    new_pass = data.get("new_password", "").strip()
+    identifier = str(data.get("identifier") or data.get("phone_number") or data.get("email") or "").strip()
+    otp        = str(data.get("otp", "")).strip()
+    new_pass   = str(data.get("new_password", "")).strip()
 
-    if not phone or not otp or not new_pass:
-        raise HTTPException(status_code=400, detail="Phone, OTP, and new password required")
+    if not identifier or not otp or not new_pass:
+        raise HTTPException(status_code=400, detail="Phone or email, OTP, and new password required")
     if len(new_pass) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # OTPs are stored against the account's phone number; if the member gave
+    # an email, translate it. Unknown accounts fall through to "no OTP found".
+    acct  = _resolve_account(identifier)
+    phone = acct[0] if acct else identifier
 
     # DB-backed limit, scoped per phone number rather than per IP — this is
     # what actually stops someone brute-forcing a 6-digit OTP by spreading

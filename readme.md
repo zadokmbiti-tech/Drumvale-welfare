@@ -117,6 +117,15 @@ cp .env.example .env
 DATABASE_URL=postgresql://user:password@host:5432/dbname
 SECRET_KEY=your-secret-key-here
 ALLOWED_ORIGINS=http://localhost:8000
+
+# Password-reset emails (optional — without these, resets fall back to
+# the admin-relayed OTP by phone/WhatsApp)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=yourmailbox@gmail.com
+SMTP_PASSWORD=your-app-password      # Gmail: an App Password, not your login password
+SMTP_FROM=Drumvale Welfare <yourmailbox@gmail.com>
+EMAIL_OTP_MINUTES=15                 # how long an emailed code is valid (5-60)
 ```
 
 Generate a secret key:

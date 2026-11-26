@@ -219,13 +219,24 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     <div class="login-sub">PASSWORD RESET</div>
     <div class="reset-step-badge">Step 1 of 2 — Request OTP</div>
     <div class="reset-info">
-      Enter your registered phone number below. The system will flag your account,
-      then <strong>contact the admin/secretary</strong> to receive your one-time password (OTP) via SMS or WhatsApp.
+      Enter your registered phone number and the <strong>email where you want the 6-digit code sent</strong>.
+      If we can't verify you, the admin/secretary will be alerted and will share a one-time password (OTP)
+      with you via SMS or WhatsApp.
     </div>
     <div class="field">
       <label>Phone Number</label>
       <input type="tel" id="fp-phone" placeholder="07XXXXXXXX" autocomplete="tel"/>
-      <div class="field-hint">Use the phone number you registered with.</div>
+      <div class="field-hint">The phone number you registered with.</div>
+    </div>
+    <div class="field">
+      <label>Email to receive the code</label>
+      <input type="email" id="fp-email" placeholder="you@example.com" autocomplete="email"/>
+      <div class="field-hint">Use an email you can open right now.</div>
+    </div>
+    <div class="field">
+      <label>National ID Number</label>
+      <input type="text" id="fp-id" placeholder="ID number" inputmode="numeric" autocomplete="off"/>
+      <div class="field-hint">Needed unless this is the email already on your account.</div>
     </div>
     <button class="btn-primary" onclick="requestOtp()">Request OTP →</button>
     <div class="login-error" id="fp-error"></div>
@@ -240,14 +251,15 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     <div class="login-sub">SET NEW PASSWORD</div>
     <div class="reset-step-badge">Step 2 of 2 — Enter OTP & New Password</div>
     <div class="reset-info" id="rp-info">
-      Your request has been submitted for <strong id="rp-phone-display">your number</strong>.
-      The <strong>admin or secretary</strong> has received your OTP and will share it with you via phone or WhatsApp.
+      Request received for <strong id="rp-phone-display">your account</strong>.
+      If your details matched, check your email inbox (and spam folder) for the 6-digit code — it is valid for 15 minutes.
+      Otherwise the <strong>admin or secretary</strong> will share a code with you via phone or WhatsApp.
       Enter it below together with your new password.
     </div>
     <div class="field">
       <label>OTP Code</label>
-      <input type="text" id="rp-otp" placeholder="Enter OTP from admin" maxlength="10" style="letter-spacing:0.1em;font-weight:600;"/>
-      <div class="field-hint">The admin will share this with you via SMS/WhatsApp.</div>
+      <input type="text" id="rp-otp" placeholder="Enter 6-digit code" maxlength="10" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing:0.1em;font-weight:600;"/>
+      <div class="field-hint">From your email, or from the admin via SMS/WhatsApp.</div>
     </div>
     <div class="field">
       <label>New Password</label>
@@ -803,7 +815,7 @@ tr:hover td{background:rgba(44,180,224,0.03);}
     </div>
     <div class="modal-body">
       <p style="color:var(--silver);font-size:13.5px;margin-bottom:14px;">
-        Your account was set up by an administrator. Before you continue, please read and accept the Privacy Policy &amp; Terms below — this is your own consent, separate from the admin's confirmation when your record was created.
+        Under the Data Protection Act, 2019 (Kenya), every member must personally read and sign the Privacy Policy &amp; Terms below before continuing. This takes a minute and is recorded with the date.
       </p>
       <div style="max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);
         border-radius:8px;padding:14px 16px;font-size:0.82rem;line-height:1.65;color:var(--white);margin-bottom:16px;">
@@ -812,14 +824,22 @@ tr:hover td{background:rgba(44,180,224,0.03);}
         <h4 style="color:var(--sky);font-size:0.88rem;margin:10px 0 6px;">Terms of Service</h4>
         <p style="margin-bottom:0;">By using this portal you agree to provide accurate information, keep your login credentials confidential, and use the site only for its intended welfare-administration purpose. The Welfare may suspend accounts used fraudulently or in violation of these Terms.</p>
       </div>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:0.82rem;line-height:1.55;margin-bottom:12px;cursor:pointer;color:var(--white);">
+        <input type="checkbox" id="fpr-agree" onchange="updateConsentBtn()" style="margin-top:3px;flex-shrink:0;"/>
+        <span>I have read and understood the Privacy Policy and Terms above. I consent to Drumvale Riverview Welfare Group collecting, storing and using my personal data to administer my membership, in line with the Data Protection Act, 2019 (Kenya). I understand I may request access, correction or deletion of my data, or withdraw this consent, at any time.</span>
+      </label>
+      <label style="display:block;font-size:0.78rem;color:var(--silver);margin-bottom:5px;">Type your full name as your signature</label>
+      <input type="text" id="fpr-sign" oninput="updateConsentBtn()" autocomplete="name" placeholder="Your full name"
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--white);font-family:inherit;font-size:0.95rem;margin-bottom:6px;"/>
+      <div id="fpr-date" style="font-size:0.74rem;color:var(--silver);margin-bottom:14px;"></div>
       <div id="fpr-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="declinePrivacyPolicy()"
           style="flex:1;background:transparent;border:1px solid var(--border);color:var(--silver);
                  font-weight:600;padding:11px;border-radius:8px;cursor:pointer;font-family:inherit;">Decline &amp; Log Out</button>
-        <button onclick="acceptPrivacyPolicy()"
+        <button onclick="acceptPrivacyPolicy()" id="fpr-accept-btn" disabled
           style="flex:1;background:var(--sky);color:#000;font-weight:600;padding:11px;
-                 border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Accept &amp; Continue</button>
+                 border-radius:8px;border:none;cursor:pointer;font-family:inherit;opacity:0.45;">Sign &amp; Continue</button>
       </div>
     </div>
   </div>
@@ -1277,15 +1297,33 @@ async function submitForcedPasswordChange() {
 
 function checkForcedPrivacyAcceptance() {
   if (currentUser.must_accept_privacy) {
+    document.getElementById('fpr-agree').checked = false;
+    document.getElementById('fpr-sign').value = '';
+    document.getElementById('fpr-date').textContent = 'Date: ' + new Date().toLocaleDateString('en-KE', {day:'numeric', month:'long', year:'numeric'});
+    updateConsentBtn();
     document.getElementById('modal-force-privacy').classList.add('open');
   }
+}
+
+// Sign & Continue stays disabled until the box is ticked and a name is typed.
+function updateConsentBtn() {
+  const ok = document.getElementById('fpr-agree').checked
+          && document.getElementById('fpr-sign').value.trim().length >= 3;
+  const b = document.getElementById('fpr-accept-btn');
+  b.disabled = !ok;
+  b.style.opacity = ok ? '1' : '0.45';
 }
 
 async function acceptPrivacyPolicy() {
   const err = document.getElementById('fpr-error');
   err.style.display = 'none';
   try {
-    const res = await fetch(`${API}/auth/accept-privacy-policy`, {method:'POST', headers:authH()});
+    const res = await fetch(`${API}/auth/accept-privacy-policy`, {
+      method:'POST',
+      headers:{...authH(), 'Content-Type':'application/json'},
+      body: JSON.stringify({agree: document.getElementById('fpr-agree').checked,
+                            signature: document.getElementById('fpr-sign').value.trim()})
+    });
     const data = await res.json();
     if (!res.ok) { err.textContent = data.detail || 'Could not record your acceptance. Try again.'; err.style.display='block'; return; }
 
@@ -2046,7 +2084,7 @@ function showForgot() {
   document.getElementById('forgot-screen').classList.add('active');
   document.getElementById('reset-screen').classList.remove('active');
   document.getElementById('fp-error').style.display = 'none';
-  document.getElementById('fp-phone').value = '';
+  ['fp-phone','fp-email','fp-id'].forEach(id => document.getElementById(id).value = '');
 }
 
 function showReset(phone) {
@@ -2064,18 +2102,21 @@ async function requestOtp() {
   const phone = document.getElementById('fp-phone').value.trim();
   const errEl = document.getElementById('fp-error');
   errEl.style.display = 'none';
+  const email = document.getElementById('fp-email').value.trim();
+  const idno  = document.getElementById('fp-id').value.trim();
   if (!phone) { errEl.textContent = 'Please enter your phone number.'; errEl.style.display='block'; return; }
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { errEl.textContent = 'Please enter the email where the code should be sent.'; errEl.style.display='block'; return; }
   const btn = document.querySelector('#forgot-screen .btn-primary');
   btn.textContent = 'Sending…'; btn.disabled = true;
   try {
     const res = await fetch(`${API}/reset/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone_number: phone })
+      body: JSON.stringify({ phone_number: phone, email: email, id_number: idno || null })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      errEl.textContent = data.detail || 'No account found with that phone number.';
+      errEl.textContent = data.detail || 'Could not send the request. Please try again.';
       errEl.style.display = 'block';
     } else {
       showReset(phone);
@@ -2104,7 +2145,7 @@ async function doResetPassword() {
     const res = await fetch(`${API}/reset/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone_number: _fpPhone, otp, new_password: pass1 })
+      body: JSON.stringify({ identifier: _fpPhone, otp, new_password: pass1 })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

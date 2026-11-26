@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.database import get_connection, release_connection
 from app.models import UserRegister, UserLogin, TokenResponse
 from app.utils import safe_db_error
+from app.consent import needs_consent
 from app.rate_limit import enforce_rate_limit
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -206,6 +207,16 @@ def register(request: Request, data: UserRegister):
     # share one, so they are set well above a single person's needs.
     enforce_rate_limit(f"register:{get_remote_address(request)}", limit=10, window_seconds=60)
 
+    # Data Protection Act, 2019: no registration without the member's own
+    # explicit consent and signature. The form enforces this too, but the
+    # server must not rely on the browser.
+    from app.consent import clean_signature, record_consent
+    if not data.consent_accepted:
+        raise HTTPException(
+            status_code=400,
+            detail="You must accept the Privacy Policy and consent to the use of your personal data to register.")
+    signature = clean_signature(data.consent_signature)
+
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -246,6 +257,9 @@ def register(request: Request, data: UserRegister):
             data.next_of_kin_phone, data.next_of_kin_2, data.nok2_phone, data.member_id
         ))
         new_user_id = cur.fetchone()[0]
+
+        # Signed consent record (same transaction as the account itself)
+        record_consent(cur, new_user_id, signature, "self_registration", request)
 
         # 2. Insert children if any
         for child in (data.children or []):
@@ -322,13 +336,13 @@ def login(request: Request, data: UserLogin):
     try:
         if data.email:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until, consent_policy_version
                    FROM users WHERE email=%s""",
                 (data.email,)
             )
         elif data.phone_number:
             cur.execute(
-                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until
+                """SELECT id, full_name, role, hashed_password, is_active, registration_status, phone_number, must_change_password, must_accept_privacy, failed_login_attempts, locked_until, consent_policy_version
                    FROM users WHERE phone_number=%s""",
                 (data.phone_number,)
             )
@@ -389,7 +403,7 @@ def login(request: Request, data: UserLogin):
 
     return TokenResponse(access_token=token, refresh_token=refresh, user_id=user[0], full_name=user[1], role=user[2],
                           phone_number=user[6] or "", must_change_password=bool(user[7]),
-                          must_accept_privacy=bool(user[8]))
+                          must_accept_privacy=needs_consent(user[8], user[11]))
 
 # ------------------------------------------------------------------ #
 #  SWAGGER /docs token endpoint
@@ -572,36 +586,38 @@ def change_password(request: Request, data: dict, current_user: dict = Depends(g
 
 
 @router.post("/accept-privacy-policy")
-def accept_privacy_policy(current_user: dict = Depends(get_current_user)):
+def accept_privacy_policy(request: Request, data: dict = None, current_user: dict = Depends(get_current_user)):
     """
-    Records the LOGGED-IN member's own acceptance of the Privacy Policy &
-    Terms. Used for the mandatory first-login prompt shown to members added
-    directly by an admin (must_accept_privacy=true) — distinct from
-    privacy_accepted, which for admin-added members only reflects the
-    admin's attestation on the member's behalf, not the member's own
-    consent. Self-registered members already have must_accept_privacy=false
-    since they ticked the checkbox themselves at registration.
+    Records the LOGGED-IN member's own signed acceptance of the Privacy
+    Policy & Terms. Used for the mandatory first-login prompt shown to
+    members added directly by an admin (must_accept_privacy=true) —
+    distinct from privacy_accepted, which for admin-added members only
+    reflects the admin's attestation on the member's behalf, not the
+    member's own consent. Self-registered members already consented and
+    signed at registration.
+
+    Body: {"agree": true, "signature": "<member's full name>"}
     """
+    data = data or {}
+    if not data.get("agree"):
+        raise HTTPException(status_code=400, detail="You must tick the consent box to continue.")
+    from app.consent import clean_signature, record_consent
+    signature = clean_signature(data.get("signature"))
+
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute(
-            """UPDATE users
-               SET privacy_accepted = true,
-                   privacy_accepted_at = NOW(),
-                   must_accept_privacy = false
-               WHERE id=%s
-               RETURNING full_name""",
-            (current_user["user_id"],)
-        )
+        cur.execute("SELECT full_name, must_accept_privacy FROM users WHERE id=%s", (current_user["user_id"],))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
+        method = "admin_added_first_login" if row[1] else "policy_resign"
+        record_consent(cur, current_user["user_id"], signature, method, request)
         conn.commit()
 
         from app.routes.audit import log_action
         log_action("Privacy Policy Accepted", row[0],
-                    detail="Member accepted the Privacy Policy & Terms on first login",
+                    detail="Member signed the data-protection consent at login",
                     target=row[0])
 
         return {"message": "Privacy Policy accepted. Thank you."}
@@ -631,7 +647,8 @@ def get_me(current_user: dict = Depends(get_current_user)):
               u.next_of_kin_name, u.next_of_kin_phone,
               u.next_of_kin_2, u.nok2_phone,
               m.id_number, m.status, m.date_joined, m.notes,
-              u.must_change_password, u.membership_no, u.must_accept_privacy
+              u.must_change_password, u.membership_no, u.must_accept_privacy,
+              u.consent_policy_version
        FROM users u
        LEFT JOIN members m ON m.phone_number = u.phone_number
        WHERE u.id=%s""",
@@ -698,7 +715,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     "notes": user[21],
     "must_change_password": bool(user[22]),
     "membership_no": user[23],
-    "must_accept_privacy": bool(user[24]),
+    "must_accept_privacy": needs_consent(user[24], user[25]),
     "children": children,
     "parents": parents
 }

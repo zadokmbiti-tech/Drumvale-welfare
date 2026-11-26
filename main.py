@@ -170,6 +170,19 @@ def startup():
                 created_at  TIMESTAMP NOT NULL DEFAULT NOW()
             );
             CREATE INDEX IF NOT EXISTS idx_rate_limit_key_time ON rate_limit_events(rl_key, created_at);
+
+            CREATE TABLE IF NOT EXISTS member_consents (
+                id              SERIAL PRIMARY KEY,
+                user_id         INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                policy_version  VARCHAR(20)  NOT NULL,
+                signature_name  VARCHAR(200) NOT NULL,
+                method          VARCHAR(40)  NOT NULL,
+                ip_address      VARCHAR(64),
+                user_agent      VARCHAR(300),
+                given_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+                withdrawn_at    TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_member_consents_user ON member_consents(user_id);
         """)
         for col_sql in [
             "ALTER TABLE profile_update_requests ADD COLUMN IF NOT EXISTS phone_number  VARCHAR(20)",
@@ -179,6 +192,11 @@ def startup():
             "ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
+            # Signed data-protection consent (see migrations/013)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_signature      VARCHAR(200)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_policy_version VARCHAR(20)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_method         VARCHAR(40)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_ip             VARCHAR(64)",
             # What a payment is for (see migrations/011). Older rows default to monthly,
             # then the three other types are recovered from the text the portal put in notes.
             "ALTER TABLE monthly_contributions ADD COLUMN IF NOT EXISTS contribution_type VARCHAR(40) NOT NULL DEFAULT 'Monthly Contribution'",

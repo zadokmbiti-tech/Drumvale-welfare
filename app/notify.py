@@ -117,3 +117,33 @@ def notify_admins(message: str, roles=ADMIN_ROLES) -> None:
         resp.raise_for_status()
     except Exception as e:  # noqa: BLE001 - alerts must never break the caller
         log.warning("Admin SMS alert failed: %s", e)
+
+
+def notify_member(phone: str, message: str) -> None:
+    """Best-effort SMS to one member (e.g. a security warning). Never raises,
+    never carries a secret, and is capped per number."""
+    try:
+        if os.getenv("ADMIN_SMS_ENABLED", "true").lower() == "false":
+            return
+        username = os.getenv("AT_USERNAME", "")
+        api_key = os.getenv("AT_API_KEY", "")
+        if not username or not api_key or not phone:
+            return
+        try:
+            enforce_rate_limit(f"member-sms:{phone}", limit=3, window_seconds=3600)
+        except HTTPException:
+            return
+        url = (
+            "https://api.sandbox.africastalking.com/version1/messaging"
+            if username == "sandbox"
+            else "https://api.africastalking.com/version1/messaging"
+        )
+        resp = requests.post(
+            url,
+            data={"username": username, "to": _fmt(phone), "message": f"Drumvale: {message}"[:300]},
+            headers={"apikey": api_key, "Accept": "application/json"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+    except Exception as e:  # noqa: BLE001
+        log.warning("Member SMS failed: %s", e)

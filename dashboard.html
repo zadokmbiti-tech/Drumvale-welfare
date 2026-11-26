@@ -279,7 +279,7 @@
   <div class="modal" style="max-width:560px;">
     <div class="modal-header"><h3>Privacy Policy &amp; Terms of Service</h3></div>
     <p style="color:var(--muted);font-size:13.5px;margin-bottom:14px;">
-      Your account was set up by another admin. Before you continue, please read and accept the Privacy Policy &amp; Terms below — this is your own consent, separate from the confirmation given when your record was created.
+      Under the Data Protection Act, 2019 (Kenya), everyone with an account must personally read and sign the Privacy Policy &amp; Terms below before continuing. This takes a minute and is recorded with the date.
     </p>
     <div style="max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);
       border-radius:8px;padding:14px 16px;font-size:0.82rem;line-height:1.65;color:var(--text);margin-bottom:16px;">
@@ -288,14 +288,22 @@
       <h4 style="color:var(--accent,#8b5cf6);font-size:0.88rem;margin:10px 0 6px;">Terms of Service</h4>
       <p style="margin-bottom:0;">By using this dashboard you agree to provide accurate information, keep your login credentials confidential, and use the system only for its intended welfare-administration purpose. Accounts used fraudulently or in violation of these Terms may be suspended.</p>
     </div>
+    <label style="display:flex;gap:10px;align-items:flex-start;font-size:0.82rem;line-height:1.55;margin-bottom:12px;cursor:pointer;color:var(--text);">
+      <input type="checkbox" id="fpr-agree" onchange="updateConsentBtn()" style="margin-top:3px;flex-shrink:0;"/>
+      <span>I have read and understood the Privacy Policy and Terms above. I consent to Drumvale Riverview Welfare Group collecting, storing and using my personal data to administer my membership, in line with the Data Protection Act, 2019 (Kenya). I understand I may request access, correction or deletion of my data, or withdraw this consent, at any time.</span>
+    </label>
+    <label style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:5px;">Type your full name as your signature</label>
+    <input type="text" id="fpr-sign" oninput="updateConsentBtn()" autocomplete="name" placeholder="Your full name"
+      style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:0.95rem;margin-bottom:6px;"/>
+    <div id="fpr-date" style="font-size:0.74rem;color:var(--muted);margin-bottom:14px;"></div>
     <div id="fpr-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></div>
     <div style="display:flex;gap:10px;">
       <button onclick="declinePrivacyPolicy()"
         style="flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);
                font-weight:600;padding:11px;border-radius:8px;cursor:pointer;font-family:inherit;">Decline &amp; Log Out</button>
-      <button onclick="acceptPrivacyPolicy()"
+      <button onclick="acceptPrivacyPolicy()" id="fpr-accept-btn" disabled
         style="flex:1;background:var(--accent,#8b5cf6);color:#fff;font-weight:600;padding:11px;
-               border-radius:8px;border:none;cursor:pointer;font-family:inherit;">Accept &amp; Continue</button>
+               border-radius:8px;border:none;cursor:pointer;font-family:inherit;opacity:0.45;">Sign &amp; Continue</button>
     </div>
   </div>
 </div>
@@ -1085,6 +1093,7 @@
     <div class="form-group full"><textarea id="m-notes" placeholder="Any additional info…"></textarea></div>
 
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <p style="font-size:0.8rem;color:var(--muted);margin:0 0 10px;line-height:1.55;">🔒 <strong>Data Protection Act, 2019:</strong> the new member must give their <em>own</em> consent. On their first login they will be asked to read the Privacy Policy, tick consent and sign with their full name before they can use the system. Their signature, date and device are recorded.</p>
       <label class="terms-check"><input type="checkbox" id="m-chk-terms" onchange="validateMemberTerms()"/><span>I confirm the member has read and accepts the Welfare Bylaws of Drumvale Riverview Welfare Group.</span></label>
       <label class="terms-check"><input type="checkbox" id="m-chk-constitution" onchange="validateMemberTerms()"/><span>I confirm the member has read (or will read) the Group Constitution and agrees to abide by it. <a href="#" onclick="event.preventDefault();openModal('modal-constitution-view')" style="color:var(--accent);">View</a></span></label>
       <label class="terms-check"><input type="checkbox" id="m-chk-privacy" onchange="validateMemberTerms()"/><span>I confirm the member has read and understood the <a href="#" onclick="event.preventDefault();openModal('modal-privacy-view')" style="color:var(--accent);">Privacy Policy</a> and <a href="#" onclick="event.preventDefault();openModal('modal-siteterms-view')" style="color:var(--accent);">Terms &amp; Conditions</a>, and consents to the collection, storage, and processing of their personal information in accordance with the Data Protection Act, 2019 (Kenya).</span></label>
@@ -2321,15 +2330,33 @@ async function submitForcedPasswordChange() {
 
 function checkForcedPrivacyAcceptance() {
   if (currentUser?.must_accept_privacy) {
+    document.getElementById('fpr-agree').checked = false;
+    document.getElementById('fpr-sign').value = '';
+    document.getElementById('fpr-date').textContent = 'Date: ' + new Date().toLocaleDateString('en-KE', {day:'numeric', month:'long', year:'numeric'});
+    updateConsentBtn();
     document.getElementById('modal-force-privacy').classList.add('open');
   }
+}
+
+// Sign & Continue stays disabled until the box is ticked and a name is typed.
+function updateConsentBtn() {
+  const ok = document.getElementById('fpr-agree').checked
+          && document.getElementById('fpr-sign').value.trim().length >= 3;
+  const b = document.getElementById('fpr-accept-btn');
+  b.disabled = !ok;
+  b.style.opacity = ok ? '1' : '0.45';
 }
 
 async function acceptPrivacyPolicy() {
   const err = document.getElementById('fpr-error');
   err.style.display = 'none';
   try {
-    const res = await fetch(`${API}/auth/accept-privacy-policy`, {method:'POST', headers:authH()});
+    const res = await fetch(`${API}/auth/accept-privacy-policy`, {
+      method:'POST',
+      headers:{...authH(), 'Content-Type':'application/json'},
+      body: JSON.stringify({agree: document.getElementById('fpr-agree').checked,
+                            signature: document.getElementById('fpr-sign').value.trim()})
+    });
     const data = await res.json();
     if (!res.ok) { err.textContent = data.detail || 'Could not record your acceptance. Try again.'; err.style.display='block'; return; }
 

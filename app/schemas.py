@@ -85,6 +85,10 @@ class UserRegister(BaseModel):
     role:             str = "member"
     children:         Optional[List[ChildIn]] = []
     parents:          Optional[List[ParentIn]] = []
+    # Data Protection Act, 2019: the member's own consent + typed signature.
+    # Enforced in /auth/register (a registration without them is rejected).
+    consent_accepted:  bool = False
+    consent_signature: Optional[str] = None
 
 class UserLogin(BaseModel):
     phone_number: Optional[str] = None

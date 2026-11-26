@@ -2513,6 +2513,15 @@
                                         , and I consent to the collection, storage, and processing of my personal information for membership administration in accordance with the Data Protection Act, 2019 (Kenya).
                                     </span>
                                 </label>
+                                <div style="margin-top:4px;padding:12px 14px;border:1px solid rgba(255,255,255,0.15);border-radius:10px;">
+                                    <div style="font-size:0.78rem;color:var(--silver);line-height:1.55;margin-bottom:8px;">
+                                        <strong>Data Protection consent &amp; signature.</strong> Drumvale Riverview Welfare Group will collect, store and use my personal data only to administer my membership and welfare benefits. I may request access, correction or deletion of my data, or withdraw this consent, at any time.
+                                    </div>
+                                    <label for="reg-signature" style="font-size:0.78rem;color:var(--silver);display:block;margin-bottom:4px;">Type your full name as your signature <span style="color:#f87171;">*</span></label>
+                                    <input type="text" id="reg-signature" placeholder="Your full name" autocomplete="name" oninput="validateTerms()"
+                                        style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:inherit;font-family:inherit;font-size:0.95rem;"/>
+                                    <div id="reg-sign-date" style="font-size:0.72rem;color:var(--silver);margin-top:4px;"></div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-error" id="reg-error">Please fill all required fields and accept the terms.</div>
@@ -2677,7 +2686,9 @@
                     const t = document.getElementById('chk-terms').checked;
                     const c = document.getElementById('chk-constitution').checked;
                     const p = document.getElementById('chk-privacy').checked;
-                    document.getElementById('reg-submit').disabled = !(t && c && p);
+                    const sig = document.getElementById('reg-signature').value.trim();
+                    document.getElementById('reg-sign-date').textContent = 'Date: ' + new Date().toLocaleDateString('en-KE', {day:'numeric', month:'long', year:'numeric'});
+                    document.getElementById('reg-submit').disabled = !(t && c && p && sig.length >= 3);
                 }
 
                 function showToast(msg, duration=3000) {
@@ -2948,7 +2959,9 @@
                         nok2_phone: document.getElementById('reg-nok2tel').value.trim() || null,
                         password: pass,
                         children,
-                        parents
+                        parents,
+                        consent_accepted: document.getElementById('chk-privacy').checked,
+                        consent_signature: document.getElementById('reg-signature').value.trim()
                     };
 
                     btn.disabled = true;
@@ -2970,8 +2983,12 @@
                             document.getElementById('register-success').style.display = 'block';
                         }
                     } catch (e) {
-                        document.getElementById('register-form-body').style.display = 'none';
-                        document.getElementById('register-success').style.display = 'block';
+                        // The request did not get a reply (offline, timeout, server down).
+                        // Don't claim success: keep the form so nothing typed is lost.
+                        errEl.textContent = 'We could not reach the server, so your registration may not have gone through. '
+                            + 'Check your connection and press Submit again. If you see "already registered", '
+                            + 'your first attempt worked — wait for admin approval.';
+                        errEl.style.display = 'block';
                     } finally {
                         btn.disabled = false;
                         btn.textContent = 'Submit Registration';
